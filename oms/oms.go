@@ -639,6 +639,7 @@ func mainBody(args []string) error {
 		}
 	}
 
+	// save oms process id into file
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {

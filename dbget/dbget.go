@@ -507,6 +507,20 @@ Get output table values from compatibility (Modgen) views:
 	dbget -m modelOne -do old-table -dbget.Table salarySex -dbget.NoNullCsv
 
 	dbget -dbget.ModelName modelOne -dbget.Do old-table -dbget.Table ageSexIncome -dbget.As csv -dbget.ToConsole -dbget.Language FR
+
+Also dbget support OpenM++ standard log settings (described in openM++ wiki):
+
+	-OpenM.LogToConsole: if true then log to standard output, default: true
+	-v:                  short form of: -OpenM.LogToConsole
+	-OpenM.LogToFile:    if true then log to file
+	-OpenM.LogFilePath:  path to log file, default = current/dir/exeName.log
+	-OpenM.LogUseTs:     if true then use time-stamp in log file name
+	-OpenM.LogUsePid:    if true then use pid-stamp in log file name
+	-OpenM.LogSql:       if true then log sql statements into log file
+
+If dbget used for massive database operation it may be convenient to control it from shell script by process ID:
+
+	dbget -dbget.PidSaveTo some/dir/dbget.pid.txt
 */
 package main
 
@@ -586,7 +600,7 @@ const (
 	aggrNameArgKey      = "dbget.AggrName"       // names of aggregation expression(s)
 	calcNameArgKey      = "dbget.CalcName"       // names of calculation expression(s)
 	microdataShortKey   = "micro"                // short form of: -dbget.Do micro -dbget.Entity Name
-	pidFileArgKey       = "dbget.PidSaveTo"
+	pidFileArgKey       = "dbget.PidSaveTo"      // file path to save dbget processs ID
 )
 
 // output format: csv by default, or tsv or json
@@ -738,13 +752,13 @@ func mainBody(args []string) error {
 	}
 	omppLog.New(logOpts) // adjust log options according to command line arguments or ini-values
 
+	// save dbget process id into file
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
 			omppLog.Log("Error writing PID to file: ", err)
 			return err
 		}
-		omppLog.Log("PID written to file: ", pidFile, " Value: ", pid)
 	}
 
 	// get common run options
@@ -929,6 +943,7 @@ func mainBody(args []string) error {
 		theCfg.action = "micro"
 	}
 
+	// dispatch the command
 	switch theCfg.action {
 	case "model-list":
 		return modelList(srcDb)

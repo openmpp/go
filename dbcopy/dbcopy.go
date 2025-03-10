@@ -245,7 +245,7 @@ Other supported database drivers are "sqlite3" and "odbc":
 
 ODBC dbcopy tested with MySQL (MariaDB), PostgreSQL, Microsoft SQL, Oracle and DB2.
 
-If dbcopy used for massive database copy it may be convinient to control it from shell script by procerss ID:
+If dbcopy used for massive database copy it may be convenient to control it from shell script by process ID:
 
 	dbcopy -dbcopy.PidSaveTo some/dir/dbcopy.pid.txt
 
@@ -422,7 +422,7 @@ func mainBody(args []string) error {
 
 	omppLog.New(logOpts) // adjust log options according to command line arguments or ini-values
 
-	// save dbcopy process if into file
+	// save dbcopy process id into file
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
