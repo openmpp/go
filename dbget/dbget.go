@@ -336,7 +336,7 @@ Get entity microdata:
 
 	dbget -dbget.ModelName modelOne -dbget.Do micro -dbget.Run "Microdata in database" -dbget.Entity Person
 
-# Compare or aggregate values for model run output tables
+**Compare or aggregate values for model run output tables**
 
 Compare first and last RiskPaths model runs: calculate differnce of T04_FertilityRatesByAgeGroup.Expr0 values
 
