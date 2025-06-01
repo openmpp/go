@@ -162,12 +162,11 @@ func scanRunJobs(doneC <-chan bool) {
 					omppLog.Log(e)
 				}
 			}
-		} else {
-			if e != nil {
-				omppLog.Log(e)
-				if qPath != "" {
-					moveJobQueueToFailed(qPath, job.SubmitStamp, job.ModelName, job.ModelDigest, "", false) // can not run this job: remove from the queue
-				}
+		} else { // error at select job from queue: there is a problem with that job, remove it from the queue
+
+			omppLog.Log(e)
+			if qPath != "" {
+				moveJobQueueToFailed(qPath, job.SubmitStamp, job.ModelName, job.ModelDigest, "", false) // can not run this job: remove from the queue
 			}
 		}
 
