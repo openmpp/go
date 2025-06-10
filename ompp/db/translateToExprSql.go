@@ -622,6 +622,10 @@ func translateExprCalcToSql(table *TableMeta, paramCols map[string]paramColumn, 
 		WHERE B.run_id = 102
 		AND V.run_id IN (103, 104, 105, 106, 107, 108, 109, 110, 111, 112)
 		ORDER BY 1, 2, 3
+
+		scalar output table special case: no dimensions to join
+		use:        , cs0 V
+		instead of: INNER JOIN cs0 V ON (V.dim0 = B.dim0 AND V.dim1 = B.dim1)
 	*/
 
 	// make CTE column names
@@ -707,14 +711,21 @@ func translateExprCalcToSql(table *TableMeta, paramCols map[string]paramColumn, 
 		}
 
 		// INNER JOIN cs0 V ON (V.dim0 = B.dim0 AND V.dim1 = B.dim1)
-		mainSql += " INNER JOIN cs" + strconv.Itoa(varMinIdx) + " V ON ("
-		for k, d := range table.Dim {
-			if k > 0 {
-				mainSql += " AND "
+		// if scalar output table then use: , cs0 V
+		if len(table.Dim) > 0 {
+			mainSql += " INNER JOIN cs" + strconv.Itoa(varMinIdx) + " V ON ("
+			for k, d := range table.Dim {
+				if k > 0 {
+					mainSql += " AND "
+				}
+				mainSql += "V." + d.colName + " = B." + d.colName
 			}
-			mainSql += "V." + d.colName + " = B." + d.colName
+			mainSql += ")"
+
+		} else { // scalar output table: , cs0 V
+
+			mainSql += ", cs" + strconv.Itoa(varMinIdx) + " V"
 		}
-		mainSql += ")"
 
 		// INNER JOIN cs1 V1 ON (V1.run_id = V.run_id AND V1.dim0 = B.dim0 AND V1.dim1 = B.dim1)
 		for k := 0; k < exprCount; k++ {
