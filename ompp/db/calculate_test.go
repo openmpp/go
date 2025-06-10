@@ -20,15 +20,15 @@ import (
 func TestTransalteAccAggrToSql(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["TransalteAccAggrToSql.ModelName"]
-	modelDigest := kvIni["TransalteAccAggrToSql.ModelDigest"]
-	modelSqliteDbPath := kvIni["TransalteAccAggrToSql.DbPath"]
-	tableName := kvIni["TransalteAccAggrToSql.TableName"]
+	modelName := opts.String("TransalteAccAggrToSql.ModelName")
+	modelDigest := opts.String("TransalteAccAggrToSql.ModelDigest")
+	modelSqliteDbPath := opts.String("TransalteAccAggrToSql.DbPath")
+	tableName := opts.String("TransalteAccAggrToSql.TableName")
 
 	// open source database connection and check is it valid
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
@@ -67,7 +67,7 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 		valid string
 	}{}
 	for k := 0; k < 400; k++ {
-		s := kvIni["TransalteAccAggrToSql.Src_"+strconv.Itoa(k+1)]
+		s := opts.String("TransalteAccAggrToSql.Src_" + strconv.Itoa(k+1))
 		if s == "" {
 			continue
 		}
@@ -77,7 +77,7 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 				valid string
 			}{
 				src:   s,
-				valid: kvIni["TransalteAccAggrToSql.Valid_"+strconv.Itoa(k+1)],
+				valid: opts.String("TransalteAccAggrToSql.Valid_" + strconv.Itoa(k+1)),
 			})
 	}
 
@@ -115,15 +115,15 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 func TestTranslateTableCalcToSql(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["TranslateTableCalcToSql.ModelName"]
-	modelDigest := kvIni["TranslateTableCalcToSql.ModelDigest"]
-	modelSqliteDbPath := kvIni["TranslateTableCalcToSql.DbPath"]
-	tableName := kvIni["TranslateTableCalcToSql.TableName"]
+	modelName := opts.String("TranslateTableCalcToSql.ModelName")
+	modelDigest := opts.String("TranslateTableCalcToSql.ModelDigest")
+	modelSqliteDbPath := opts.String("TranslateTableCalcToSql.DbPath")
+	tableName := opts.String("TranslateTableCalcToSql.TableName")
 
 	// open source database connection and check is it valid
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
@@ -187,10 +187,10 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 			}
 		}
 
-		if cLst := kvIni["TranslateTableCalcToSql.Calculate_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String("TranslateTableCalcToSql.Calculate_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, false, CALCULATED_ID_OFFSET)
 		}
-		if cLst := kvIni["TranslateTableCalcToSql.CalculateAggr_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String("TranslateTableCalcToSql.CalculateAggr_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, true, 2*CALCULATED_ID_OFFSET)
 		}
 		if len(calcLt) <= 0 {
@@ -198,7 +198,7 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 		}
 
 		baseRunId := 0
-		if sVal := kvIni["TranslateTableCalcToSql.BaseRunId_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("TranslateTableCalcToSql.BaseRunId_" + strconv.Itoa(k+1)); sVal != "" {
 			baseRunId, err = strconv.Atoi(sVal)
 			if err != nil {
 				t.Fatal(err)
@@ -206,7 +206,7 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 		}
 
 		runIds := []int{}
-		if sVal := kvIni["TranslateTableCalcToSql.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("TranslateTableCalcToSql.RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -237,7 +237,7 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 		}
 
 		// read valid sql and compare
-		valid := kvIni["TranslateTableCalcToSql.Valid_"+strconv.Itoa(k+1)]
+		valid := opts.String("TranslateTableCalcToSql.Valid_" + strconv.Itoa(k+1))
 
 		if sql != valid {
 			t.Error("Expected:", valid)
@@ -251,15 +251,15 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 func TestCalculateOutputTable(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["CalculateOutputTable.ModelName"]
-	modelDigest := kvIni["CalculateOutputTable.ModelDigest"]
-	modelSqliteDbPath := kvIni["CalculateOutputTable.DbPath"]
-	tableName := kvIni["CalculateOutputTable.TableName"]
+	modelName := opts.String("CalculateOutputTable.ModelName")
+	modelDigest := opts.String("CalculateOutputTable.ModelDigest")
+	modelSqliteDbPath := opts.String("CalculateOutputTable.DbPath")
+	tableName := opts.String("CalculateOutputTable.TableName")
 
 	// open source database connection and check is it valid
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
@@ -332,10 +332,10 @@ func TestCalculateOutputTable(t *testing.T) {
 			}
 		}
 
-		if cLst := kvIni["CalculateOutputTable.Calculate_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String("CalculateOutputTable.Calculate_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, false, CALCULATED_ID_OFFSET)
 		}
-		if cLst := kvIni["CalculateOutputTable.CalculateAggr_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String("CalculateOutputTable.CalculateAggr_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, true, 2*CALCULATED_ID_OFFSET)
 		}
 		if len(calcLt) <= 0 {
@@ -343,7 +343,7 @@ func TestCalculateOutputTable(t *testing.T) {
 		}
 
 		runIds := []int{}
-		if sVal := kvIni["CalculateOutputTable.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("CalculateOutputTable.RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -376,7 +376,7 @@ func TestCalculateOutputTable(t *testing.T) {
 		t.Log("Read layout Offset Size IsFullPage IsLastPage:", rdLt.Offset, rdLt.Size, rdLt.IsFullPage, rdLt.IsLastPage)
 
 		// create new output directory and csv file
-		csvDir := filepath.Join(kvIni["CalculateOutputTable.CsvOutDir"], "TestCalculateOutputTable-"+helper.MakeTimeStamp(time.Now()))
+		csvDir := filepath.Join(opts.String("CalculateOutputTable.CsvOutDir"), "TestCalculateOutputTable-"+helper.MakeTimeStamp(time.Now()))
 		err = os.MkdirAll(csvDir, 0750)
 		if err != nil {
 			t.Fatal(err)
@@ -388,6 +388,6 @@ func TestCalculateOutputTable(t *testing.T) {
 		}
 
 		// read valid csv input and compare
-		// valid := kvIni["CalculateOutputTable.Valid_"+strconv.Itoa(k+1)]
+		// valid := opts.String("CalculateOutputTable.Valid_"+strconv.Itoa(k+1)]
 	}
 }

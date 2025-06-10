@@ -5,6 +5,7 @@ package config
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -12,8 +13,15 @@ import (
 	"github.com/openmpp/go/ompp/helper"
 )
 
+// Ini-file entry: section, key and value
+type IniEntry struct {
+	Section string // section: in lower case, without [], space trimed
+	Key     string // key: in lower case, without =, space trimed
+	Val     string // value: space trimed and unquoted ("quotes" or 'apostrophes' removed)
+}
+
 /*
-NewIni read ini-file content into  map of (section.key)=>value.
+NewIni read ini-file content into  IniEntry[] of { Section, Key Value }
 
 It is very light and able to parse:
 
@@ -51,30 +59,32 @@ Example:
 	       text with spaces\
 	       "
 */
-func NewIni(iniPath string, encodingName string) (map[string]string, error) {
+func NewIni(iniPath string, encodingName string) ([]IniEntry, error) {
 
 	if iniPath == "" {
-		return nil, nil // no ini-file
+		return []IniEntry{}, nil // no ini-file
 	}
 
 	// read ini-file and convert to utf-8
 	s, err := helper.FileToUtf8(iniPath, encodingName)
 	if err != nil {
-		return nil, errors.New("reading ini-file to utf-8 failed: " + err.Error())
+		return []IniEntry{}, errors.New("reading ini-file to utf-8 failed: " + err.Error())
 	}
 
 	// parse ini-file into strings map of (section.key)=>value
-	kvIni, err := loadIni(s)
+	eaIni, err := loadIni(s)
 	if err != nil {
-		return nil, errors.New("reading ini-file failed: " + err.Error())
+		return []IniEntry{}, errors.New("reading ini-file failed: " + err.Error())
 	}
-	return kvIni, nil
+
+	return eaIni, nil
 }
 
 // Parse ini-file content into strings map of (section.key)=>value
-func loadIni(iniContent string) (map[string]string, error) {
+func loadIni(iniContent string) ([]IniEntry, error) {
 
-	kvIni := map[string]string{}
+	eaIni := []IniEntry{}
+
 	var section, key, val, line string
 	var isContinue, isQuote bool
 	var cQuote rune
@@ -104,7 +114,8 @@ func loadIni(iniContent string) (map[string]string, error) {
 		if len(line) <= 0 {
 
 			if key != "" {
-				kvIni[section+"."+key] = helper.UnQuote(val)
+				eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
+
 				key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 			}
 			continue // skip empty line
@@ -148,7 +159,7 @@ func loadIni(iniContent string) (map[string]string, error) {
 		if len(line) <= 0 {
 
 			if key != "" {
-				kvIni[section+"."+key] = helper.UnQuote(val)
+				eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 				key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 			}
 			continue // skip line: it is a comment only line
@@ -202,15 +213,90 @@ func loadIni(iniContent string) (map[string]string, error) {
 		} else {
 
 			val = val + line
-			kvIni[section+"."+key] = helper.UnQuote(val)
+			eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 			key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 		}
 	}
 
 	// last line: continuation at last line without cr-lf
 	if isContinue && section != "" && key != "" {
-		kvIni[section+"."+key] = helper.UnQuote(val)
+		eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 	}
 
-	return kvIni, nil
+	return eaIni, nil
+}
+
+// Insert new or update existing ini file entry:
+// search by (section, key) in source []IniEntry
+// if not found then insert new entry
+// if found and isUpdate true then update existing entry with new value
+func AddIniEntry(isUpdate bool, eaIni []IniEntry, section, key, val string) []IniEntry {
+
+	scIdx := -1
+	for k := 0; scIdx < 0 && k < len(eaIni); k++ {
+		if strings.EqualFold(eaIni[k].Section, section) {
+			scIdx = k
+		}
+	}
+	if scIdx < 0 { // section not found: append new section, key value
+
+		return append(eaIni, IniEntry{Section: section, Key: key, Val: val})
+
+	} // else section found: search key inside of the section
+
+	for ; scIdx < len(eaIni) && strings.EqualFold(eaIni[scIdx].Section, section); scIdx++ {
+		if strings.EqualFold(eaIni[scIdx].Key, key) {
+			if isUpdate {
+				eaIni[scIdx].Val = val // section and key found: update existing section.key with new value
+			}
+			return eaIni // key found: return []IniEnty array with updated value or original value
+		}
+	}
+	// else key not found in the section: insert new key at the end of section
+
+	return slices.Insert(eaIni, scIdx, IniEntry{Section: section, Key: key, Val: val})
+}
+
+// Insert new or update existing ini file entry:
+// search by (section, key) in source []IniEntry
+// if not found then insert new entry
+// if found then update existing entry with new value
+func MergeIniEntry(eaIni []IniEntry, section, key, val string) []IniEntry {
+	return AddIniEntry(true, eaIni, section, key, val)
+}
+
+// Insert new ini file entry if not already exists:
+// search by (section, key) in source []IniEntry
+// if not found then insert new entry
+func InsertIniEntry(eaIni []IniEntry, section, key, val string) []IniEntry {
+	return AddIniEntry(false, eaIni, section, key, val)
+}
+
+// Insert new or update existing ini file entry:
+// sectionKey expected to be: section.key if not then exit and do nothing.
+// find section and key in source []IniEntry
+// if not found then insert new entry
+// if found then update existing entry with new value
+func MergeSectionKeyIniEntry(eaIni []IniEntry, sectionKey, val string) []IniEntry {
+
+	sck := strings.SplitN(sectionKey, ".", 2) // expected section.key
+	if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
+		return eaIni // skip invalid section.key
+	}
+	return MergeIniEntry(eaIni, sck[0], sck[1], val)
+}
+
+// return ini-file sections
+func IniSectionList(eaIni []IniEntry) []string {
+
+	scLst := []string{}
+	sc := ""
+
+	for _, e := range eaIni {
+		if e.Section != sc {
+			scLst = append(scLst, e.Section)
+		}
+		sc = e.Section
+	}
+	return scLst
 }

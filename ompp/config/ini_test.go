@@ -4,25 +4,38 @@
 package config
 
 import (
+	"bufio"
+	"io"
+	"os"
+	"strings"
 	"testing"
+	"unicode"
 )
 
 func TestIni(t *testing.T) {
 
 	// load ini-file and compare content
-	kvIni, err := NewIni("testdata/test.ompp.config.ini", "")
+	eaIni, err := NewIni("testdata/test.ompp.config.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// ini content loaded
+	for k, e := range eaIni {
+		t.Logf("[%d]: [%s]:%s=%s|", k, e.Section, e.Key, e.Val)
+	}
 
 	checkString := func(section, key, expected string) {
-		val, ok := kvIni[section+"."+key]
-		if !ok {
-			t.Errorf("not found [%s]:%s:", section, key)
+
+		for _, e := range eaIni {
+			if e.Section == section && e.Key == key {
+				if e.Val != expected {
+					t.Errorf("[%s]%s=%s: NOT :%s:", section, key, expected, e.Val)
+				}
+				return // found section and key
+			}
 		}
-		if val != expected {
-			t.Errorf("[%s]%s=%s: NOT :%s:", section, key, expected, val)
-		}
+		// not found section and key
+		t.Errorf("not found [%s]:%s:", section, key)
 	}
 
 	checkString(`Test`, `non`, ``)
@@ -47,11 +60,27 @@ func TestIni(t *testing.T) {
 	checkString(`multi`, `c-prog-win`, `C:\Program Files \Windows`)
 
 	checkTheSame := func(section, key, keySame string) {
-		v, ok := kvIni[section+"."+key]
+
+		v := ""
+		ok := false
+		for _, e := range eaIni {
+			if ok = e.Section == section && e.Key == key; ok {
+				v = e.Val
+				break // found section and key
+			}
+		}
 		if !ok {
 			t.Errorf("not found [%s]:%s:", section, key)
 		}
-		vSame, ok := kvIni[section+"."+key]
+
+		vSame := ""
+		ok = false
+		for _, e := range eaIni {
+			if ok = e.Section == section && e.Key == keySame; ok {
+				vSame = e.Val
+				break // found section and key
+			}
+		}
 		if !ok {
 			t.Errorf("not found [%s]:%s:", section, keySame)
 		}
@@ -71,42 +100,121 @@ func TestIni(t *testing.T) {
 
 	checkString(`end`, `end`, ``)
 
-	// check test coverage
-	sk := []string{
-		`Test.non`,
-		`Test.rem`,
-		`Test.val`,
-		`Test.dsn`,
-		`Test.lst`,
-		`Test.unb`,
-		`General.StartingSeed`,
-		`General.Subsamples`,
-		`General.Cases`,
-		`General.SimulationEnd`,
-		`General.UseSparse`,
-		`multi.trim`,
-		`multi.keep`,
-		`multi.same`,
-		`multi.multi1`,
-		`multi.multi2`,
-		`multi.c-prog`,
-		`multi.c-prog-win`,
-		`replace.k`,
-		`escape.dsn`,
-		`escape.t w`,
-		`escape. key "" 'quoted' here `,
-		`escape.qts`,
-		`end.end`,
+	// merge KeyValue to ini file content
+	eaIni = MergeSectionKeyIniEntry(eaIni, "OpenM.IniFile", "OpenM/to/IniFile")
+	eaIni = MergeSectionKeyIniEntry(eaIni, "openm.IniFile", "openm/to/IniFile")
+	eaIni = MergeSectionKeyIniEntry(eaIni, "Log.Sql", "TRUE")
+	eaIni = MergeSectionKeyIniEntry(eaIni, "openm.inifile", "openm/to/inifile")
+	eaIni = MergeSectionKeyIniEntry(eaIni, "Log.Sql", "false")
+	eaIni = InsertIniEntry(eaIni, "Log", "Sql", "ERROR")
+
+	t.Log("==== After MergeSectionKey ====")
+	for k, e := range eaIni {
+		t.Logf("[%d]: [%s]:%s=%s|", k, e.Section, e.Key, e.Val)
 	}
-	for key := range kvIni {
-		isFound := false
-		for k := range sk {
-			if isFound = sk[k] == key; isFound {
-				break
+
+	// verify ini file content
+	// each line formatted as: [section]:key=value|
+
+	fct, err := os.Open("testdata/test.ompp.config.ini-content.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fct.Close()
+	crd := bufio.NewReader(fct)
+
+	// read log file, trim lines and skip empty lines
+	fctLines := []string{}
+
+	for {
+		ln, e := crd.ReadString('\n')
+		if e != nil {
+			if e != io.EOF {
+				t.Fatal(err)
+			}
+			break
+		}
+		ln = strings.TrimRightFunc(ln, func(r rune) bool { return unicode.IsSpace(r) || !unicode.IsPrint(r) })
+		if ln != "" {
+
+			n := len(fctLines)
+			fctLines = append(fctLines, ln)
+
+			// check if content is equal to ini file
+			if n < 0 || n >= len(eaIni) {
+				t.Errorf("Line %d not exists in ini file: %s", n, ln)
+			} else {
+				c := "[" + eaIni[n].Section + "]:" + eaIni[n].Key + "=" + eaIni[n].Val + "|"
+				if ln != c {
+					t.Errorf("%d: %s MUST: %s", n, c, ln)
+
+				}
 			}
 		}
-		if !isFound {
-			t.Errorf("unexpected section.key found :%s:", key)
+	}
+
+	for k := len(fctLines); k < len(eaIni); k++ {
+		c := "[" + eaIni[k].Section + "]:" + eaIni[k].Key + "=" + eaIni[k].Val + "|"
+		t.Logf("Extra %d: %s", k, c)
+	}
+	if len(fctLines) != len(eaIni) {
+		t.Errorf("Extra ini count %d", len(eaIni)-len(fctLines))
+	}
+
+	// verify ini sections
+	// it must be in the same order
+
+	scLst := IniSectionList(eaIni)
+
+	t.Log("==== Ini sections ====")
+
+	for k := range scLst {
+		t.Logf("[%d]: |%s|", k, scLst[k])
+	}
+
+	fsc, err := os.Open("testdata/test.ompp.config.ini-sections.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fsc.Close()
+	srd := bufio.NewReader(fsc)
+
+	// read log file, trim lines and skip empty lines
+	sctLines := []string{}
+
+	for {
+		ln, e := srd.ReadString('\n')
+		if e != nil {
+			if e != io.EOF {
+				t.Fatal(err)
+			}
+			break
 		}
+		ln = strings.TrimRightFunc(ln, func(r rune) bool { return unicode.IsSpace(r) || !unicode.IsPrint(r) })
+		if ln != "" {
+
+			n := len(sctLines)
+			sctLines = append(sctLines, ln)
+
+			// check if content is equal to ini file section list
+			if n < 0 || n >= len(scLst) {
+				t.Errorf("Section %d not exists in ini file: %s", n, ln)
+			} else {
+				if ln != scLst[n] {
+					t.Errorf("%d: |%s| MUST: |%s|", n, scLst[n], ln)
+
+				}
+			}
+		}
+	}
+
+	for k := len(sctLines); k < len(scLst); k++ {
+		t.Logf("Extra %d: |%s|", k, scLst[k])
+	}
+	if len(sctLines) < len(scLst) {
+		t.Errorf("Extra sections count %d", len(scLst)-len(sctLines))
+	}
+	if len(sctLines) > len(scLst) {
+		t.Errorf("Missing setions count %d", len(sctLines)-len(scLst))
 	}
 }

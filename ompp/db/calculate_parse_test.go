@@ -18,12 +18,12 @@ import (
 func TestCleanSourceExpr(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate-parse.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate-parse.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	srcExpr := kvIni["CleanSource.Src"]
+	srcExpr := opts.String("CleanSource.Src")
 
 	t.Log("cleanSourceExpr:", srcExpr)
 
@@ -73,14 +73,14 @@ func TestCleanSourceExpr(t *testing.T) {
 func TestErrorIfUnsafeSqlOrComment(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate-parse.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate-parse.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	srcLst := []string{}
 	for k := 0; k < 400; k++ {
-		s := kvIni["UnsafeSql.Src_"+strconv.Itoa(k+1)]
+		s := opts.String("UnsafeSql.Src_" + strconv.Itoa(k+1))
 		if s != "" {
 			srcLst = append(srcLst, s)
 		}
@@ -115,7 +115,7 @@ func TestErrorIfUnsafeSqlOrComment(t *testing.T) {
 func TestTranslateAllSimpleFnc(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate-parse.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate-parse.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestTranslateAllSimpleFnc(t *testing.T) {
 		valid string
 	}{}
 	for k := 0; k < 400; k++ {
-		s := kvIni["TranslateSimpleFnc.Src_"+strconv.Itoa(k+1)]
+		s := opts.String("TranslateSimpleFnc.Src_" + strconv.Itoa(k+1))
 		if s == "" {
 			continue
 		}
@@ -135,7 +135,7 @@ func TestTranslateAllSimpleFnc(t *testing.T) {
 				valid string
 			}{
 				src:   s,
-				valid: kvIni["TranslateSimpleFnc.Valid_"+strconv.Itoa(k+1)],
+				valid: opts.String("TranslateSimpleFnc.Valid_" + strconv.Itoa(k+1)),
 			})
 	}
 
@@ -161,15 +161,15 @@ func TestTranslateAllSimpleFnc(t *testing.T) {
 func TestTranslateToExprSql(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate-parse.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate-parse.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["TranslateToExprSql.ModelName"]
-	modelDigest := kvIni["TranslateToExprSql.ModelDigest"]
-	modelSqliteDbPath := kvIni["TranslateToExprSql.DbPath"]
-	tableName := kvIni["TranslateToExprSql.TableName"]
+	modelName := opts.String("TranslateToExprSql.ModelName")
+	modelDigest := opts.String("TranslateToExprSql.ModelDigest")
+	modelSqliteDbPath := opts.String("TranslateToExprSql.DbPath")
+	tableName := opts.String("TranslateToExprSql.TableName")
 
 	// open source database connection and check is it valid
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
@@ -206,14 +206,14 @@ func TestTranslateToExprSql(t *testing.T) {
 	t.Log("Check non-aggregation SQL")
 	for k := 0; k < 400; k++ {
 
-		cmpExpr := kvIni["TranslateToExprSql.Calculate_"+strconv.Itoa(k+1)]
+		cmpExpr := opts.String("TranslateToExprSql.Calculate_" + strconv.Itoa(k+1))
 		if cmpExpr == "" {
 			continue
 		}
 		t.Log("Calculate:", cmpExpr)
 
 		var baseRunId int = 0
-		if sVal := kvIni["TranslateToExprSql.BaseRunId_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("TranslateToExprSql.BaseRunId_" + strconv.Itoa(k+1)); sVal != "" {
 			if baseRunId, err = strconv.Atoi(sVal); err != nil {
 				t.Fatal(err)
 			}
@@ -221,7 +221,7 @@ func TestTranslateToExprSql(t *testing.T) {
 		t.Log("base run:", baseRunId)
 
 		runIds := []int{}
-		if sVal := kvIni["TranslateToExprSql.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("TranslateToExprSql.RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -234,7 +234,7 @@ func TestTranslateToExprSql(t *testing.T) {
 		}
 		t.Log("run id's:", runIds)
 
-		valid := kvIni["TranslateToExprSql.Valid_"+strconv.Itoa(k+1)]
+		valid := opts.String("TranslateToExprSql.Valid_" + strconv.Itoa(k+1))
 
 		readLt := &ReadLayout{
 			Name:   tableName,
@@ -258,20 +258,20 @@ func TestTranslateToExprSql(t *testing.T) {
 func TestParseAggrCalculation(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.calculate-parse.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.calculate-parse.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["ParseAggrCalculation.ModelName"]
-	modelDigest := kvIni["ParseAggrCalculation.ModelDigest"]
-	modelSqliteDbPath := kvIni["ParseAggrCalculation.DbPath"]
-	tableName := kvIni["ParseAggrCalculation.TableName"]
-	entityName := kvIni["ParseAggrCalculation.EntityName"]
+	modelName := opts.String("ParseAggrCalculation.ModelName")
+	modelDigest := opts.String("ParseAggrCalculation.ModelDigest")
+	modelSqliteDbPath := opts.String("ParseAggrCalculation.DbPath")
+	tableName := opts.String("ParseAggrCalculation.TableName")
+	entityName := opts.String("ParseAggrCalculation.EntityName")
 	microRunId := 0
 
 	if entityName != "" {
-		if sVal := kvIni["ParseAggrCalculation.MicroBaseRunId"]; sVal != "" {
+		if sVal := opts.String("ParseAggrCalculation.MicroBaseRunId"); sVal != "" {
 			microRunId, err = strconv.Atoi(sVal)
 			if err != nil {
 				t.Fatal(err)
@@ -353,7 +353,7 @@ func TestParseAggrCalculation(t *testing.T) {
 		valid   string
 	}{}
 	for k := 0; k < 400; k++ {
-		s := kvIni["ParseAggrCalculation.Src_"+strconv.Itoa(k+1)]
+		s := opts.String("ParseAggrCalculation.Src_" + strconv.Itoa(k+1))
 		if s == "" {
 			continue
 		}
@@ -364,10 +364,10 @@ func TestParseAggrCalculation(t *testing.T) {
 				groupBy string
 				valid   string
 			}{
-				kind:    kvIni["ParseAggrCalculation.Kind_"+strconv.Itoa(k+1)],
+				kind:    opts.String("ParseAggrCalculation.Kind_" + strconv.Itoa(k+1)),
 				src:     s,
-				groupBy: kvIni["ParseAggrCalculation.GroupBy_"+strconv.Itoa(k+1)],
-				valid:   kvIni["ParseAggrCalculation.Valid_"+strconv.Itoa(k+1)],
+				groupBy: opts.String("ParseAggrCalculation.GroupBy_" + strconv.Itoa(k+1)),
+				valid:   opts.String("ParseAggrCalculation.Valid_" + strconv.Itoa(k+1)),
 			})
 	}
 

@@ -20,18 +20,18 @@ import (
 func TestTranslateMicroCalcToSql(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.micro-aggregate.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.micro-aggregate.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["TranslateMicroCalcToSql.ModelName"]
-	modelDigest := kvIni["TranslateMicroCalcToSql.ModelDigest"]
-	modelSqliteDbPath := kvIni["TranslateMicroCalcToSql.DbPath"]
-	entityName := kvIni["TranslateMicroCalcToSql.EntityName"]
+	modelName := opts.String("TranslateMicroCalcToSql.ModelName")
+	modelDigest := opts.String("TranslateMicroCalcToSql.ModelDigest")
+	modelSqliteDbPath := opts.String("TranslateMicroCalcToSql.DbPath")
+	entityName := opts.String("TranslateMicroCalcToSql.EntityName")
 
 	baseRunId := 0
-	if sVal := kvIni["TranslateMicroCalcToSql.BaseRunId"]; sVal != "" {
+	if sVal := opts.String("TranslateMicroCalcToSql.BaseRunId"); sVal != "" {
 		baseRunId, err = strconv.Atoi(sVal)
 		if err != nil {
 			t.Fatal(err)
@@ -97,22 +97,22 @@ func TestTranslateMicroCalcToSql(t *testing.T) {
 	t.Log("Check microdata aggregation SQL")
 
 	for k := 0; k < 400; k++ {
-		srcCalc := kvIni["TranslateMicroCalcToSql.Src_"+strconv.Itoa(k+1)]
+		srcCalc := opts.String("TranslateMicroCalcToSql.Src_" + strconv.Itoa(k+1))
 		if srcCalc == "" {
 			continue
 		}
 		t.Log(srcCalc)
 
-		cteValid := kvIni["TranslateMicroCalcToSql.Cte_"+strconv.Itoa(k+1)]
-		mainValid := kvIni["TranslateMicroCalcToSql.Main_"+strconv.Itoa(k+1)]
+		cteValid := opts.String("TranslateMicroCalcToSql.Cte_" + strconv.Itoa(k+1))
+		mainValid := opts.String("TranslateMicroCalcToSql.Main_" + strconv.Itoa(k+1))
 
-		sGroupBy := kvIni["TranslateMicroCalcToSql.GroupBy_"+strconv.Itoa(k+1)]
+		sGroupBy := opts.String("TranslateMicroCalcToSql.GroupBy_" + strconv.Itoa(k+1))
 		groupBy := helper.ParseCsvLine(sGroupBy, ',')
 
 		t.Log("Group by: ", groupBy)
 
 		runIds := []int{}
-		if sVal := kvIni["TranslateMicroCalcToSql.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("TranslateMicroCalcToSql.RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -175,23 +175,23 @@ func TestTranslateMicroCalcToSql(t *testing.T) {
 func TestCalculateMicrodata(t *testing.T) {
 
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.micro-aggregate.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.micro-aggregate.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["CalculateMicrodata.ModelName"]
-	modelDigest := kvIni["CalculateMicrodata.ModelDigest"]
-	modelSqliteDbPath := kvIni["CalculateMicrodata.DbPath"]
-	entityName := kvIni["CalculateMicrodata.EntityName"]
+	modelName := opts.String("CalculateMicrodata.ModelName")
+	modelDigest := opts.String("CalculateMicrodata.ModelDigest")
+	modelSqliteDbPath := opts.String("CalculateMicrodata.DbPath")
+	entityName := opts.String("CalculateMicrodata.EntityName")
 
-	isIdCsv, err := strconv.ParseBool(kvIni["CalculateMicrodata.IdCsv"])
+	isIdCsv, err := strconv.ParseBool(opts.String("CalculateMicrodata.IdCsv"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	baseRunId := 0
-	if sVal := kvIni["CalculateMicrodata.BaseRunId"]; sVal != "" {
+	if sVal := opts.String("CalculateMicrodata.BaseRunId"); sVal != "" {
 		baseRunId, err = strconv.Atoi(sVal)
 		if err != nil {
 			t.Fatal(err)
@@ -263,19 +263,19 @@ func TestCalculateMicrodata(t *testing.T) {
 	t.Log("Check microdata aggregation SQL")
 
 	for k := 0; k < 400; k++ {
-		srcCalc := kvIni["CalculateMicrodata.Calculate_"+strconv.Itoa(k+1)]
+		srcCalc := opts.String("CalculateMicrodata.Calculate_" + strconv.Itoa(k+1))
 		if srcCalc == "" {
 			continue
 		}
 		t.Log(srcCalc)
 
-		sGroupBy := kvIni["CalculateMicrodata.GroupBy_"+strconv.Itoa(k+1)]
+		sGroupBy := opts.String("CalculateMicrodata.GroupBy_" + strconv.Itoa(k+1))
 		groupBy := helper.ParseCsvLine(sGroupBy, ',')
 
 		t.Log("Group by: ", groupBy)
 
 		runIds := []int{}
-		if sVal := kvIni["CalculateMicrodata.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String("CalculateMicrodata.RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -342,7 +342,7 @@ func TestCalculateMicrodata(t *testing.T) {
 			}
 		}
 
-		if cLst := kvIni["CalculateMicrodata.Calculate_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String("CalculateMicrodata.Calculate_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, CALCULATED_ID_OFFSET)
 		}
 		if len(calcLt) <= 0 {
@@ -369,7 +369,7 @@ func TestCalculateMicrodata(t *testing.T) {
 		t.Log("Read layout Offset Size IsFullPage IsLastPage:", rdLt.Offset, rdLt.Size, rdLt.IsFullPage, rdLt.IsLastPage)
 
 		// create new output directory and csv file
-		csvDir := filepath.Join(kvIni["CalculateMicrodata.CsvOutDir"], "TestCalculateMicrodata-"+helper.MakeTimeStamp(time.Now()))
+		csvDir := filepath.Join(opts.String("CalculateMicrodata.CsvOutDir"), "TestCalculateMicrodata-"+helper.MakeTimeStamp(time.Now()))
 		err = os.MkdirAll(csvDir, 0750)
 		if err != nil {
 			t.Fatal(err)
@@ -381,6 +381,6 @@ func TestCalculateMicrodata(t *testing.T) {
 		}
 
 		// read valid csv input and compare
-		// valid := kvIni["CalculateMicrodata.Valid_"+strconv.Itoa(k+1)]
+		// valid := opts.String("CalculateMicrodata.Valid_"+strconv.Itoa(k+1)]
 	}
 }

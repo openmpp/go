@@ -52,6 +52,7 @@ const (
 type RunOptions struct {
 	KeyValue        map[string]string // (key=>value) from command line arguments and ini-file
 	DefaultKeyValue map[string]string // default (key=>value), if non-empty default for command line argument
+	Ini             []IniEntry        // options as ini (section, key) => value
 	iniPath         string            // path to ini-file
 }
 
@@ -90,6 +91,7 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 	runOpts := &RunOptions{
 		KeyValue:        make(map[string]string),
 		DefaultKeyValue: make(map[string]string),
+		Ini:             []IniEntry{},
 	}
 	logOpts := &LogOptions{
 		IsConsole: true,
@@ -114,17 +116,16 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 	}
 
 	// parse ini-file using encoding, if it is not empty
-	kvIni, err := NewIni(runOpts.iniPath, encName)
+	opts, err := FromIni(runOpts.iniPath, encName)
 	if err != nil {
 		return nil, nil, err
 	}
-	if kvIni != nil {
-		runOpts.KeyValue = kvIni
-	}
+	runOpts.KeyValue = opts.KeyValue
+	runOpts.Ini = opts.Ini
 
 	// validate ini-file flags: all keys should be defined flag names
 	if !isExtra {
-		for key := range kvIni {
+		for key := range opts.KeyValue {
 			if f := flag.Lookup(key); f == nil {
 				return nil, nil, errors.New("Invalid ini file section.key: " + key)
 			}
@@ -174,12 +175,23 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 
 	// adjust log settings
 	adjustLogOptions(runOpts, logOpts)
+
+	// update ini values from new key-value
+	for key, val := range runOpts.KeyValue {
+
+		sck := strings.SplitN(key, ".", 2) // expected section.key
+		if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
+			continue // skip invalid section.key
+		}
+		runOpts.Ini = MergeIniEntry(runOpts.Ini, sck[0], sck[1], val)
+	}
+
 	return runOpts, logOpts, nil
 }
 
 // FromIni read ini-file options.
 //
-// encodingName, if not empty, is a "code page" to convert source file into utf-8, for example: windows-1252
+// encodingName, if not empty then it is a "code page" to convert source file into utf-8, for example: windows-1252
 //
 // Return
 // 1. *RunOptions: is (key, value) pairs from ini-file: section.key=value
@@ -187,20 +199,21 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 func FromIni(iniPath string, encodingName string) (*RunOptions, error) {
 
 	runOpts := &RunOptions{
-		KeyValue:        make(map[string]string),
-		DefaultKeyValue: make(map[string]string),
+		KeyValue:        map[string]string{},
+		DefaultKeyValue: map[string]string{},
+		Ini:             []IniEntry{},
 	}
 
 	// parse ini-file using encoding, if it is not empty
-	kvIni, err := NewIni(iniPath, encodingName)
+	eaIni, err := NewIni(iniPath, encodingName)
 	if err != nil {
 		return nil, nil
 	}
-	if kvIni != nil {
-		runOpts.KeyValue = kvIni
-	}
+	runOpts.Ini = eaIni
 
-	// adjust log settings
+	for _, e := range eaIni {
+		runOpts.KeyValue[e.Section+"."+e.Key] = e.Val
+	}
 	return runOpts, nil
 }
 

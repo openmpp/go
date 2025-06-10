@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -638,62 +637,57 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 	//   Person      = age,income
 	//   Other       = All
 	//
-	if !theCfg.isMicrodata { // microdata disabled: remove microdata from ini file
+	if theCfg.isMicrodata && job.Microdata.IsToDb && len(entAttrs) > 0 && len(job.Microdata.Entity) > 0 {
 
-		maps.DeleteFunc(iniKeyVal, func(key string, val string) bool { return strings.HasPrefix(strings.ToLower(key), "microdata.") })
-	} else {
-		if job.Microdata.IsToDb && len(entAttrs) > 0 && len(job.Microdata.Entity) > 0 {
+		iniKeyVal["Microdata.ToDb"] = "true"
+		if job.Microdata.IsInternal {
+			iniKeyVal["Microdata.UseInternal"] = "true"
+		}
 
-			iniKeyVal["Microdata.ToDb"] = "true"
-			if job.Microdata.IsInternal {
-				iniKeyVal["Microdata.UseInternal"] = "true"
+		// for each entity check if All attributes included or attributes must be specified as comma separated list
+		for k := range job.Microdata.Entity {
+
+			// find entity name in the list of model entities
+			eIdx := -1
+			for j := range entAttrs {
+				if entAttrs[j].Name == job.Microdata.Entity[k].Name {
+					eIdx = j
+					break
+				}
+			}
+			if eIdx < 0 || eIdx >= len(entAttrs) {
+				return []string{}, "", errors.New("invalid microdata entity: " + job.Microdata.Entity[k].Name + ": " + rs.ModelName + ": " + rs.ModelDigest)
 			}
 
-			// for each entity check if All attributes included or attributes must be specified as comma separated list
-			for k := range job.Microdata.Entity {
+			// check if all entity attributes included in run microdata
+			na := len(job.Microdata.Entity[k].Attr)
+			isAll := na == 1 && job.Microdata.Entity[k].Attr[0] == "All"
 
-				// find entity name in the list of model entities
-				eIdx := -1
-				for j := range entAttrs {
-					if entAttrs[j].Name == job.Microdata.Entity[k].Name {
-						eIdx = j
+			if !isAll {
+
+				attrs := make([]string, na)
+				copy(attrs, job.Microdata.Entity[k].Attr)
+				sort.Strings(attrs)
+
+				for j := range entAttrs[eIdx].Attr {
+
+					if !job.Microdata.IsInternal && entAttrs[eIdx].Attr[j].IsInternal {
+						continue // skip: this model run does not using internal attributes
+					}
+
+					n := sort.SearchStrings(attrs, entAttrs[eIdx].Attr[j].Name)
+					isAll = n >= 0 && n < na && attrs[n] == entAttrs[eIdx].Attr[j].Name
+					if !isAll {
 						break
 					}
 				}
-				if eIdx < 0 || eIdx >= len(entAttrs) {
-					return []string{}, "", errors.New("invalid microdata entity: " + job.Microdata.Entity[k].Name + ": " + rs.ModelName + ": " + rs.ModelDigest)
-				}
+			}
 
-				// check if all entity attributes included in run microdata
-				na := len(job.Microdata.Entity[k].Attr)
-				isAll := na == 1 && job.Microdata.Entity[k].Attr[0] == "All"
-
-				if !isAll {
-
-					attrs := make([]string, na)
-					copy(attrs, job.Microdata.Entity[k].Attr)
-					sort.Strings(attrs)
-
-					for j := range entAttrs[eIdx].Attr {
-
-						if !job.Microdata.IsInternal && entAttrs[eIdx].Attr[j].IsInternal {
-							continue // skip: this model run does not using internal attributes
-						}
-
-						n := sort.SearchStrings(attrs, entAttrs[eIdx].Attr[j].Name)
-						isAll = n >= 0 && n < na && attrs[n] == entAttrs[eIdx].Attr[j].Name
-						if !isAll {
-							break
-						}
-					}
-				}
-
-				// append entity attributes to ini file content: EntityName = All or EntityName = AttrA, AttrB
-				if isAll {
-					iniKeyVal["Microdata."+job.Microdata.Entity[k].Name] = "All"
-				} else {
-					iniKeyVal["Microdata."+job.Microdata.Entity[k].Name] = strings.Join(job.Microdata.Entity[k].Attr, ",")
-				}
+			// append entity attributes to ini file content: EntityName = All or EntityName = AttrA, AttrB
+			if isAll {
+				iniKeyVal["Microdata."+job.Microdata.Entity[k].Name] = "All"
+			} else {
+				iniKeyVal["Microdata."+job.Microdata.Entity[k].Name] = strings.Join(job.Microdata.Entity[k].Attr, ",")
 			}
 		}
 	}
@@ -768,6 +762,8 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 	}
 
 	// if ini file file path specified as run option then read ini file and merge with other run options
+	eaIni := []config.IniEntry{}
+
 	if iniPath != "" {
 
 		if len(iniKeyVal) <= 0 { // nothing to merge, add ini file model run option
@@ -776,74 +772,49 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 
 		} else { // else merge ini file content
 
-			kv := map[string]string{}
-
 			p, e := filepath.Abs(filepath.Join(binDir, iniPath))
-			if e == nil {
-				kv, e = config.NewIni(p, theCfg.codePage)
-			}
-			if e == nil {
-				for key, val := range kv {
-					if _, ok := iniKeyVal[key]; !ok {
-						iniKeyVal[key] = val
-					}
-				}
-			}
-
 			if e != nil {
 				return []string{}, "", e
 			}
+			var e2 error
+
+			eaIni, e2 = config.NewIni(p, theCfg.codePage)
+			if e2 != nil {
+				return []string{}, "", e2
+			}
+
+			for _, e := range eaIni {
+				key := e.Section + "." + e.Key
+				if _, ok := iniKeyVal[key]; !ok { // if option not exist then insert new option from ini file
+					iniKeyVal[key] = e.Val
+				}
+			}
 		}
+	}
+
+	// microdata disabled: remove microdata from ini file
+	if !theCfg.isMicrodata {
+		maps.DeleteFunc(iniKeyVal, func(key string, val string) bool { return strings.HasPrefix(strings.ToLower(key), "microdata.") })
 	}
 
 	// create ini file and append -ini fileName.ini to model run options
 	if len(iniKeyVal) > 0 {
 
-		sl := []string{} // list of ini file sections
+		for key, val := range iniKeyVal {
+			eaIni = config.MergeSectionKeyIniEntry(eaIni, key, val)
+
+		}
+
 		iniContent := ""
+		sc := ""
 
-		for {
+		for _, e := range eaIni {
 
-			// find next section
-			c := ""
-			for key, val := range iniKeyVal {
-
-				if key == "" || val == "" {
-					continue
-				}
-				sck := strings.SplitN(key, ".", 2) // expected section.key
-				if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
-					omppLog.Log("Warning: invalid ini file section.key: ", key)
-					continue
-				}
-				if !slices.Contains(sl, sck[0]) {
-					c = sck[0]
-					sl = append(sl, sck[0])
-					break
-				}
+			if !strings.EqualFold(e.Section, sc) { // append new [section]
+				sc = e.Section
+				iniContent += "[" + sc + "]\n"
 			}
-			if c == "" { // no new sections
-				break
-			}
-
-			// append [section] and all key = values for that section
-			iniContent += "[" + c + "]\n"
-
-			for key, val := range iniKeyVal {
-
-				if key == "" || val == "" {
-					continue
-				}
-				sck := strings.SplitN(key, ".", 2) // expected section.key
-				if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
-					continue
-				}
-				if !strings.EqualFold(sck[0], c) { // different section: skip
-					continue
-				}
-
-				iniContent += sck[1] + " = " + val + "\n"
-			}
+			iniContent += e.Key + " = " + helper.QuoteForIni(e.Val) + "\n"
 		}
 
 		iniPath = rs.RunStamp + "." + rs.ModelName + ".ini" // new ini file path, relative to log directory

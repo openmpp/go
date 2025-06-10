@@ -20,16 +20,22 @@ import (
 
 func TestCompareOutputTable(t *testing.T) {
 
+	DoTestCompareTable("CompareOutputTable", t)
+	DoTestCompareTable("CompareScalarTable", t)
+}
+
+func DoTestCompareTable(section string, t *testing.T) {
+
 	// load ini-file and parse test run options
-	kvIni, err := config.NewIni("testdata/test.ompp.db.compare.ini", "")
+	opts, err := config.FromIni("testdata/test.ompp.db.compare.ini", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	modelName := kvIni["CompareOutputTable.ModelName"]
-	modelDigest := kvIni["CompareOutputTable.ModelDigest"]
-	modelSqliteDbPath := kvIni["CompareOutputTable.DbPath"]
-	tableName := kvIni["CompareOutputTable.TableName"]
+	modelName := opts.String(section + ".ModelName")
+	modelDigest := opts.String(section + ".ModelDigest")
+	modelSqliteDbPath := opts.String(section + ".DbPath")
+	tableName := opts.String(section + ".TableName")
 
 	// open source database connection and check is it valid
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
@@ -102,10 +108,10 @@ func TestCompareOutputTable(t *testing.T) {
 			}
 		}
 
-		if cLst := kvIni["CompareOutputTable.Calculate_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String(section + ".Calculate_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, false, CALCULATED_ID_OFFSET)
 		}
-		if cLst := kvIni["CompareOutputTable.CalculateAggr_"+strconv.Itoa(k+1)]; cLst != "" {
+		if cLst := opts.String(section + ".CalculateAggr_" + strconv.Itoa(k+1)); cLst != "" {
 			appendToCalc(cLst, true, 2*CALCULATED_ID_OFFSET)
 		}
 		if len(calcLt) <= 0 {
@@ -113,7 +119,7 @@ func TestCompareOutputTable(t *testing.T) {
 		}
 
 		var baseRunId int = 0
-		if sVal := kvIni["CompareOutputTable.BaseRunId_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String(section + ".BaseRunId_" + strconv.Itoa(k+1)); sVal != "" {
 			if baseRunId, err = strconv.Atoi(sVal); err != nil {
 				t.Fatal(err)
 			}
@@ -121,7 +127,7 @@ func TestCompareOutputTable(t *testing.T) {
 		t.Log("base run:", baseRunId)
 
 		runIds := []int{}
-		if sVal := kvIni["CompareOutputTable.RunIds_"+strconv.Itoa(k+1)]; sVal != "" {
+		if sVal := opts.String(section + ".RunIds_" + strconv.Itoa(k+1)); sVal != "" {
 
 			sArr := helper.ParseCsvLine(sVal, ',')
 			for j := range sArr {
@@ -133,7 +139,7 @@ func TestCompareOutputTable(t *testing.T) {
 			}
 		}
 		if len(runIds) <= 0 {
-			t.Fatal("ERROR: empty run list at CompareOutputTable.RunIds", k+1)
+			t.Fatal("ERROR: empty run list at "+section+".RunIds", k+1)
 		}
 		t.Log("run id's:", runIds)
 
@@ -154,7 +160,7 @@ func TestCompareOutputTable(t *testing.T) {
 		t.Log("Read layout Offset Size IsFullPage IsLastPage:", rdLt.Offset, rdLt.Size, rdLt.IsFullPage, rdLt.IsLastPage)
 
 		// create new output directory and csv file
-		csvDir := filepath.Join(kvIni["CompareOutputTable.CsvOutDir"], "TestCompareOutputTable-"+helper.MakeTimeStamp(time.Now()))
+		csvDir := filepath.Join(opts.String(section+".CsvOutDir"), "Test"+section+"-"+helper.MakeTimeStamp(time.Now()))
 		err = os.MkdirAll(csvDir, 0750)
 		if err != nil {
 			t.Fatal(err)
@@ -165,9 +171,6 @@ func TestCompareOutputTable(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// read valid csv input and compare
-		// valid := kvIni["CompareOutputTable.Valid_"+strconv.Itoa(k+1)]
 	}
 }
 
