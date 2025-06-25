@@ -10,19 +10,6 @@ import (
 	"strconv"
 )
 
-// updateInternals language metadata internal members.
-// It must be called after restoring from json.
-func (meta *LangMeta) updateInternals() {
-
-	meta.idIndex = make(map[int]int, len(meta.Lang))
-	meta.codeIndex = make(map[string]int, len(meta.Lang))
-
-	for k := range meta.Lang {
-		meta.idIndex[meta.Lang[k].langId] = k     // index of lang_id in result []language slice
-		meta.codeIndex[meta.Lang[k].LangCode] = k // index of lang_code in result []language slice
-	}
-}
-
 // updateParameterColumnNames sets internal db column names for parameter dimensions: dim0, dim1
 func (param *ParamMeta) updateParameterColumnNames() {
 

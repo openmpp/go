@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/text/language"
 
+	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
@@ -149,6 +150,14 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 // open SQLite db connection and retrive model or list of models, skip models which are in digest list already
 func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isLogDir bool, modelLogDir string) ([]modelDef, error) {
 
+	dbDir := filepath.Dir(srcPath) // assume model.exe is located in the same directory as db.sqlite
+
+	// read common.message.ini
+	cmIni := []config.IniEntry{}
+	if ea, e := readCommonMessageIni(dbDir); e == nil {
+		cmIni = ea
+	}
+
 	// open db connection and check version of openM++ database
 	dbc, _, err := db.Open(db.MakeSqliteDefault(srcPath), db.SQLiteDbDriver, false)
 	if err != nil {
@@ -160,7 +169,6 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 		dbc.Close()
 		return nil, err
 	}
-	dbDir := filepath.Dir(srcPath)
 
 	dbPath, err := filepath.Abs(srcPath)
 	if err != nil {
@@ -186,13 +194,13 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 		return nil, nil
 	}
 
-	ls, err := db.GetLanguages(dbc)
+	langDef, err := db.GetLanguages(dbc)
 	if err != nil {
 		omppLog.Log("Error: ", srcPath, " : ", err.Error())
 		dbc.Close()
 		return nil, err
 	}
-	if ls == nil {
+	if langDef == nil {
 		omppLog.Log("Warning: no languages found in database: ", srcPath)
 		dbc.Close()
 		return nil, nil
@@ -238,24 +246,123 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			ModelTxt:    txt}
 
 		// read model_word from database
-		w, err := db.GetModelWord(dbc, dicLst[idx].ModelId, "")
+		wLst, err := db.GetModelWord(dbc, dicLst[idx].ModelId, "")
 		if err != nil {
 			omppLog.Log("Error at get model language-specific stirngs: ", dicLst[idx].Name, " ", dicLst[idx].Digest, ": ", err.Error())
 			dbc.Close()
 			return nil, err
 		}
 
+		// append languages from common.message.ini
+		sc := ""
+		n := -1
+		for _, ei := range cmIni {
+
+			if ei.Section != sc { // new language code
+
+				sc = ei.Section
+				n = -1 // find existing lang_lst row or append new
+
+				for j := 0; j < len(langDef.Lang); j++ {
+					if strings.EqualFold(langDef.Lang[j].LangCode, sc) {
+						n = j
+						break
+					}
+				}
+				if n < 0 { //language code does not exists in database: create new LangLstRow
+					n = len(langDef.Lang)
+
+					langDef.Lang = append(langDef.Lang, db.LangWord{
+						LangLstRow: db.LangLstRow{
+							LangCode: sc,
+							Name:     sc,
+							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
+						},
+						Words: map[string]string{},
+					})
+				}
+			}
+
+			// append word list in that language: section content from common.message.ini
+			if ei.Key != "" && ei.Val != "" {
+				langDef.Lang[n].Words[ei.Key] = ei.Val
+			}
+		}
+
+		// append languages from model.message.ini
+		mdIni := []config.IniEntry{}
+		if ea, e := readModelMessageIni(dicLst[idx].Name, dbDir); e == nil {
+			mdIni = ea
+		}
+
+		sc = ""
+		n = -1
+		for _, ei := range mdIni {
+
+			if ei.Section != sc { // new language code
+
+				sc = ei.Section
+				n = -1 // find existing lang_lst row or append new
+
+				for j := 0; j < len(langDef.Lang); j++ {
+					if strings.EqualFold(langDef.Lang[j].LangCode, sc) {
+						n = j
+						break
+					}
+				}
+				if n < 0 { // language code does not exists in database: append new lang_lst row
+					langDef.Lang = append(langDef.Lang, db.LangWord{
+						LangLstRow: db.LangLstRow{
+							LangCode: sc,
+							Name:     sc,
+							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
+						},
+						Words: map[string]string{}, // always empty: do not apppend model.message.ini to common words list
+					})
+				}
+
+				n = -1 // find existing or append new language into model_word rows list
+
+				for j := 0; j < len(wLst.ModelWord); j++ {
+
+					if strings.EqualFold(wLst.ModelWord[j].LangCode, sc) {
+						n = j
+						break
+					}
+				}
+				if n < 0 { // language code does not exists in database: append new model_word row
+					n = len(wLst.ModelWord)
+
+					wLst.ModelWord = append(wLst.ModelWord, db.ModelLangWord{LangCode: sc, Words: map[string]string{}})
+
+					langDef.Lang = append(langDef.Lang, db.LangWord{
+						LangLstRow: db.LangLstRow{
+							LangCode: sc,
+							Name:     sc,
+							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
+						},
+						Words: map[string]string{}, // always empty: do not apppend model.message.ini words
+					})
+				}
+			}
+
+			// append model word list in that language: section content from model.message.ini
+			if ei.Key != "" && ei.Val != "" {
+				wLst.ModelWord[n].Words[ei.Key] = ei.Val
+			}
+		}
+
 		// make model languages list, starting from default language
 		ml := []string{}
 		lt := []language.Tag{}
 
-		for k := range ls.Lang {
-			if ls.Lang[k].LangCode == dicLst[idx].DefaultLangCode {
-				ml = append([]string{ls.Lang[k].LangCode}, ml...)
-				lt = append([]language.Tag{language.Make(ls.Lang[k].LangCode)}, lt...)
+		for k := range langDef.Lang {
+			if strings.EqualFold(langDef.Lang[k].LangCode, dicLst[idx].DefaultLangCode) {
+				ml = append([]string{langDef.Lang[k].LangCode}, ml...)
+				lt = append([]language.Tag{language.Make(langDef.Lang[k].LangCode)}, lt...)
 			} else {
-				ml = append(ml, ls.Lang[k].LangCode)
-				lt = append(lt, language.Make(ls.Lang[k].LangCode))
+				ml = append(ml, langDef.Lang[k].LangCode)
+				lt = append(lt, language.Make(langDef.Lang[k].LangCode))
 			}
 		}
 
@@ -278,13 +385,13 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			isTxtMetaFull: false,
 			txtMeta:       mt,
 			langCodes:     ml,
-			langMeta:      ls,
+			langMeta:      langDef,
 			matcher:       language.NewMatcher(lt),
-			modelWord:     w,
+			modelWord:     wLst,
 			extra:         me})
 	}
 
-	// close db connetcion if there models in that database or all models already in the model list
+	// close db connection if there models in that database or all models already in the model list
 	if len(mLst) <= 0 {
 		dbc.Close()
 	}
@@ -440,4 +547,35 @@ func (mc *ModelCatalog) setModelTextMeta(digest string, isFull bool, txtMeta *db
 	mc.modelLst[idx].isTxtMetaFull = isFull
 	mc.modelLst[idx].txtMeta = txtMeta
 	return true
+}
+
+// read common.message.ini file if exists in one of:
+//
+//	path/to/exe/common.message.ini
+//	OM_ROOT/common.message.ini
+//	OM_ROOT/models/common.message.ini
+func readCommonMessageIni(exeDir string) ([]config.IniEntry, error) {
+
+	p := filepath.Join(exeDir, "common.message.ini")
+	if cmIni, e := config.NewIni(p, theCfg.codePage); e == nil && len(cmIni) > 0 {
+		return cmIni, e
+	}
+
+	if omroot := os.Getenv("OM_ROOT"); omroot != "" {
+		p := filepath.Join(omroot, "common.message.ini")
+		if cmIni, e := config.NewIni(p, theCfg.codePage); e == nil && len(cmIni) > 0 {
+			return cmIni, e
+		}
+
+		p = filepath.Join(omroot, "models", "common.message.ini")
+		return config.NewIni(p, theCfg.codePage)
+	}
+	return []config.IniEntry{}, nil
+}
+
+// read path/to/exe/modelName.message.ini file if exists
+func readModelMessageIni(modelName, exeDir string) ([]config.IniEntry, error) {
+
+	p := filepath.Join(exeDir, modelName+".message.ini")
+	return config.NewIni(p, theCfg.codePage)
 }
