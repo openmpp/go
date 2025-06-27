@@ -13,15 +13,15 @@ import (
 func GetLanguages(dbConn *sql.DB) (*LangMeta, error) {
 
 	// select lang_lst rows, build index maps
-	langDef := LangMeta{}
+	langDef := LangMeta{idIndex: make(map[int]int), codeIndex: make(map[string]int)}
 
 	err := SelectRows(dbConn, "SELECT lang_id, lang_code, lang_name FROM lang_lst ORDER BY 1",
 		func(rows *sql.Rows) error {
 			var r LangLstRow
-			if err := rows.Scan(&r.LangId, &r.LangCode, &r.Name); err != nil {
+			if err := rows.Scan(&r.langId, &r.LangCode, &r.Name); err != nil {
 				return err
 			}
-			langDef.Lang = append(langDef.Lang, LangWord{LangLstRow: r, Words: make(map[string]string)})
+			langDef.Lang = append(langDef.Lang, langWord{LangLstRow: r, Words: make(map[string]string)})
 			return nil
 		})
 	if err != nil {
@@ -30,6 +30,7 @@ func GetLanguages(dbConn *sql.DB) (*LangMeta, error) {
 	if len(langDef.Lang) <= 0 {
 		return nil, errors.New("invalid database: no language(s) found")
 	}
+	langDef.updateInternals() // update internal maps from id and code to index of language
 
 	// select lang_word rows into (key, value) map for each language
 	err = SelectRows(dbConn,
@@ -41,12 +42,8 @@ func GetLanguages(dbConn *sql.DB) (*LangMeta, error) {
 			err := rows.Scan(&langId, &code, &val)
 
 			if err == nil {
-				for i := range langDef.Lang {
-					if langDef.Lang[i].LangId == langId { // if lang_id found then update words list
-						langDef.Lang[i].Words[code] = val
-						break
-					}
-					// ignore if lang_id not exist, assume updated lang_lst between selects
+				if i, ok := langDef.idIndex[langId]; ok { // ignore if lang_id not exist, assume updated lang_lst between selects
+					langDef.Lang[i].Words[code] = val
 				}
 			}
 			return err
@@ -114,7 +111,7 @@ func GetModelWord(dbConn *sql.DB, modelId int, langCode string) (*ModelWordMeta,
 			// no such language: append new language and append word (code,value) to that language
 			idx := len(meta.ModelWord)
 			meta.ModelWord = append(
-				meta.ModelWord, ModelLangWord{LangCode: lCode, Words: make(map[string]string)})
+				meta.ModelWord, modelLangWord{LangCode: lCode, Words: make(map[string]string)})
 			meta.ModelWord[idx].Words[wCode] = wVal
 
 			return nil

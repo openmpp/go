@@ -94,7 +94,7 @@ type TableMeta struct {
 type ModelWordMeta struct {
 	ModelName   string          // model name for text metadata
 	ModelDigest string          // model digest for text metadata
-	ModelWord   []ModelLangWord // language and db rows of model_word in that language
+	ModelWord   []modelLangWord // language and db rows of model_word in that language
 }
 
 // ProfileMeta is rows from profile_option table.
@@ -108,34 +108,40 @@ type ProfileMeta struct {
 
 // LangMeta is languages and words for each language
 type LangMeta struct {
-	Lang []LangWord // language lang_lst row and lang_word rows in that language
+	Lang      []langWord     // language lang_lst row and lang_word rows in that language
+	idIndex   map[int]int    // language id index
+	codeIndex map[string]int // language code index
 }
-
-// If there are additional languages in message.ini files which are not in lang_lst table
-// then lang_id >= Lang_Id_Ini_1
-//
-const Lang_Id_Ini_1 = 7000 // min lang_id for languages from message.ini
 
 // LangLstRow is db row of lang_lst table.
 //
 // langId is db-unique id of the language.
 // LangCode is unique language code: EN, FR.
 type LangLstRow struct {
-	LangId   int    // lang_id   INT          NOT NULL
+	langId   int    // lang_id   INT          NOT NULL
 	LangCode string // lang_code VARCHAR(32)  NOT NULL
 	Name     string // lang_name VARCHAR(255) NOT NULL
 }
 
 // langWord is language lang_lst row and lang_word rows in that language
-type LangWord struct {
+type langWord struct {
 	LangLstRow                   // lang_lst db-table row
 	Words      map[string]string // lang_word db-table rows as (code, value) map
 }
 
 // modelLangWord is language and db rows of model_word in that language
-type ModelLangWord struct {
+type modelLangWord struct {
 	LangCode string            // lang_code    VARCHAR(32)  NOT NULL
 	Words    map[string]string // model_word db-table rows as (code, value) map
+}
+
+// language and translated strings in that language:
+// merge of model.message.ini, common.message.ini, model_word, lang_word
+// it can have extra Lang code from ini files, which does not exists in lang_lst
+type LangMsg struct {
+	Lang string            // language code e.g.: lang_code VARCHAR(32)  NOT NULL
+	Name string            // language name e.g.: lang_name VARCHAR(255) NOT NULL
+	Msg  map[string]string // translated strings map (code, label)
 }
 
 // DescrNote is a holder for language code, descripriton and notes

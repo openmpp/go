@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -253,116 +254,69 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			return nil, err
 		}
 
-		// append languages from common.message.ini
-		sc := ""
-		n := -1
-		for _, ei := range cmIni {
+		// make list of model translated strings
+		// merge of model.message.ini, common.message.ini, model_word, lang_word
+		msgLst := []db.LangMsg{}
 
-			if ei.Section != sc { // new language code
+		// copy lang_word translated strings
+		for _, ld := range langDef.Lang {
 
-				sc = ei.Section
-				n = -1 // find existing lang_lst row or append new
+			msgLst = append(msgLst,
+				db.LangMsg{
+					Lang: ld.LangCode,
+					Name: ld.Name,
+					Msg:  maps.Clone(ld.Words),
+				})
+		}
 
-				for j := 0; j < len(langDef.Lang); j++ {
-					if strings.EqualFold(langDef.Lang[j].LangCode, sc) {
-						n = j
-						break
-					}
-				}
-				if n < 0 { //language code does not exists in database: create new LangLstRow
-					n = len(langDef.Lang)
-
-					langDef.Lang = append(langDef.Lang, db.LangWord{
-						LangLstRow: db.LangLstRow{
-							LangCode: sc,
-							Name:     sc,
-							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
-						},
-						Words: map[string]string{},
-					})
-				}
-			}
-
-			// append word list in that language: section content from common.message.ini
-			if ei.Key != "" && ei.Val != "" {
-				langDef.Lang[n].Words[ei.Key] = ei.Val
+		// insert or update model_word rows into translated strings
+		for _, mw := range wLst.ModelWord {
+			// check model_word language: skip if not exists in lang_lst, it may be deleted from model_word
+			if j := slices.IndexFunc(msgLst, func(lm db.LangMsg) bool { return lm.Lang == mw.LangCode }); j >= 0 {
+				maps.Copy(msgLst[j].Msg, mw.Words)
 			}
 		}
 
-		// append languages from model.message.ini
-		mdIni := []config.IniEntry{}
-		if ea, e := readModelMessageIni(dicLst[idx].Name, dbDir); e == nil {
-			mdIni = ea
+		// use content of message.ini to append languages and insert or update translated strings
+		fromIniMsg := func(eiLst []config.IniEntry) {
+
+			for _, ei := range eiLst {
+
+				n := slices.IndexFunc(msgLst, func(lm db.LangMsg) bool { return strings.EqualFold(lm.Lang, ei.Section) })
+
+				if n < 0 { // append new language from ini file
+
+					n = len(msgLst)
+					msgLst = append(msgLst,
+						db.LangMsg{
+							Lang: ei.Section,
+							Name: ei.Section, // we can use language/display matching the name in model defult language
+							Msg:  map[string]string{},
+						})
+				}
+				msgLst[n].Msg[ei.Key] = ei.Val // insrert or replace transalted string from ini file
+			}
 		}
 
-		sc = ""
-		n = -1
-		for _, ei := range mdIni {
+		// update translated strings usig common.message.ini
+		fromIniMsg(cmIni)
 
-			if ei.Section != sc { // new language code
-
-				sc = ei.Section
-				n = -1 // find existing lang_lst row or append new
-
-				for j := 0; j < len(langDef.Lang); j++ {
-					if strings.EqualFold(langDef.Lang[j].LangCode, sc) {
-						n = j
-						break
-					}
-				}
-				if n < 0 { // language code does not exists in database: append new lang_lst row
-					langDef.Lang = append(langDef.Lang, db.LangWord{
-						LangLstRow: db.LangLstRow{
-							LangCode: sc,
-							Name:     sc,
-							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
-						},
-						Words: map[string]string{}, // always empty: do not apppend model.message.ini to common words list
-					})
-				}
-
-				n = -1 // find existing or append new language into model_word rows list
-
-				for j := 0; j < len(wLst.ModelWord); j++ {
-
-					if strings.EqualFold(wLst.ModelWord[j].LangCode, sc) {
-						n = j
-						break
-					}
-				}
-				if n < 0 { // language code does not exists in database: append new model_word row
-					n = len(wLst.ModelWord)
-
-					wLst.ModelWord = append(wLst.ModelWord, db.ModelLangWord{LangCode: sc, Words: map[string]string{}})
-
-					langDef.Lang = append(langDef.Lang, db.LangWord{
-						LangLstRow: db.LangLstRow{
-							LangCode: sc,
-							Name:     sc,
-							LangId:   db.Lang_Id_Ini_1 + len(langDef.Lang) + 1,
-						},
-						Words: map[string]string{}, // always empty: do not apppend model.message.ini words
-					})
-				}
-			}
-
-			// append model word list in that language: section content from model.message.ini
-			if ei.Key != "" && ei.Val != "" {
-				wLst.ModelWord[n].Words[ei.Key] = ei.Val
-			}
+		// update translated strings using model.message.ini
+		if mdIni, e := readModelMessageIni(dicLst[idx].Name, dbDir); e == nil {
+			fromIniMsg(mdIni)
 		}
 
 		// make model languages list, starting from default language
 		ml := []string{}
 		lt := []language.Tag{}
 
-		for k := range langDef.Lang {
-			if strings.EqualFold(langDef.Lang[k].LangCode, dicLst[idx].DefaultLangCode) {
-				ml = append([]string{langDef.Lang[k].LangCode}, ml...)
-				lt = append([]language.Tag{language.Make(langDef.Lang[k].LangCode)}, lt...)
+		for k := range msgLst {
+			if strings.EqualFold(msgLst[k].Lang, dicLst[idx].DefaultLangCode) {
+				ml = append([]string{msgLst[k].Lang}, ml...)
+				lt = append([]language.Tag{language.Make(msgLst[k].Lang)}, lt...)
 			} else {
-				ml = append(ml, langDef.Lang[k].LangCode)
-				lt = append(lt, language.Make(langDef.Lang[k].LangCode))
+				ml = append(ml, msgLst[k].Lang)
+				lt = append(lt, language.Make(msgLst[k].Lang))
 			}
 		}
 
@@ -388,6 +342,7 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			langMeta:      langDef,
 			matcher:       language.NewMatcher(lt),
 			modelWord:     wLst,
+			msg:           msgLst,
 			extra:         me})
 	}
 

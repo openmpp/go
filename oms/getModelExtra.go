@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/omppLog"
@@ -172,6 +173,28 @@ func (mc *ModelCatalog) WordListByDigestOrName(dn string, preferredLang []langua
 		mlw.ModelLangCode = mc.modelLst[idx].modelWord.ModelWord[i].LangCode // actual language of result
 		for c, v := range mc.modelLst[idx].modelWord.ModelWord[i].Words {
 			mlw.ModelWords = append(mlw.ModelWords, codeLabel{Code: c, Label: v})
+		}
+	}
+
+	// find model translated strings in preferred or model default language
+	nd = 0
+	for i = 0; i < len(mc.modelLst[idx].msg); i++ {
+		if strings.EqualFold(mc.modelLst[idx].msg[i].Lang, lc) {
+			break // language match
+		}
+		if strings.EqualFold(mc.modelLst[idx].msg[i].Lang, lcd) {
+			nd = i // index of default language
+		}
+	}
+	if i >= len(mc.modelLst[idx].msg) {
+		i = nd // use default language or zero index row
+	}
+
+	// copy model translated strings, if exist for that language index
+	if i < len(mc.modelLst[idx].msg) {
+		mlw.MsgLangCode = mc.modelLst[idx].msg[i].Lang // actual language of result
+		for c, v := range mc.modelLst[idx].msg[i].Msg {
+			mlw.Msg = append(mlw.Msg, codeLabel{Code: c, Label: v})
 		}
 	}
 

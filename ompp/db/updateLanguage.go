@@ -29,6 +29,12 @@ func UpdateLanguage(dbConn *sql.DB, langDef *LangMeta) error {
 		return err
 	}
 
+	// rebuild language id index
+	langDef.idIndex = make(map[int]int, len(langDef.Lang))
+	for k := range langDef.Lang {
+		langDef.idIndex[langDef.Lang[k].langId] = k
+	}
+
 	trx.Commit()
 	return nil
 }
@@ -75,24 +81,24 @@ func doUpdateLanguage(trx *sql.Tx, langDef *LangMeta) error {
 	for idx := range langDef.Lang {
 
 		// check if this language already exist
-		langDef.Lang[idx].LangId = -1
+		langDef.Lang[idx].langId = -1
 		err := TrxSelectFirst(trx,
 			"SELECT lang_id FROM lang_lst WHERE lang_code = "+ToQuoted(langDef.Lang[idx].LangCode),
 			func(row *sql.Row) error {
-				return row.Scan(&langDef.Lang[idx].LangId)
+				return row.Scan(&langDef.Lang[idx].langId)
 			})
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
 
 		// if language exist then update else insert into lang_lst
-		if langDef.Lang[idx].LangId >= 0 {
+		if langDef.Lang[idx].langId >= 0 {
 
 			// UPDATE lang_lst SET lang_name = 'English' WHERE lang_id = 0
 			err = TrxUpdate(trx,
 				"UPDATE lang_lst"+
 					" SET lang_name = "+toQuotedMax(langDef.Lang[idx].Name, nameDbMax)+
-					" WHERE lang_id = "+strconv.Itoa(langDef.Lang[idx].LangId))
+					" WHERE lang_id = "+strconv.Itoa(langDef.Lang[idx].langId))
 			if err != nil {
 				return err
 			}
@@ -107,7 +113,7 @@ func doUpdateLanguage(trx *sql.Tx, langDef *LangMeta) error {
 			err = TrxSelectFirst(trx,
 				"SELECT id_value FROM id_lst WHERE id_key = 'lang_id'",
 				func(row *sql.Row) error {
-					return row.Scan(&langDef.Lang[idx].LangId)
+					return row.Scan(&langDef.Lang[idx].langId)
 				})
 			switch {
 			case err == sql.ErrNoRows:
@@ -120,7 +126,7 @@ func doUpdateLanguage(trx *sql.Tx, langDef *LangMeta) error {
 			err = TrxUpdate(trx,
 				"INSERT INTO lang_lst (lang_id, lang_code, lang_name)"+
 					" VALUES ("+
-					strconv.Itoa(langDef.Lang[idx].LangId)+", "+
+					strconv.Itoa(langDef.Lang[idx].langId)+", "+
 					toQuotedMax(langDef.Lang[idx].LangCode, codeDbMax)+", "+
 					toQuotedMax(langDef.Lang[idx].Name, nameDbMax)+")")
 			if err != nil {
@@ -129,7 +135,7 @@ func doUpdateLanguage(trx *sql.Tx, langDef *LangMeta) error {
 		}
 
 		// update lang_word for that language
-		if err = doUpdateWord(trx, langDef.Lang[idx].LangId, langDef.Lang[idx].Words); err != nil {
+		if err = doUpdateWord(trx, langDef.Lang[idx].langId, langDef.Lang[idx].Words); err != nil {
 			return err
 		}
 	}

@@ -46,6 +46,12 @@ func (src *LangMeta) Clone() (*LangMeta, error) {
 		return nil, err
 	}
 
+	// copy language id: it is non-public and update internals
+	for k := range src.Lang {
+		dst.Lang[k].langId = src.Lang[k].langId
+	}
+	dst.updateInternals() // update internals
+
 	return dst, nil
 }
 
@@ -84,26 +90,22 @@ func (dst *LangMeta) FromJson(srcJson []byte) (bool, error) {
 	if !isExist {
 		return false, nil
 	}
+	dst.updateInternals()
 	return true, nil
 }
 
 // IdByCode return language id by language code or first language if code not found
-// or if it is language from messag.ini file and not exist in database
 func (langDef *LangMeta) IdByCode(langCode string) (int, bool) {
-	for _, ln := range langDef.Lang {
-		if ln.LangId < Lang_Id_Ini_1 && strings.EqualFold(ln.LangCode, langCode) {
-			return ln.LangId, true
-		}
+	if i, ok := langDef.codeIndex[langCode]; ok {
+		return langDef.Lang[i].langId, true
 	}
-	return langDef.Lang[0].LangId, false
+	return langDef.Lang[0].langId, false
 }
 
 // CodeIdId return language code by language id or first language if id not found
 func (langDef *LangMeta) CodeById(langId int) (string, bool) {
-	for _, ln := range langDef.Lang {
-		if ln.LangId == langId {
-			return ln.LangCode, true
-		}
+	if i, ok := langDef.idIndex[langId]; ok {
+		return langDef.Lang[i].LangCode, true
 	}
 	return langDef.Lang[0].LangCode, false
 }
