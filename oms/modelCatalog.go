@@ -50,6 +50,7 @@ type modelDef struct {
 	matcher       language.Matcher  // matcher to search text by language
 	langMeta      *db.LangMeta      // list of languages: one list per db connection, order of languages NOT the same as language codes
 	modelWord     *db.ModelWordMeta // if not nil then list of model words, order of languages NOT the same as language codes
+	msg           []db.LangMsg      // list of languages and translated strings: merge of model.message.ini, common.message.ini, model_word, lang_word
 	extra         string            // if not empty then model extra content from models/bin/dir/model.extra.json
 }
 
@@ -74,6 +75,8 @@ type ModelWordLabel struct {
 	LangWords     []codeLabel // lang_word db table rows as (code, value)
 	ModelLangCode string      // language code selected for model_word table rows
 	ModelWords    []codeLabel // model_word db table rows as (code, value)
+	MsgLangCode   string      // language code selected for translated strings
+	Msg           []codeLabel // translated strings: merge of model.message.ini, common.message.ini, model_word, lang_word
 }
 
 // codeLabel is code + label pair, for example, language-specific "words" db table row.

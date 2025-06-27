@@ -135,6 +135,15 @@ type modelLangWord struct {
 	Words    map[string]string // model_word db-table rows as (code, value) map
 }
 
+// language and translated strings in that language:
+// merge of model.message.ini, common.message.ini, model_word, lang_word
+// it can have extra Lang code from ini files, which does not exists in lang_lst
+type LangMsg struct {
+	Lang string            // language code e.g.: lang_code VARCHAR(32)  NOT NULL
+	Name string            // language name e.g.: lang_name VARCHAR(255) NOT NULL
+	Msg  map[string]string // translated strings map (code, label)
+}
+
 // DescrNote is a holder for language code, descripriton and notes
 type DescrNote struct {
 	LangCode string // lang_code VARCHAR(32)  NOT NULL
