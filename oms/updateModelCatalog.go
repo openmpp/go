@@ -5,7 +5,6 @@ package main
 
 import (
 	"errors"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +14,7 @@ import (
 
 	"golang.org/x/text/language"
 
+	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/helper"
@@ -151,11 +151,9 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 // open SQLite db connection and retrive model or list of models, skip models which are in digest list already
 func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isLogDir bool, modelLogDir string) ([]modelDef, error) {
 
-	dbDir := filepath.Dir(srcPath) // assume model.exe is located in the same directory as db.sqlite
-
 	// read common.message.ini
 	cmIni := []config.IniEntry{}
-	if ea, e := readCommonMessageIni(dbDir); e == nil {
+	if ea, e := ompp.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
 		cmIni = ea
 	}
 
@@ -256,54 +254,16 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 
 		// make list of model translated strings
 		// merge of model.message.ini, common.message.ini, model_word, lang_word
-		msgLst := []db.LangMsg{}
-
-		// copy lang_word translated strings
-		for _, ld := range langDef.Lang {
-
-			msgLst = append(msgLst,
-				db.LangMsg{
-					Lang: ld.LangCode,
-					Name: ld.Name,
-					Msg:  maps.Clone(ld.Words),
-				})
-		}
-
-		// insert or update model_word rows into translated strings
-		for _, mw := range wLst.ModelWord {
-			// check model_word language: skip if not exists in lang_lst, it may be deleted from model_word
-			if j := slices.IndexFunc(msgLst, func(lm db.LangMsg) bool { return lm.Lang == mw.LangCode }); j >= 0 {
-				maps.Copy(msgLst[j].Msg, mw.Words)
-			}
-		}
-
-		// use content of message.ini to append languages and insert or update translated strings
-		fromIniMsg := func(eiLst []config.IniEntry) {
-
-			for _, ei := range eiLst {
-
-				n := slices.IndexFunc(msgLst, func(lm db.LangMsg) bool { return strings.EqualFold(lm.Lang, ei.Section) })
-
-				if n < 0 { // append new language from ini file
-
-					n = len(msgLst)
-					msgLst = append(msgLst,
-						db.LangMsg{
-							Lang: ei.Section,
-							Name: ei.Section, // we can use language/display matching the name in model defult language
-							Msg:  map[string]string{},
-						})
-				}
-				msgLst[n].Msg[ei.Key] = ei.Val // insrert or replace transalted string from ini file
-			}
-		}
+		msgLst := ompp.NewLangMsg(langDef.Lang, wLst.ModelWord)
 
 		// update translated strings usig common.message.ini
-		fromIniMsg(cmIni)
+		msgLst = ompp.AppendLangMsgFromIni(msgLst, cmIni)
 
 		// update translated strings using model.message.ini
-		if mdIni, e := readModelMessageIni(dicLst[idx].Name, dbDir); e == nil {
-			fromIniMsg(mdIni)
+		dbDir := filepath.Dir(srcPath) // assume model.exe is located in the same directory as db.sqlite
+
+		if mdIni, e := ompp.ReadModelMessageIni(dicLst[idx].Name, dbDir, theCfg.encodingName); e == nil {
+			msgLst = ompp.AppendLangMsgFromIni(msgLst, mdIni)
 		}
 
 		// make model languages list, starting from default language
@@ -311,12 +271,12 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 		lt := []language.Tag{}
 
 		for k := range msgLst {
-			if strings.EqualFold(msgLst[k].Lang, dicLst[idx].DefaultLangCode) {
-				ml = append([]string{msgLst[k].Lang}, ml...)
-				lt = append([]language.Tag{language.Make(msgLst[k].Lang)}, lt...)
+			if strings.EqualFold(msgLst[k].LangCode, dicLst[idx].DefaultLangCode) {
+				ml = append([]string{msgLst[k].LangCode}, ml...)
+				lt = append([]language.Tag{language.Make(msgLst[k].LangCode)}, lt...)
 			} else {
-				ml = append(ml, msgLst[k].Lang)
-				lt = append(lt, language.Make(msgLst[k].Lang))
+				ml = append(ml, msgLst[k].LangCode)
+				lt = append(lt, language.Make(msgLst[k].LangCode))
 			}
 		}
 
@@ -502,35 +462,4 @@ func (mc *ModelCatalog) setModelTextMeta(digest string, isFull bool, txtMeta *db
 	mc.modelLst[idx].isTxtMetaFull = isFull
 	mc.modelLst[idx].txtMeta = txtMeta
 	return true
-}
-
-// read common.message.ini file if exists in one of:
-//
-//	path/to/exe/common.message.ini
-//	OM_ROOT/common.message.ini
-//	OM_ROOT/models/common.message.ini
-func readCommonMessageIni(exeDir string) ([]config.IniEntry, error) {
-
-	p := filepath.Join(exeDir, "common.message.ini")
-	if cmIni, e := config.NewIni(p, theCfg.codePage); e == nil && len(cmIni) > 0 {
-		return cmIni, e
-	}
-
-	if omroot := os.Getenv("OM_ROOT"); omroot != "" {
-		p := filepath.Join(omroot, "common.message.ini")
-		if cmIni, e := config.NewIni(p, theCfg.codePage); e == nil && len(cmIni) > 0 {
-			return cmIni, e
-		}
-
-		p = filepath.Join(omroot, "models", "common.message.ini")
-		return config.NewIni(p, theCfg.codePage)
-	}
-	return []config.IniEntry{}, nil
-}
-
-// read path/to/exe/modelName.message.ini file if exists
-func readModelMessageIni(modelName, exeDir string) ([]config.IniEntry, error) {
-
-	p := filepath.Join(exeDir, modelName+".message.ini")
-	return config.NewIni(p, theCfg.codePage)
 }

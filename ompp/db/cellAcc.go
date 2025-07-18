@@ -36,7 +36,7 @@ type CellAccConverter struct {
 type CellAccLocaleConverter struct {
 	CellAccConverter
 	Lang    string            // language code, expected to compatible with BCP 47 language tag
-	LangDef *LangMeta         // language metadata to find translations
+	MsgDef  []LangMsg         // translated strings in multiple languages
 	DimsTxt []TableDimsTxtRow // output table dimension text rows: table_dims_txt join to model_table_dic
 	EnumTxt []TypeEnumTxtRow  // type enum text rows: type_enum_txt join to model_type_dic
 	AccTxt  []TableAccTxtRow  // output table accumulator text rows: table_acc_txt join to model_table_dic
@@ -303,7 +303,7 @@ func (cellCvt *CellAccLocaleConverter) ToCsvRow() (func(interface{}, []string) (
 	fd := make([]func(itemId int) (string, error), table.Rank)
 
 	for k := 0; k < table.Rank; k++ {
-		f, err := table.Dim[k].typeOf.itemIdToLabel(cellCvt.Lang, cellCvt.EnumTxt, cellCvt.LangDef, cellCvt.Name+"."+table.Dim[k].Name, table.Dim[k].IsTotal)
+		f, err := table.Dim[k].typeOf.itemIdToLabel(cellCvt.Lang, cellCvt.EnumTxt, cellCvt.MsgDef, cellCvt.Name+"."+table.Dim[k].Name, table.Dim[k].IsTotal)
 		if err != nil {
 			return nil, err
 		}

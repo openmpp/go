@@ -45,7 +45,7 @@ type CellExprConverter struct {
 type CellExprLocaleConverter struct {
 	CellExprConverter
 	Lang    string            // language code, expected to compatible with BCP 47 language tag
-	LangDef *LangMeta         // language metadata to find translations
+	MsgDef  []LangMsg         // translated strings in multiple languages
 	DimsTxt []TableDimsTxtRow // output table dimension text rows: table_dims_txt join to model_table_dic
 	EnumTxt []TypeEnumTxtRow  // type enum text rows: type_enum_txt join to model_type_dic
 	ExprTxt []TableExprTxtRow // output table expression text rows: table_expr_txt join to model_table_dic
@@ -307,7 +307,7 @@ func (cellCvt *CellExprLocaleConverter) ToCsvRow() (func(interface{}, []string) 
 	fd := make([]func(itemId int) (string, error), len(table.Dim))
 
 	for k := range table.Dim {
-		f, err := table.Dim[k].typeOf.itemIdToLabel(cellCvt.Lang, cellCvt.EnumTxt, cellCvt.LangDef, cellCvt.Name+"."+table.Dim[k].Name, table.Dim[k].IsTotal)
+		f, err := table.Dim[k].typeOf.itemIdToLabel(cellCvt.Lang, cellCvt.EnumTxt, cellCvt.MsgDef, cellCvt.Name+"."+table.Dim[k].Name, table.Dim[k].IsTotal)
 		if err != nil {
 			return nil, err
 		}

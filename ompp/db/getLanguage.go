@@ -21,7 +21,7 @@ func GetLanguages(dbConn *sql.DB) (*LangMeta, error) {
 			if err := rows.Scan(&r.langId, &r.LangCode, &r.Name); err != nil {
 				return err
 			}
-			langDef.Lang = append(langDef.Lang, langWord{LangLstRow: r, Words: make(map[string]string)})
+			langDef.Lang = append(langDef.Lang, LangWord{LangLstRow: r, Words: make(map[string]string)})
 			return nil
 		})
 	if err != nil {
@@ -111,7 +111,7 @@ func GetModelWord(dbConn *sql.DB, modelId int, langCode string) (*ModelWordMeta,
 			// no such language: append new language and append word (code,value) to that language
 			idx := len(meta.ModelWord)
 			meta.ModelWord = append(
-				meta.ModelWord, modelLangWord{LangCode: lCode, Words: make(map[string]string)})
+				meta.ModelWord, ModelLangWord{LangCode: lCode, Words: make(map[string]string)})
 			meta.ModelWord[idx].Words[wCode] = wVal
 
 			return nil

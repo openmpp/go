@@ -94,7 +94,7 @@ type TableMeta struct {
 type ModelWordMeta struct {
 	ModelName   string          // model name for text metadata
 	ModelDigest string          // model digest for text metadata
-	ModelWord   []modelLangWord // language and db rows of model_word in that language
+	ModelWord   []ModelLangWord // language and db rows of model_word in that language
 }
 
 // ProfileMeta is rows from profile_option table.
@@ -108,7 +108,7 @@ type ProfileMeta struct {
 
 // LangMeta is languages and words for each language
 type LangMeta struct {
-	Lang      []langWord     // language lang_lst row and lang_word rows in that language
+	Lang      []LangWord     // language lang_lst row and lang_word rows in that language
 	idIndex   map[int]int    // language id index
 	codeIndex map[string]int // language code index
 }
@@ -123,14 +123,14 @@ type LangLstRow struct {
 	Name     string // lang_name VARCHAR(255) NOT NULL
 }
 
-// langWord is language lang_lst row and lang_word rows in that language
-type langWord struct {
+// language lang_lst row and lang_word rows in that language
+type LangWord struct {
 	LangLstRow                   // lang_lst db-table row
 	Words      map[string]string // lang_word db-table rows as (code, value) map
 }
 
-// modelLangWord is language and db rows of model_word in that language
-type modelLangWord struct {
+// language and db rows of model_word in that language
+type ModelLangWord struct {
 	LangCode string            // lang_code    VARCHAR(32)  NOT NULL
 	Words    map[string]string // model_word db-table rows as (code, value) map
 }
@@ -139,9 +139,8 @@ type modelLangWord struct {
 // merge of model.message.ini, common.message.ini, model_word, lang_word
 // it can have extra Lang code from ini files, which does not exists in lang_lst
 type LangMsg struct {
-	Lang string            // language code e.g.: lang_code VARCHAR(32)  NOT NULL
-	Name string            // language name e.g.: lang_name VARCHAR(255) NOT NULL
-	Msg  map[string]string // translated strings map (code, label)
+	LangCode string            // language code e.g.: lang_code VARCHAR(32)  NOT NULL
+	Msg      map[string]string // translated strings map (code, label)
 }
 
 // DescrNote is a holder for language code, descripriton and notes

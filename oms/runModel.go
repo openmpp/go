@@ -778,7 +778,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 			}
 			var e2 error
 
-			eaIni, e2 = config.NewIni(p, theCfg.codePage)
+			eaIni, e2 = config.NewIni(p, theCfg.encodingName)
 			if e2 != nil {
 				return []string{}, "", e2
 			}

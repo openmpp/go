@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/helper"
@@ -249,6 +250,15 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 		if err != nil {
 			return errors.New("Error at get language-specific metadata: " + err.Error())
 		}
+
+		// make list of model translated strings: merge common.message.ini and lang_word
+		msgLst := ompp.NewLangMsg(langDef.Lang, nil)
+
+		if cmIni, e := ompp.ReadCommonMessageIni(theCfg.binDir, theCfg.encodingName); e == nil {
+			msgLst = ompp.AppendLangMsgFromIni(msgLst, cmIni)
+		}
+
+		// model language-specific lables for dimensions, items and tables
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
 			return errors.New("Error at get language-specific metadata: " + err.Error())
@@ -257,7 +267,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 		cvtLoc := &db.CellTableCalcLocaleConverter{
 			CellTableCalcConverter: cvtTable,
 			Lang:                   theCfg.lang,
-			LangDef:                langDef,
+			MsgDef:                 msgLst,
 			DimsTxt:                txt.TableDimsTxt,
 			EnumTxt:                txt.TypeEnumTxt,
 		}

@@ -528,6 +528,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -618,6 +619,7 @@ var theCfg = struct {
 	kind            outputAs // output as csv, tsv or json
 	fileName        string   // output file name, default depends on action
 	dir             string   // output directory
+	binDir          string   // path to bin directory where dbget.exe is located
 	isKeepOutputDir bool     // if true then keep existing output directory
 	isConsole       bool     // if true then write into stdout
 	modelName       string   // model name
@@ -760,6 +762,13 @@ func mainBody(args []string) error {
 			return err
 		}
 	}
+
+	// path to bin directory where dbget.exe is located
+	selfPath, err := filepath.Abs(args[0])
+	if err != nil {
+		return errors.New("Error: unable to make absolute path to dbget: " + err.Error())
+	}
+	theCfg.binDir = filepath.Dir(selfPath)
 
 	// get common run options
 	theCfg.action = runOpts.String(cmdArgKey)

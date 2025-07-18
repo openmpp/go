@@ -926,7 +926,7 @@ func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map
 		return jsState, cfgRes
 	}
 
-	opts, err := config.FromIni(jobIniPath, theCfg.codePage)
+	opts, err := config.FromIni(jobIniPath, theCfg.encodingName)
 	if err != nil {
 		omppLog.Log(err)
 		return jsState, cfgRes

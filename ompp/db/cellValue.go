@@ -197,7 +197,7 @@ func (typeOf *TypeMeta) itemIdToCode(msgName string, isTotalEnabled bool) (func(
 // If dimension is enum-based then from enum id to enum description or to the "all" total enum label;
 // If dimension is simple integer type then use Itoa(integer id) as code;
 // If dimension is boolean then 0=>false, (1 or -1)=>true else error
-func (typeOf *TypeMeta) itemIdToLabel(lang string, enumTxt []TypeEnumTxtRow, langDef *LangMeta, msgName string, isTotalEnabled bool) (func(itemId int) (string, error), error) {
+func (typeOf *TypeMeta) itemIdToLabel(lang string, enumTxt []TypeEnumTxtRow, msgLst []LangMsg, msgName string, isTotalEnabled bool) (func(itemId int) (string, error), error) {
 
 	if lang == "" {
 		return typeOf.itemIdToCode(msgName, isTotalEnabled) // language is empty: retrun converter from id to enum code
@@ -221,13 +221,13 @@ func (typeOf *TypeMeta) itemIdToLabel(lang string, enumTxt []TypeEnumTxtRow, lan
 		}
 	}
 
-	// if total item enabled in dimension then find language-specific total label
+	// find language-specific total label
 	allLabel := TotalEnumCode
 
-	if isTotalEnabled && langDef != nil {
-		for j := range langDef.Lang {
-			if langDef.Lang[j].LangCode == lang {
-				if lbl, ok := langDef.Lang[j].Words[TotalEnumCode]; ok {
+	if isTotalEnabled {
+		for j := range msgLst {
+			if msgLst[j].LangCode == lang {
+				if lbl, ok := msgLst[j].Msg[TotalEnumCode]; ok {
 					allLabel = lbl
 				}
 			}

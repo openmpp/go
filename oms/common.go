@@ -327,15 +327,13 @@ func writeToCmdLog(logPath string, isDoTimestamp bool, msg ...string) bool {
 }
 
 // dbcopyPath return path to dbcopy.exe, it is expected to be in the same directory as oms.exe.
-// argument omsAbsPath expected to be /absolute/path/to/oms.exe
-func dbcopyPath(omsAbsPath string) string {
+func dbcopyPath(binDir string) string {
 
-	d := filepath.Dir(omsAbsPath)
-	p := filepath.Join(d, "dbcopy.exe")
+	p := filepath.Join(binDir, "dbcopy.exe")
 	if fileExist(p) {
 		return p
 	}
-	p = filepath.Join(d, "dbcopy")
+	p = filepath.Join(binDir, "dbcopy")
 	if fileExist(p) {
 		return p
 	}

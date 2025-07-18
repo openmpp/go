@@ -179,10 +179,10 @@ func (mc *ModelCatalog) WordListByDigestOrName(dn string, preferredLang []langua
 	// find model translated strings in preferred or model default language
 	nd = 0
 	for i = 0; i < len(mc.modelLst[idx].msg); i++ {
-		if strings.EqualFold(mc.modelLst[idx].msg[i].Lang, lc) {
+		if strings.EqualFold(mc.modelLst[idx].msg[i].LangCode, lc) {
 			break // language match
 		}
-		if strings.EqualFold(mc.modelLst[idx].msg[i].Lang, lcd) {
+		if strings.EqualFold(mc.modelLst[idx].msg[i].LangCode, lcd) {
 			nd = i // index of default language
 		}
 	}
@@ -192,7 +192,7 @@ func (mc *ModelCatalog) WordListByDigestOrName(dn string, preferredLang []langua
 
 	// copy model translated strings, if exist for that language index
 	if i < len(mc.modelLst[idx].msg) {
-		mlw.MsgLangCode = mc.modelLst[idx].msg[i].Lang // actual language of result
+		mlw.MsgLangCode = mc.modelLst[idx].msg[i].LangCode // actual language of result
 		for c, v := range mc.modelLst[idx].msg[i].Msg {
 			mlw.Msg = append(mlw.Msg, codeLabel{Code: c, Label: v})
 		}

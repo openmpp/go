@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/omppLog"
@@ -115,6 +116,15 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 		if err != nil {
 			return errors.New("Error at get language-specific metadata: " + err.Error())
 		}
+
+		// make list of model translated strings: merge common.message.ini and lang_word
+		msgLst := ompp.NewLangMsg(langDef.Lang, nil)
+
+		if cmIni, e := ompp.ReadCommonMessageIni(theCfg.binDir, theCfg.encodingName); e == nil {
+			msgLst = ompp.AppendLangMsgFromIni(msgLst, cmIni)
+		}
+
+		// model language-specific lables for dimensions, items and tables
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
 			return errors.New("Error at get model text metadata: " + err.Error())
@@ -123,7 +133,7 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 		cvtLoc := &db.CellAccLocaleConverter{
 			CellAccConverter: *cvtAcc,
 			Lang:             theCfg.lang,
-			LangDef:          langDef,
+			MsgDef:           msgLst,
 			DimsTxt:          txt.TableDimsTxt,
 			EnumTxt:          txt.TypeEnumTxt,
 			AccTxt:           txt.TableAccTxt,

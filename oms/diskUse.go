@@ -275,7 +275,7 @@ func initDiskState(diskIniPath string) (bool, diskUseConfig) {
 		return true, cfg
 	}
 
-	opts, err := config.FromIni(diskIniPath, theCfg.codePage)
+	opts, err := config.FromIni(diskIniPath, theCfg.encodingName)
 	if err != nil {
 		omppLog.Log(err)
 		return false, cfg

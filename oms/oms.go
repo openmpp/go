@@ -204,6 +204,7 @@ var theCfg = struct {
 	rootDir      string            // server root directory
 	htmlDir      string            // front-end UI directory with html and javascript
 	etcDir       string            // configuration files directory
+	omsBinDir    string            // path to bin directory where oms.exe and dbcopy.exe are located
 	isHome       bool              // if true then it is a single user mode
 	homeDir      string            // user home directory
 	downloadDir  string            // if download allowed then it is home/io/download directory
@@ -219,7 +220,7 @@ var theCfg = struct {
 	omsName      string            // oms instance name, if empty then derived from address to listen
 	dbcopyPath   string            // if download or upload allowed then it is path to dbcopy.exe
 	doubleFmt    string            // format to convert float or double value to string
-	codePage     string            // "code page" to convert source file into utf-8, for example: windows-1252
+	encodingName string            // "code page" to convert source file into utf-8, for example: windows-1252
 	env          map[string]string // server config environmemt variables to control UI
 	uiExtra      string            // UI extra configuration from etc/ui.extra.json
 }{
@@ -305,7 +306,7 @@ func mainBody(args []string) error {
 	isAdmin := !runOpts.Bool(noAdminArgKey)
 	isShutdown := !runOpts.Bool(noShutdownArgKey)
 	theCfg.doubleFmt = runOpts.String(doubleFormatArgKey)
-	theCfg.codePage = runOpts.String(encodingArgKey)
+	theCfg.encodingName = runOpts.String(encodingArgKey)
 
 	// get server config environmemt variables and pass it to UI
 	env := os.Environ()
@@ -331,10 +332,11 @@ func mainBody(args []string) error {
 	uiLangMatcher = language.NewMatcher(lt)
 
 	// change to root directory
-	omsAbsPath, err := filepath.Abs(args[0])
+	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
 		return errors.New("Error: unable to make absolute path to oms: " + err.Error())
 	}
+	theCfg.omsBinDir = filepath.Dir(selfPath)
 
 	theCfg.rootDir = filepath.Clean(runOpts.String(rootDirArgKey)) // server root directory
 
@@ -408,7 +410,7 @@ func mainBody(args []string) error {
 	isDownload := false
 	isUpload := false
 
-	theCfg.dbcopyPath = dbcopyPath(omsAbsPath)
+	theCfg.dbcopyPath = dbcopyPath(theCfg.omsBinDir)
 
 	if runOpts.Bool(isDownloadArgKey) {
 		if theCfg.inOutDir != "" && theCfg.dbcopyPath != "" {
