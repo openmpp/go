@@ -1,5 +1,16 @@
+ui.extra.json allow UI customization
+
+ModelTreeDescending: false by default
+
+if true then models tree sorted in descending order, e.g.: RiskPaths, IDMM
+
+MoreMenu: [array] of top right corner menu links
+
+Example:
+
 {
-  "ModelTreeDescending": false,
+  "ModelTreeDescending": true,
+
   "MoreMenu": [{
       "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-User-Interface",
       "LangCode": "en",
