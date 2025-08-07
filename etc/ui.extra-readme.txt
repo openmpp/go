@@ -1,56 +1,21 @@
-ui.extra.json allow UI customization
+etc/ui.extra.json
 
-ModelTreeDescending: false by default
+It is used for UI customization.
+oms reads it on startup, after changing it you need to restart oms
 
-if true then models tree sorted in descending order, e.g.: RiskPaths, IDMM
+MoreMenu:
+  [array] of top right corner menu links.
 
-MoreMenu: [array] of top right corner menu links
+ModelTreeDescending:
+  if exists then must be true / false
 
-Example:
+if ModelTreeDescending does not exists in ui.extra.json then default models tree sort order is undefined.
+Most likely it is case sensitive, ascending:
+  MyModel, RiskPaths, myModel, riskPa
 
-{
-  "ModelTreeDescending": true,
+if ModelTreeDescending: false then sort order case neutral, ascending
+  MyModel, myModel, riskPa, RiskPaths
 
-  "MoreMenu": [{
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-User-Interface",
-      "LangCode": "en",
-      "Label": "UI Help"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-User-Interface",
-      "LangCode": "fr",
-      "Label": "Aide de l'interface"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-Create-New-or-Edit-Scenario",
-      "LangCode": "en",
-      "Label": "Create Scenario"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-Create-New-or-Edit-Scenario",
-      "LangCode": "fr",
-      "Label": "Créer un scénario"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-Disk-Space-Cleanup",
-      "LangCode": "en",
-      "Label": "Disk Cleanup"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-Disk-Space-Cleanup",
-      "LangCode": "fr",
-      "Label": "Nettoyage de disque"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki",
-      "LangCode": "en",
-      "Label": "OpenM++ wiki"
-    }, {
-      "Link": "https://github.com/openmpp/openmpp.github.io/wiki",
-      "LangCode": "fr",
-      "Label": "Wiki d'OpenM++"
-    }, {
-      "Link": "https://openmpp.org",
-      "LangCode": "en",
-      "Label": "OpenM++ website"
-    }, {
-      "Link": "https://openmpp.org",
-      "LangCode": "fr",
-      "Label": "Site d'OpenM++"
-    }
-  ]
-}
+if ModelTreeDescending: true  then sort order case neutral, descending:
+  RiskPaths, riskPa, MyModel, myModel
+
