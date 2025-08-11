@@ -177,31 +177,6 @@ func dirStat(dirPath string) (fs.FileInfo, error) {
 	return fi, nil
 }
 
-// fileExist return error if file not exist, not accessible or it is not a regular file
-func fileExist(filePath string) bool {
-	if filePath == "" {
-		return false
-	}
-	_, err := fileStat(filePath)
-	return err == nil
-}
-
-// return file Stat if this is a regular file
-func fileStat(filePath string) (fs.FileInfo, error) {
-
-	fi, err := os.Stat(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fi, errors.New("Error: file not exist: " + filePath)
-		}
-		return fi, errors.New("Error: unable to access file: " + filePath + " : " + err.Error())
-	}
-	if fi.IsDir() || !fi.Mode().IsRegular() {
-		return fi, errors.New("Error: it is not a regilar file: " + filePath)
-	}
-	return fi, nil
-}
-
 // return list of files by pattern, on error log error message
 func filesByPattern(ptrn string, msg string) []string {
 
@@ -330,11 +305,11 @@ func writeToCmdLog(logPath string, isDoTimestamp bool, msg ...string) bool {
 func dbcopyPath(binDir string) string {
 
 	p := filepath.Join(binDir, "dbcopy.exe")
-	if fileExist(p) {
+	if helper.IsFileExist(p) {
 		return p
 	}
 	p = filepath.Join(binDir, "dbcopy")
-	if fileExist(p) {
+	if helper.IsFileExist(p) {
 		return p
 	}
 	return "" // dbcopy not found or not accessible or it is not a regular file

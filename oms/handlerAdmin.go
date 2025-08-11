@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -448,7 +449,7 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logPath := filepath.Join(logDir, logName)
 
-	fi, err := fileStat(logPath)
+	fi, err := helper.FileStat(logPath)
 	if err != nil {
 		http.Error(w, "Error at db cleanup log file get: "+err.Error(), http.StatusBadRequest)
 		return

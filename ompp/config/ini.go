@@ -5,6 +5,8 @@ package config
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -299,4 +301,40 @@ func IniSectionList(eaIni []IniEntry) []string {
 		sc = e.Section
 	}
 	return scLst
+}
+
+// read common.message.ini file if exists in one of:
+//
+//	path/to/exe/common.message.ini
+//	OM_ROOT/common.message.ini
+//	OM_ROOT/models/common.message.ini
+func ReadCommonMessageIni(exeDir string, encodingName string) ([]IniEntry, error) {
+
+	if cmIni, e := ReadMessageIni("common.message.ini", exeDir, encodingName); e == nil && len(cmIni) > 0 {
+		return cmIni, e
+	}
+
+	if omroot := os.Getenv("OM_ROOT"); omroot != "" {
+		if cmIni, e := ReadMessageIni("common.message.ini", omroot, encodingName); e == nil && len(cmIni) > 0 {
+			return cmIni, e
+		}
+		return ReadMessageIni("common.message.ini", filepath.Join(omroot, "models"), encodingName)
+	}
+	return []IniEntry{}, nil
+}
+
+// read path/to/exe/name.message.ini,
+// it does not return error if message.ini not exist
+func ReadMessageIni(name, dir string, encodingName string) ([]IniEntry, error) {
+
+	if name == "" {
+		return []IniEntry{}, nil // file name is empty
+	}
+	p := filepath.Join(dir, name+".message.ini")
+
+	if !helper.IsFileExist(p) {
+		return []IniEntry{}, nil // message.ini not found
+	}
+
+	return NewIni(p, encodingName)
 }

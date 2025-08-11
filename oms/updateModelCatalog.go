@@ -14,7 +14,6 @@ import (
 
 	"golang.org/x/text/language"
 
-	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/helper"
@@ -153,7 +152,7 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 
 	// read common.message.ini
 	cmIni := []config.IniEntry{}
-	if ea, e := ompp.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
+	if ea, e := config.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
 		cmIni = ea
 	}
 
@@ -254,16 +253,16 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 
 		// make list of model translated strings
 		// merge of model.message.ini, common.message.ini, model_word, lang_word
-		msgLst := ompp.NewLangMsg(langDef.Lang, wLst.ModelWord)
+		msgLst := db.NewLangMsg(langDef.Lang, wLst.ModelWord)
 
 		// update translated strings usig common.message.ini
-		msgLst = ompp.AppendLangMsgFromIni(msgLst, cmIni)
+		msgLst = db.AppendLangMsgFromIni(msgLst, cmIni)
 
 		// update translated strings using model.message.ini
 		dbDir := filepath.Dir(srcPath) // assume model.exe is located in the same directory as db.sqlite
 
-		if mdIni, e := ompp.ReadModelMessageIni(dicLst[idx].Name, dbDir, theCfg.encodingName); e == nil {
-			msgLst = ompp.AppendLangMsgFromIni(msgLst, mdIni)
+		if mdIni, e := config.ReadMessageIni(dicLst[idx].Name, dbDir, theCfg.encodingName); e == nil {
+			msgLst = db.AppendLangMsgFromIni(msgLst, mdIni)
 		}
 
 		// make model languages list, starting from default language
@@ -294,7 +293,7 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			relPath:       filepath.ToSlash(dbRel),
 			logDir:        modelLogDir,
 			isLogDir:      isLogDir,
-			isIni:         fileExist(filepath.Join(dbDir, dicLst[idx].Name+".ini")),
+			isIni:         helper.IsFileExist(filepath.Join(dbDir, dicLst[idx].Name+".ini")),
 			meta:          meta,
 			isTxtMetaFull: false,
 			txtMeta:       mt,

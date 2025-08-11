@@ -271,7 +271,7 @@ func initDiskState(diskIniPath string) (bool, diskUseConfig) {
 	cfg := diskUseConfig{DiskScanMs: diskScanDefaultInterval}
 
 	// exit if disk.ini does not exists: return empty default configuration
-	if diskIniPath == "" || !fileExist(diskIniPath) {
+	if diskIniPath == "" || !helper.IsFileExist(diskIniPath) {
 		return true, cfg
 	}
 

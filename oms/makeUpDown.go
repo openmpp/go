@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -515,7 +516,7 @@ func updateStatUpDownLog(logName string, uds *UpDownStatusLog, upDownDir string)
 		}
 
 		if uds.Status == "ready" {
-			fi, e = fileStat(filepath.Join(upDownDir, uds.Folder+".zip"))
+			fi, e = helper.FileStat(filepath.Join(upDownDir, uds.Folder+".zip"))
 			uds.IsZip = e == nil
 			if uds.IsZip {
 				uds.ZipFileName = uds.Folder + ".zip"

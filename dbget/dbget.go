@@ -784,12 +784,25 @@ func mainBody(args []string) error {
 	theCfg.isNote = runOpts.Bool(noteArgKey)
 	theCfg.doubleFmt = runOpts.String(doubleFormatArgKey)
 
+	// get default user language
+	if theCfg.userLang == "" {
+		if ln, e := locale.GetLocale(); e == nil {
+			theCfg.userLang = ln
+		} else {
+			omppLog.Log("Warning: unable to get user default language")
+		}
+	}
+	// load translated strings from dbget.message.ini
+	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, theCfg.userLang, theCfg.encodingName); err != nil {
+		omppLog.Log("Error at loading dbget.message.ini: ", err.Error())
+	}
+
 	// validate language options: user specified language cannot be combined with NoLanguage or IdCsv option
-	if theCfg.userLang != "" && (theCfg.isNoLang || theCfg.isIdCsv) {
+	if runOpts.String(langArgKey) != "" && (theCfg.isNoLang || theCfg.isIdCsv) {
 		return errors.New("invalid arguments: " + langArgKey + " cannot be combined with " + noLangArgKey + " or " + idCsvArgKey)
 	}
 
-	// get output format: cv, tsv or json
+	// get output format: csv, tsv or json
 	if f := runOpts.String(asArgKey); f != "" {
 
 		if runOpts.IsExist(csvArgKey) || runOpts.IsExist(tsvArgKey) || runOpts.IsExist(jsonArgKey) {
@@ -834,15 +847,6 @@ func mainBody(args []string) error {
 			theCfg.action != "model" && theCfg.action != "old-model" &&
 			theCfg.action != "run-list" && theCfg.action != "set-list" {
 			return errors.New("JSON output not allowed for: " + theCfg.action)
-		}
-	}
-
-	// get default user language
-	if !theCfg.isNoLang && theCfg.userLang == "" {
-		if ln, e := locale.GetLocale(); e == nil {
-			theCfg.userLang = ln
-		} else {
-			omppLog.Log("Warning: unable to get user default language")
 		}
 	}
 

@@ -51,7 +51,7 @@ func fileLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r 
 	// read file content
 	filePath := filepath.Join(upDownDir, fileName)
 
-	if !fileExist(filePath) {
+	if !helper.IsFileExist(filePath) {
 		http.Error(w, "Log file not found: "+fileName, http.StatusBadRequest)
 		return
 	}

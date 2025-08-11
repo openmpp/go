@@ -6,7 +6,12 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"maps"
+	"slices"
 	"strconv"
+	"strings"
+
+	"github.com/openmpp/go/ompp/config"
 )
 
 // GetLanguages return language rows from lang_lst join to lang_word tables and map from lang_code to lang_id.
@@ -121,4 +126,50 @@ func GetModelWord(dbConn *sql.DB, modelId int, langCode string) (*ModelWordMeta,
 	}
 
 	return meta, nil
+}
+
+// create model translated strings list from lang_word and model_word
+func NewLangMsg(lwLst []LangWord, mwLst []ModelLangWord) []LangMsg {
+
+	msgLst := []LangMsg{}
+
+	// copy lang_word translated strings
+	for _, lw := range lwLst {
+		msgLst = append(msgLst,
+			LangMsg{
+				LangCode: lw.LangCode,
+				Msg:      maps.Clone(lw.Words),
+			})
+	}
+
+	// insert or update model_word rows into translated strings
+	for _, mw := range mwLst {
+		// check model_word language: skip if not exists in lang_lst, it may be deleted from model_word
+		if j := slices.IndexFunc(msgLst, func(lm LangMsg) bool { return lm.LangCode == mw.LangCode }); j >= 0 {
+			maps.Copy(msgLst[j].Msg, mw.Words)
+		}
+	}
+	return msgLst
+}
+
+// merge of model.message.ini, common.message.ini,
+// use content of message.ini to append languages and insert or update translated strings
+func AppendLangMsgFromIni(msgLst []LangMsg, eiLst []config.IniEntry) []LangMsg {
+
+	for _, ei := range eiLst {
+
+		n := slices.IndexFunc(msgLst, func(lm LangMsg) bool { return strings.EqualFold(lm.LangCode, ei.Section) })
+
+		if n < 0 { // append new language from ini file
+
+			n = len(msgLst)
+			msgLst = append(msgLst,
+				LangMsg{
+					LangCode: ei.Section,
+					Msg:      map[string]string{},
+				})
+		}
+		msgLst[n].Msg[ei.Key] = ei.Val // insrert or replace transalted string from ini file
+	}
+	return msgLst
 }

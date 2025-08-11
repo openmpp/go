@@ -9,6 +9,7 @@ package helper
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
 )
@@ -53,6 +54,31 @@ func SaveTo(outPath string, rd io.Reader) error {
 	// copy request body into the file
 	_, err = io.Copy(f, rd)
 	return err
+}
+
+// fileExist return error if file not exist, not accessible or it is not a regular file
+func IsFileExist(filePath string) bool {
+	if filePath == "" {
+		return false
+	}
+	_, err := FileStat(filePath)
+	return err == nil
+}
+
+// return file Stat if this is a regular file
+func FileStat(filePath string) (fs.FileInfo, error) {
+
+	fi, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fi, errors.New("Error: file not exist: " + filePath)
+		}
+		return fi, errors.New("Error: unable to access file: " + filePath + " : " + err.Error())
+	}
+	if fi.IsDir() || !fi.Mode().IsRegular() {
+		return fi, errors.New("Error: it is not a regilar file: " + filePath)
+	}
+	return fi, nil
 }
 
 // return true if path exists and it is directory, return error if path is not a directory or not accessible

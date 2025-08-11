@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
 	"github.com/openmpp/go/ompp/omppLog"
@@ -118,10 +117,10 @@ func tableRunAllAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, r
 		}
 
 		// make list of model translated strings: merge common.message.ini and lang_word
-		msgLst := ompp.NewLangMsg(langDef.Lang, nil)
+		msgLst := db.NewLangMsg(langDef.Lang, nil)
 
-		if cmIni, e := ompp.ReadCommonMessageIni(theCfg.binDir, theCfg.encodingName); e == nil {
-			msgLst = ompp.AppendLangMsgFromIni(msgLst, cmIni)
+		if cmIni, e := config.ReadCommonMessageIni(theCfg.binDir, theCfg.encodingName); e == nil {
+			msgLst = db.AppendLangMsgFromIni(msgLst, cmIni)
 		}
 
 		// model language-specific lables for dimensions, items and tables

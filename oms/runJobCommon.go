@@ -664,12 +664,12 @@ func deleteCompStateFiles(name, state string) bool {
 
 // Return true if jobs queue processing is paused for this oms instance
 func isPausedJobQueue() bool {
-	return fileExist(jobQueuePausedPath(theCfg.omsName)) || fileExist(jobAllQueuePausedPath())
+	return helper.IsFileExist(jobQueuePausedPath(theCfg.omsName)) || helper.IsFileExist(jobAllQueuePausedPath())
 }
 
 // Return true if jobs queue processing is paused for all oms instances
 func isPausedJobAllQueue() bool {
-	return fileExist(jobAllQueuePausedPath())
+	return helper.IsFileExist(jobAllQueuePausedPath())
 }
 
 // read job control state from the file, return empty state on error or if state file not exist

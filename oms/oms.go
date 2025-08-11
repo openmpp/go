@@ -492,7 +492,7 @@ func mainBody(args []string) error {
 
 	// check if storage control enabled by presence of etc/disk.ini
 	dini := filepath.Join(theCfg.etcDir, "disk.ini")
-	theCfg.isDiskUse = fileExist(dini)
+	theCfg.isDiskUse = helper.IsFileExist(dini)
 	if theCfg.isDiskUse {
 		omppLog.Log("Storage control:      ", dini)
 	}

@@ -113,7 +113,7 @@ func scanOuterJobs(doneC <-chan bool) {
 			}
 
 			// check if job file not exist then remove it from the outer job list
-			if !fileExist(fp) {
+			if !helper.IsFileExist(fp) {
 				delete(outerJobs, fp)
 				continue
 			}

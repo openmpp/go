@@ -21,15 +21,18 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/helper"
+	"golang.org/x/text/language"
 )
 
+// log control state
 var (
-	theLock       sync.Mutex                           // mutex to lock for log operations
+	theLock       sync.Mutex                           // mutex to lock log control state
 	isFileEnabled bool                                 // if true then log to file enabled
 	isFileCreated bool                                 // if true then log file created
 	logPath       string                               // log file path
@@ -39,9 +42,31 @@ var (
 	logOpts       = config.LogOptions{IsConsole: true} // log options, default is log to console
 )
 
+// translated messages from message.ini file(s)
+var (
+	msgLock sync.Mutex            // mutex to lock for message string search or update
+	msgLang string                // message language: msgIni section
+	msgMap  = map[string]string{} // message map to find translation
+)
+
+// return translated string, if translation not found then retrun source string
+func LT(src string) string {
+	if src == "" {
+		return src
+	}
+
+	msgLock.Lock()
+	defer msgLock.Unlock()
+
+	if t, ok := msgMap[src]; ok {
+		return t
+	}
+	return src
+}
+
 // LogIfTime do Log(msg) not more often then every nSeconds.
 // It does nothing if time now < lastT + nSeconds. Time is a Unix time, seconds since epoch.
-func LogIfTime(lastT int64, nSeconds int64, msg ...interface{}) int64 {
+func LogIfTime(lastT int64, nSeconds int64, msg ...any) int64 {
 
 	now := time.Now().Unix()
 	if now < lastT+nSeconds {
@@ -63,29 +88,42 @@ func New(opts *config.LogOptions) {
 	isFileCreated = false
 }
 
-// Log message to console and log file
-func Log(msg ...interface{}) {
-	theLock.Lock()
-	defer theLock.Unlock()
+// Log message to console and log file,
+// put space between msg items,
+// translate first msg[0] item using message.ini content
+func Log(msg ...any) {
 
-	// make message string and log to console
-	var m string
 	now := time.Now()
-	m = helper.MakeDateTime(now) + " " + fmt.Sprint(msg...)
-	if logOpts.IsConsole {
-		fmt.Println(m)
-	}
+	m := helper.MakeDateTime(now) + " " + makeMsg(msg...)
+	writeToLog(now, m)
+}
 
-	// create log file if required log to file if file log enabled
-	if isFileEnabled &&
-		(!isFileCreated ||
-			logOpts.IsDaily && (now.Year() != lastYear || now.Month() != lastMonth || now.Day() != lastDay)) {
-		isFileCreated = createLogFile(now)
-		isFileEnabled = isFileCreated
+// log formattted message to console and log file,
+// translate format string using message.ini content
+func LogFmt(format string, msg ...any) {
+	now := time.Now()
+	m := helper.MakeDateTime(now) + " " + fmt.Sprintf(LT(format), msg...)
+	writeToLog(now, m)
+}
+
+// Join msg items by space and translate first msg[0] item using message.ini content
+func makeMsg(msg ...any) string {
+
+	if len(msg) <= 0 {
+		return ""
 	}
-	if isFileEnabled {
-		isFileEnabled = writeToLogFile(m)
+	// translate first item of msg[] if it is a string
+	m := ""
+	if m0, ok := msg[0].(string); ok {
+		m = LT(m0)
+	} else {
+		m = fmt.Sprint(msg[0])
 	}
+	// append the rest of message items
+	for _, v := range msg[1:] {
+		m += " " + fmt.Sprint(v)
+	}
+	return m
 }
 
 // LogSql sql query to file
@@ -137,6 +175,28 @@ func createLogFile(nowTime time.Time) bool {
 	return true
 }
 
+// write log message to console and log file
+func writeToLog(now time.Time, m string) {
+	// log message to console
+	theLock.Lock()
+	defer theLock.Unlock()
+
+	if logOpts.IsConsole {
+		fmt.Println(m)
+	}
+
+	// create log file if required log to file if file log enabled
+	if isFileEnabled &&
+		(!isFileCreated ||
+			logOpts.IsDaily && (now.Year() != lastYear || now.Month() != lastMonth || now.Day() != lastDay)) {
+		isFileCreated = createLogFile(now)
+		isFileEnabled = isFileCreated
+	}
+	if isFileEnabled {
+		isFileEnabled = writeToLogFile(m)
+	}
+}
+
 // write message to log file, return false on errors to disable file log
 func writeToLogFile(msg string) bool {
 
@@ -155,4 +215,77 @@ func writeToLogFile(msg string) bool {
 		}
 	}
 	return err == nil
+}
+
+// load translated messages from language section of message.ini
+func LoadMessageIni(name, dir string, userLang string, encodingName string) (string, error) {
+
+	// read message.ini file if file name id not empty
+	if name == "" {
+		return userLang, nil // file name root part is empty
+	}
+
+	p := filepath.Join(dir, name+".message.ini")
+	if !helper.IsFileExist(p) {
+		return userLang, nil // message.ini not found
+	}
+
+	msgIni, err := config.ReadMessageIni(name, dir, encodingName)
+	if err != nil {
+		return userLang, err // errror at reading or parsing existing message.ini
+	}
+	if len(msgIni) <= 0 {
+		return userLang, nil // message.ini is empty
+	}
+
+	// match message.ini languages to user language to build message.ini sectioans list ordered by language match confidence
+	// known issue: it does not understand .UTF-8
+	// examples: en_CA.UTF-8 => en-US, fr_CA.UTF-8 => fr
+
+	mMap := map[string]string{}
+	uLang := ""
+
+	if userLang != "" {
+		uTag := language.Make(userLang)
+		uLang = uTag.String()
+		if uLang == "und" {
+			uLang = "" // undefined user language
+		}
+
+		scLst := config.IniSectionList(msgIni)
+		langLst := make([]string, 0, len(scLst))
+		cLst := make([]language.Confidence, 0, len(scLst))
+
+		for _, sn := range scLst {
+
+			lt := []language.Tag{language.Make(sn)}
+			_, _, c := language.NewMatcher(lt).Match(uTag)
+			if c > language.No {
+				langLst = append(langLst, sn)
+				cLst = append(cLst, c)
+			}
+		}
+
+		// sort language list in confidence decsending order
+		sort.SliceStable(langLst, func(i, j int) bool { return cLst[i] < cLst[j] })
+
+		// include most confident translation into message map
+		for _, ln := range langLst {
+			for k := range msgIni {
+				if msgIni[k].Section == ln {
+					mMap[msgIni[k].Key] = msgIni[k].Val
+				}
+			}
+		}
+
+	}
+
+	// update user language name and translation map
+	msgLock.Lock()
+	defer msgLock.Unlock()
+
+	msgLang = uLang
+	msgMap = mMap
+
+	return msgLang, nil
 }

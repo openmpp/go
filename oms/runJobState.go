@@ -922,7 +922,7 @@ func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map
 	cfgRes := []modelCfgRes{}
 
 	// read available resources limits and computational servers configuration from job.ini
-	if jobIniPath == "" || !fileExist(jobIniPath) {
+	if jobIniPath == "" || !helper.IsFileExist(jobIniPath) {
 		return jsState, cfgRes
 	}
 
