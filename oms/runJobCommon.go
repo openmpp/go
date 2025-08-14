@@ -579,11 +579,13 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 
 		pj := struct { // past job: completed job with time info
 			RunJob
+			Submitted string
 			Started   string
 			Completed string
 			Duration  string
 		}{
 			RunJob:    jc,
+			Submitted: helper.FromUnderscoreTimeStamp(submitStamp),
 			Started:   sb,
 			Completed: se,
 			Duration:  sd,
