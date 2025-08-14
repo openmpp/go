@@ -747,7 +747,7 @@ func mainBody(args []string) error {
 	// parse command line arguments and ini-file
 	runOpts, logOpts, err := config.New(encodingArgKey, false, optFs)
 	if err != nil {
-		return errors.New("invalid arguments: " + err.Error())
+		return errors.New(omppLog.Msg("invalid arguments:", err))
 	}
 	if isPipe {
 		logOpts.IsConsole = false // suppress log console output if -pipe required
@@ -758,7 +758,7 @@ func mainBody(args []string) error {
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			omppLog.Log("Error writing PID to file: ", err)
+			omppLog.Log(omppLog.Msg("Error writing PID to file:", err))
 			return err
 		}
 	}
@@ -766,7 +766,7 @@ func mainBody(args []string) error {
 	// path to bin directory where dbget.exe is located
 	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
-		return errors.New("Error: unable to make absolute path to dbget: " + err.Error())
+		return errors.New(omppLog.Msg("Error: unable to make absolute path to dbget:", err.Error()))
 	}
 	theCfg.binDir = filepath.Dir(selfPath)
 
@@ -793,20 +793,24 @@ func mainBody(args []string) error {
 		}
 	}
 	// load translated strings from dbget.message.ini
-	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, theCfg.userLang, theCfg.encodingName); err != nil {
-		omppLog.Log("Error at loading dbget.message.ini: ", err.Error())
+	mLang := theCfg.userLang
+	if theCfg.isNoLang {
+		mLang = ""
+	}
+	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, mLang, theCfg.encodingName); err != nil {
+		omppLog.Log("Error at loading dbget.message.ini:", err.Error())
 	}
 
 	// validate language options: user specified language cannot be combined with NoLanguage or IdCsv option
 	if runOpts.String(langArgKey) != "" && (theCfg.isNoLang || theCfg.isIdCsv) {
-		return errors.New("invalid arguments: " + langArgKey + " cannot be combined with " + noLangArgKey + " or " + idCsvArgKey)
+		return errors.New(omppLog.Fmt("invalid arguments: %s cannot be combined with %s or %s", langArgKey, noLangArgKey, idCsvArgKey))
 	}
 
 	// get output format: csv, tsv or json
 	if f := runOpts.String(asArgKey); f != "" {
 
 		if runOpts.IsExist(csvArgKey) || runOpts.IsExist(tsvArgKey) || runOpts.IsExist(jsonArgKey) {
-			return errors.New("invalid arguments: " + csvArgKey + " or " + tsvArgKey + " or " + jsonArgKey)
+			return errors.New(omppLog.Fmt("invalid arguments: %s or %s or %s", csvArgKey, tsvArgKey, jsonArgKey))
 		}
 		switch strings.ToLower(f) {
 		case "csv":
@@ -816,13 +820,13 @@ func mainBody(args []string) error {
 		case "json":
 			theCfg.kind = asJson
 		default:
-			return errors.New("invalid arguments: " + asArgKey + " " + f)
+			return errors.New(omppLog.Msg("invalid arguments:", asArgKey, f))
 		}
 	} else {
 		if runOpts.IsExist(csvArgKey) && (runOpts.IsExist(tsvArgKey) || runOpts.IsExist(jsonArgKey)) ||
 			runOpts.IsExist(tsvArgKey) && (runOpts.IsExist(csvArgKey) || runOpts.IsExist(jsonArgKey)) ||
 			runOpts.IsExist(jsonArgKey) && (runOpts.IsExist(csvArgKey) || runOpts.IsExist(tsvArgKey)) {
-			return errors.New("invalid arguments: " + csvArgKey + " or " + tsvArgKey + " or " + jsonArgKey)
+			return errors.New(omppLog.Fmt("invalid arguments: %s or %s or %s", csvArgKey, tsvArgKey, jsonArgKey))
 		}
 		switch {
 		case runOpts.IsExist(csvArgKey) && runOpts.Bool(csvArgKey):
@@ -837,7 +841,7 @@ func mainBody(args []string) error {
 			// if file name is empty or extension is unknown then result is csv by default
 			theCfg.kind = kindByExt(theCfg.fileName)
 		default:
-			return errors.New("invalid arguments: " + csvArgKey + " or " + tsvArgKey + " or " + jsonArgKey)
+			return errors.New(omppLog.Fmt("invalid arguments: %s or %s or %s", csvArgKey, tsvArgKey, jsonArgKey))
 		}
 	}
 
@@ -846,7 +850,7 @@ func mainBody(args []string) error {
 		if theCfg.action != "model-list" &&
 			theCfg.action != "model" && theCfg.action != "old-model" &&
 			theCfg.action != "run-list" && theCfg.action != "set-list" {
-			return errors.New("JSON output not allowed for: " + theCfg.action)
+			return errors.New(omppLog.Msg("JSON output not allowed for:", theCfg.action))
 		}
 	}
 
@@ -874,9 +878,9 @@ func mainBody(args []string) error {
 		theCfg.modelDigest = runOpts.String(modelDigestArgKey)
 
 		if theCfg.modelName == "" && theCfg.modelDigest == "" {
-			return errors.New("invalid (empty) model name and model digest")
+			return errors.New(omppLog.LT("invalid (empty) model name and model digest"))
 		}
-		omppLog.Log("Model ", theCfg.modelName, " ", theCfg.modelDigest)
+		omppLog.Log("Model", theCfg.modelName, theCfg.modelDigest)
 
 		// check if model exists in database
 		ok := false
@@ -884,14 +888,14 @@ func mainBody(args []string) error {
 			return err
 		}
 		if !ok {
-			return errors.New("model " + theCfg.modelName + " " + theCfg.modelDigest + " not found")
+			return errors.New(omppLog.Fmt("model %s %s not found", theCfg.modelName, theCfg.modelDigest))
 		}
 		mdRow, err := db.GetModelRow(srcDb, modelId)
 		if err != nil {
 			return err
 		}
 		if mdRow == nil {
-			return errors.New("model not found by Id: " + strconv.Itoa(modelId))
+			return errors.New(omppLog.Msg("model not found by Id:", modelId))
 		}
 
 		// match user language to model language, use default model language if there are no match
@@ -902,14 +906,14 @@ func mainBody(args []string) error {
 					return err
 				}
 				if theCfg.lang == "" {
-					omppLog.Log("Warning: unable to match user language: ", theCfg.userLang)
+					omppLog.Log("Warning: unable to match user language:", theCfg.userLang)
 				}
 			}
 			if theCfg.lang != "" {
-				omppLog.Log("Using model language: ", theCfg.lang)
+				omppLog.Log("Using model language:", theCfg.lang)
 			} else {
 				theCfg.lang = mdRow.DefaultLangCode
-				omppLog.Log("Using default model language: ", theCfg.lang)
+				omppLog.Log("Using default model language:", theCfg.lang)
 			}
 		}
 	}
@@ -921,37 +925,37 @@ func mainBody(args []string) error {
 
 	if doParamName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "parameter" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "parameter"
 	}
 	if doParamWsName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "parameter-set" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "parameter-set"
 	}
 	if doTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "table" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "table"
 	}
 	if doAccTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "sub-table" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "sub-table"
 	}
 	if doAllAccTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "sub-table-all" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "sub-table-all"
 	}
 	if doEntityName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "micro" {
-			return errors.New("invalid action argument: " + theCfg.action)
+			return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 		}
 		theCfg.action = "micro"
 	}
@@ -999,7 +1003,7 @@ func mainBody(args []string) error {
 	case "old-table":
 		return tableOldValue(srcDb, modelId, runOpts)
 	}
-	return errors.New("invalid action argument: " + theCfg.action)
+	return errors.New(omppLog.Msg("invalid action argument:", theCfg.action))
 }
 
 // exitOnPanic log error message and exit with return = 2

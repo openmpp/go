@@ -259,7 +259,7 @@ func AddIniEntry(isUpdate bool, eaIni []IniEntry, section, key, val string) []In
 	return slices.Insert(eaIni, scIdx, IniEntry{Section: section, Key: key, Val: val})
 }
 
-// Insert new or update existing ini file entry:
+// Update existing or insert new ini file entry:
 // search by (section, key) in source []IniEntry
 // if not found then insert new entry
 // if found then update existing entry with new value
@@ -274,7 +274,7 @@ func InsertIniEntry(eaIni []IniEntry, section, key, val string) []IniEntry {
 	return AddIniEntry(false, eaIni, section, key, val)
 }
 
-// Insert new or update existing ini file entry:
+// Update existing or insert new ini file entry:
 // sectionKey expected to be: section.key if not then exit and do nothing.
 // find section and key in source []IniEntry
 // if not found then insert new entry
@@ -309,16 +309,29 @@ func IniSectionList(eaIni []IniEntry) []string {
 //	OM_ROOT/common.message.ini
 //	OM_ROOT/models/common.message.ini
 func ReadCommonMessageIni(exeDir string, encodingName string) ([]IniEntry, error) {
+	return ReadSharedMessageIni("common.message.ini", exeDir, encodingName)
+}
 
-	if cmIni, e := ReadMessageIni("common.message.ini", exeDir, encodingName); e == nil && len(cmIni) > 0 {
+// read commonName.message.ini file if exists in one of:
+//
+//	path/to/exe/commonName.message.ini
+//	OM_ROOT/commonName.message.ini
+//	OM_ROOT/models/commonName.message.ini
+//
+// if commonName is empty then return empty result
+func ReadSharedMessageIni(sharedName, exeDir string, encodingName string) ([]IniEntry, error) {
+
+	if sharedName == "" {
+		return []IniEntry{}, nil
+	}
+	if cmIni, e := ReadMessageIni(sharedName, exeDir, encodingName); e == nil && len(cmIni) > 0 {
 		return cmIni, e
 	}
-
 	if omroot := os.Getenv("OM_ROOT"); omroot != "" {
-		if cmIni, e := ReadMessageIni("common.message.ini", omroot, encodingName); e == nil && len(cmIni) > 0 {
+		if cmIni, e := ReadMessageIni(sharedName, omroot, encodingName); e == nil && len(cmIni) > 0 {
 			return cmIni, e
 		}
-		return ReadMessageIni("common.message.ini", filepath.Join(omroot, "models"), encodingName)
+		return ReadMessageIni(sharedName, filepath.Join(omroot, "models"), encodingName)
 	}
 	return []IniEntry{}, nil
 }

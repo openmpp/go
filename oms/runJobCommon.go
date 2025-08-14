@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -80,8 +81,9 @@ func jobHistoryPath(status string, isKill bool, submitStamp, modelName, modelDig
 }
 
 // Return parts of job control shadow history file path: past folder, month sub-folder and file name.
-// For example: job/past, 2022_07, 2022_07_04_20_06_10_817-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-success.json
-func jobPastPath(status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string) (string, string, string) {
+// For example:
+// job/past, 2022_07, 2022_07_08_23_03_27_555-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-mpi-#-cpu-#-8-#-mem-#-4-#-3600.json
+func jobPastPath(status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string, isMpi bool, cpu int, mem int, totalSec int64) (string, string, string) {
 
 	d := ""
 	if len(submitStamp) >= 7 {
@@ -91,9 +93,15 @@ func jobPastPath(status string, isKill bool, submitStamp, modelName, modelDigest
 	if isKill && status == db.ErrorRunStatus {
 		st = "kill"
 	}
+	ml := "local"
+	if isMpi {
+		ml = "mpi"
+	}
+
 	return filepath.Join(theCfg.jobDir, "past"),
 		d,
-		submitStamp + "-#-" + theCfg.omsName + "-#-" + modelName + "-#-" + modelDigest + "-#-" + runStamp + "-#-" + st + ".json"
+		submitStamp + "-#-" + theCfg.omsName + "-#-" + modelName + "-#-" + modelDigest + "-#-" + runStamp + "-#-" +
+			ml + "-#-cpu-#-" + strconv.Itoa(cpu) + "-#-mem-#-" + strconv.Itoa(mem) + "-#-" + strconv.FormatInt(totalSec, 10) + "-#-" + st + ".json"
 }
 
 // Return job state file path e.g.: job/state/_4040.json
@@ -483,7 +491,7 @@ func moveJobToActive(queueJobPath string, rState *RunState, res RunRes, runStamp
 }
 
 // move active model run job control file to history
-func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string) bool {
+func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string, cmdStart, cmdStop int64) bool {
 	if !theCfg.isJobControl {
 		return true // job control disabled
 	}
@@ -494,15 +502,96 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 	isOk := fileMoveAndLog(false, activePath, hst)
 	if !isOk {
 		fileDeleteAndLog(true, activePath) // if move failed then delete job control file from active list
-	} else {
-		if theCfg.isJobPast { // copy to the shadow history path
+		return false
+	}
 
-			pastDir, monthDir, fn := jobPastPath(status, isKill, submitStamp, modelName, modelDigest, runStamp)
-			d := filepath.Join(pastDir, monthDir)
+	if theCfg.isJobPast { // copy to the shadow history path
 
-			if os.MkdirAll(d, 0750) == nil {
-				fileCopy(false, hst, filepath.Join(d, fn))
+		// check start and stop time
+		if cmdStart < minCmdTimeSec {
+			cmdStart = 0
+		}
+		if cmdStop < cmdStart {
+			cmdStart = 0
+			cmdStop = 0
+		}
+		totalSec := cmdStop - cmdStart
+
+		// get resources from active job file name
+		stamp, _, mn, dgst, _, isMpi, cpu, mem, _ := parseActivePath(activePath)
+
+		if stamp != submitStamp || mn != modelName || dgst != modelDigest || cpu < 0 || mem < 0 {
+			return false // active job file name is incorrect
+		}
+
+		pastDir, monthDir, fn := jobPastPath(status, isKill, submitStamp, modelName, modelDigest, runStamp, isMpi, cpu, mem, totalSec)
+		d := filepath.Join(pastDir, monthDir)
+
+		if e := os.MkdirAll(d, 0750); e != nil {
+			omppLog.Log(e)
+			return false // unable to create output directory
+		}
+
+		p := filepath.Join(d, fn)
+		if !fileCopy(false, hst, p) {
+			return false // fail to copy job file into the past
+		}
+		if cmdStart < minCmdTimeSec || cmdStop < cmdStart || totalSec < 0 {
+			return true // done with past file, it is copied into past directory
+		}
+
+		//  add usage time to the file
+
+		var jc RunJob
+		ok, err := helper.FromJsonFile(p, &jc) // read completed job info
+		if err != nil {
+			omppLog.Log(err)
+			return false // unexpected json in the past file
+		}
+		if !ok {
+			return true // done with past file, it is copied into past directory
+		}
+
+		sd := ""
+		if totalSec >= 0 { // format duration to 12:04:05 or to 04:05
+
+			h := totalSec / 3600
+			m := (totalSec % 3600) / 60
+			s := totalSec % 60
+
+			if h > 0 {
+				sd = fmt.Sprintf("%d:%02d:%02d", h, m, s)
+			} else {
+
+				sd = fmt.Sprintf("%02d:%02d", m, s)
 			}
+		}
+
+		// format start and stop time if it is not an empty values
+		sb := ""
+		se := ""
+		if cmdStart > minCmdTimeSec {
+			sb = helper.MakeDateTime(time.Unix(cmdStart, 0))
+		}
+		if cmdStop >= cmdStart {
+			se = helper.MakeDateTime(time.Unix(cmdStop, 0))
+		}
+
+		pj := struct { // past job: completed job with time info
+			RunJob
+			Started   string
+			Completed string
+			Duration  string
+		}{
+			RunJob:    jc,
+			Started:   sb,
+			Completed: se,
+			Duration:  sd,
+		}
+
+		err = helper.ToJsonIndentFile(p, &pj) // save result to the past job file
+		if err != nil {
+			omppLog.Log(err)
 		}
 	}
 
@@ -536,7 +625,12 @@ func moveJobQueueToFailed(queuePath string, submitStamp, modelName, modelDigest,
 
 		if theCfg.isJobPast { // copy to the shadow history path
 
-			pastDir, monthDir, fn := jobPastPath(db.ErrorRunStatus, isKill, submitStamp, modelName, modelDigest, runStamp)
+			stamp, _, mn, dgst, isMpi, procCount, thCount, procMem, thMem, _ := parseQueuePath(queuePath)
+			if stamp != submitStamp || mn != modelName || dgst != modelDigest {
+				return false // file name is not a job queue file name
+			}
+
+			pastDir, monthDir, fn := jobPastPath(db.ErrorRunStatus, isKill, submitStamp, modelName, modelDigest, runStamp, isMpi, procCount*thCount, (procMem + thCount*thMem), 0)
 			d := filepath.Join(pastDir, monthDir)
 
 			if os.MkdirAll(d, 0750) == nil {

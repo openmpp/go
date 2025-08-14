@@ -202,6 +202,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 	}
 	// else model started
 	rs.pid = cmd.Process.Pid
+	cmdStart := time.Now().Unix() // model started, Unix seconds
 	rsc.updateRunStateProcess(rs, false)
 
 	// move job file form queue to active
@@ -238,11 +239,13 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 
 		// wait for model run to be completed
 		e := cmd.Wait()
+		cmdStop := time.Now().Unix()
+
 		if e != nil {
 			omppLog.Log("Model run error: ", e)
 			delComputeUse(cuLst)
 			rsc.updateRunStateLog(rState, true, e.Error())
-			moveActiveJobToHistory(jobPath, db.ErrorRunStatus, rState.isKill, rState.SubmitStamp, rState.ModelName, rState.ModelDigest, rState.RunStamp)
+			moveActiveJobToHistory(jobPath, db.ErrorRunStatus, rState.isKill, rState.SubmitStamp, rState.ModelName, rState.ModelDigest, rState.RunStamp, cmdStart, cmdStop)
 			_, e = theCatalog.UpdateRunStatus(rState.ModelDigest, rState.RunStamp, db.ErrorRunStatus)
 			if e != nil {
 				omppLog.Log(e)
@@ -252,7 +255,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 		// else: completed OK
 		rsc.updateRunStateLog(rState, true, "")
 		delComputeUse(cuLst)
-		moveActiveJobToHistory(jobPath, db.DoneRunStatus, false, rState.SubmitStamp, rState.ModelName, rState.ModelDigest, rState.RunStamp)
+		moveActiveJobToHistory(jobPath, db.DoneRunStatus, false, rState.SubmitStamp, rState.ModelName, rState.ModelDigest, rState.RunStamp, cmdStart, cmdStop)
 
 	}(rs, cmd, activeJobPath, compUse)
 

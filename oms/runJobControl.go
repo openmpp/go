@@ -17,14 +17,15 @@ import (
 	ps "github.com/keybase/go-ps"
 )
 
-const jobScanInterval = 1123             // timeout in msec, sleep interval between scanning all job directories
-const computeStartStopInterval = 3373    // timeout in msec, interval between start or stop computational servers, must be at least 2 * jobScanInterval
-const jobQueueScanInterval = 107         // timeout in msec, sleep interval between getting next job from the queue
-const jobOuterScanInterval = 5021        // timeout in msec, sleep interval between scanning active job directory
-const serverTimeoutDefault = 60          // time in seconds to start or stop compute server
-const minJobTickMs int64 = 1597707959000 // unix milliseconds of 2020-08-17 23:45:59
-const jobPositionDefault = 20220817      // queue job position by default, e.g. if queue is empty
-const maxComputeErrorsDefault = 8        // default errors threshold for compute server or cluster
+const jobScanInterval = 1123                    // timeout in msec, sleep interval between scanning all job directories
+const computeStartStopInterval = 3373           // timeout in msec, interval between start or stop computational servers, must be at least 2 * jobScanInterval
+const jobQueueScanInterval = 107                // timeout in msec, sleep interval between getting next job from the queue
+const jobOuterScanInterval = 5021               // timeout in msec, sleep interval between scanning active job directory
+const serverTimeoutDefault = 60                 // time in seconds to start or stop compute server
+const minJobTickMs int64 = 1597707959000        // unix milliseconds of 2020-08-17 23:45:59
+const minCmdTimeSec int64 = minJobTickMs / 1000 // unix seconds of 2020-08-17 23:45:59
+const jobPositionDefault = 20220817             // queue job position by default, e.g. if queue is empty
+const maxComputeErrorsDefault = 8               // default errors threshold for compute server or cluster
 
 /*
 scan active job directory to find active model run files without run state.
@@ -93,7 +94,7 @@ func scanOuterJobs(doneC <-chan bool) {
 				omppLog.Log(err)
 			}
 			if !isOk || err != nil {
-				moveActiveJobToHistory(fLst[k], "", false, stamp, mn, dgst, "no-model-run-time-stamp") // invalid file content: move to history with unknown status
+				moveActiveJobToHistory(fLst[k], "", false, stamp, mn, dgst, "no-model-run-time-stamp", 0, 0) // invalid file content: move to history with unknown status
 				continue
 			}
 
@@ -133,7 +134,7 @@ func scanOuterJobs(doneC <-chan bool) {
 					}
 				}
 			}
-			moveActiveJobToHistory(fp, rStat, false, jc.SubmitStamp, jc.ModelName, jc.ModelDigest, jc.RunStamp)
+			moveActiveJobToHistory(fp, rStat, false, jc.SubmitStamp, jc.ModelName, jc.ModelDigest, jc.RunStamp, 0, 0)
 			delete(outerJobs, fp)
 		}
 
