@@ -5,13 +5,13 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"strconv"
 
 	"golang.org/x/text/language"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // match user language to the list of model languages, if no match then return empty "" model language code
@@ -64,17 +64,17 @@ func findRun(srcDb *sql.DB, modelId int, rdsn string, runId int, isFirst, isLast
 		r, e := db.GetRun(srcDb, runId)
 
 		if e == nil && r != nil && r.ModelId != modelId {
-			return "", nil, errors.New("Error: model run not found by id: " + strconv.Itoa(runId))
+			return "", nil, helper.ErrorMsg("Error: model run not found by id:", runId)
 		}
 		return strconv.Itoa(runId), r, e
 	}
 	if isFirst {
 		r, e := db.GetFirstRun(srcDb, modelId)
-		return "first model run", r, e
+		return helper.LT("first model run"), r, e
 	}
 	// else: must be last model run
 	r, e := db.GetLastRun(srcDb, modelId)
-	return "last model run", r, e
+	return helper.LT("last model run"), r, e
 }
 
 // find workset by name or by id and check if it is readonly workset
@@ -88,29 +88,29 @@ func findWs(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) (*db.Workset
 
 		ws, err = db.GetWorksetByName(srcDb, modelId, wsName)
 		if err != nil {
-			return nil, errors.New("Error at get workset: " + wsName + " " + err.Error())
+			return nil, helper.ErrorMsg("Error at get workset:", wsName, err)
 		}
 		if ws == nil {
-			return nil, errors.New("Error: workset not found: " + wsName)
+			return nil, helper.ErrorMsg("Error: workset not found:", wsName)
 		}
 	} else {
 
 		nId := runOpts.Int(wsIdArgKey, -1)
 		if nId < 0 {
-			return nil, errors.New("Error: invalid (empty) input scenario name and id")
+			return nil, helper.ErrorMsg("Error: invalid (empty) input scenario name and id")
 		}
 		ws, err = db.GetWorkset(srcDb, nId)
 		if err != nil {
-			return nil, errors.New("Error at get workset by id: " + strconv.Itoa(nId) + " " + err.Error())
+			return nil, helper.ErrorMsg("Error at get workset by id:", nId, err)
 		}
 		if ws == nil {
-			return nil, errors.New("Error: workset not found by id: " + strconv.Itoa(nId))
+			return nil, helper.ErrorMsg("Error: workset not found by id:", nId)
 		}
 		wsName = ws.Name
 	}
 
 	if !ws.IsReadonly {
-		return nil, errors.New("Error: workset must be read-only: " + wsName)
+		return nil, helper.ErrorMsg("Error: workset must be read-only:", wsName)
 	}
 
 	return ws, nil

@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -22,23 +21,23 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// find first model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: first model run not found")
+		return helper.ErrorMsg("Error: first model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 	runMeta, err := db.GetRunFull(srcDb, run)
 	if err != nil {
-		return errors.New("Error at get model run: " + run.Name + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", run.Name, err)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// create output directory and sub directories for parameters and output tables
@@ -49,7 +48,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	tableCsvDir := ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", run.Name)
+		omppLog.Log("Do", theCfg.action, run.Name)
 	} else {
 
 		dirSuffix := "" // if output directory not specified then add .no-zero and .no-null suffix
@@ -66,7 +65,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 				dirSuffix = dirSuffix + ".no-null"
 			}
 		}
-		omppLog.Log("Do ", theCfg.action, ": "+csvTop)
+		omppLog.Log("Do", theCfg.action, ":", csvTop)
 
 		paramCsvDir = filepath.Join(csvTop, "parameters")
 		tableCsvDir = filepath.Join(csvTop, "output-tables"+dirSuffix)
@@ -81,12 +80,12 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 
 	// write all parameters into csv file
 	nP := len(meta.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := 0; j < nP; j++ {
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", meta.Param[j].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[j].Name)
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -100,7 +99,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 
 	// write output tables into csv file, if the table included in run results
 	nT := len(runMeta.Table)
-	omppLog.Log("  Tables: ", nT)
+	omppLog.Log("  Tables:", nT)
 
 	for j := 0; j < nT; j++ {
 
@@ -115,7 +114,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		if name == "" {
 			continue // skip table: it is suppressed and not in run results
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", name)
+		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nT, ":", name)
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -136,29 +135,29 @@ func parameterOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 	// find first model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: first model run not found")
+		return helper.ErrorMsg("Error: first model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata and find parameter
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 	name := runOpts.String(paramArgKey)
 	if name == "" {
-		return errors.New("Invalid (empty) parameter name")
+		return helper.ErrorMsg("Invalid (empty) parameter name")
 	}
 
 	// write parameter values to csv or tsv file
 	fp := ""
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", name)
+		omppLog.Log("Do", theCfg.action, name)
 	} else {
 
 		fp = theCfg.fileName
@@ -167,7 +166,7 @@ func parameterOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	return parameterOldOut(srcDb, meta, name, run, fp)
@@ -179,7 +178,7 @@ func parameterOldOut(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.Run
 	// find parameter
 	idx, ok := meta.ParamByName(name)
 	if !ok {
-		return errors.New("Error: model parameter not found: " + name)
+		return helper.ErrorMsg("Error: model parameter not found:", name)
 	}
 
 	// create compatibility view parameter header: Dim0 Dim1....Value
@@ -201,29 +200,29 @@ func tableOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: model run not found")
+		return helper.ErrorMsg("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata and find output table
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id: ", modelId, ":", err)
 	}
 	name := runOpts.String(tableArgKey)
 	if name == "" {
-		return errors.New("Invalid (empty) output tabel name")
+		return helper.ErrorMsg("Invalid (empty) output tabel name")
 	}
 
 	// write parameter values to csv or tsv file
 	fp := ""
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", name)
+		omppLog.Log("Do", theCfg.action, name)
 	} else {
 
 		fp = theCfg.fileName
@@ -232,7 +231,7 @@ func tableOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	return tableOldOut(srcDb, meta, name, run.RunId, runOpts, fp)
@@ -244,7 +243,7 @@ func tableOldOut(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 	// find output table
 	idx, ok := meta.OutTableByName(name)
 	if !ok {
-		return errors.New("Error: model output table not found: " + name)
+		return helper.ErrorMsg("Error: model output table not found:", name)
 	}
 
 	// create compatibility view output table header: Dim0 Dim1....Value

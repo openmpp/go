@@ -5,12 +5,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
-	"strconv"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -21,30 +20,30 @@ func microdataValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) erro
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: model run not found")
+		return helper.ErrorMsg("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil || meta == nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, err)
 	}
 
 	// write microdata values to csv or tsv file
 	name := runOpts.String(entityArgKey)
 	if name == "" {
-		return errors.New("Invalid (empty) model entity name")
+		return helper.ErrorMsg("Invalid (empty) model entity name")
 	}
 	fp := ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", name)
+		omppLog.Log("Do", theCfg.action, name)
 	} else {
 
 		fp = theCfg.fileName
@@ -53,7 +52,7 @@ func microdataValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) erro
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":"+fp)
 	}
 
 	return microdataRunValue(srcDb, meta, name, run, runOpts, fp)
@@ -63,26 +62,26 @@ func microdataValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) erro
 func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.RunRow, runOpts *config.RunOptions, path string) error {
 
 	if name == "" {
-		return errors.New("Invalid (empty) model entity name")
+		return helper.ErrorMsg("Invalid (empty) model entity name")
 	}
 	if meta == nil {
-		return errors.New("Invalid (empty) model metadata")
+		return helper.ErrorMsg("Invalid (empty) model metadata")
 	}
 	if run == nil {
-		return errors.New("Invalid (empty) model run metadata")
+		return helper.ErrorMsg("Invalid (empty) model run metadata")
 	}
 
 	// find model entity
 	eIdx, ok := meta.EntityByName(name)
 	if !ok {
-		return errors.New("Error: model entity not found: " + name)
+		return helper.ErrorMsg("Error: model entity not found:", name)
 	}
 	ent := &meta.Entity[eIdx]
 
 	// find entity generation by entity id, as it is today model run has only one entity generation for each entity
 	egLst, err := db.GetEntityGenList(srcDb, run.RunId)
 	if err != nil || len(egLst) <= 0 {
-		return errors.New("Error: not found any microdata in model run: " + run.Name)
+		return helper.ErrorMsg("Error: not found any microdata in model run:", run.Name)
 	}
 
 	gIdx := -1
@@ -94,7 +93,7 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 		}
 	}
 	if gIdx < 0 {
-		return errors.New("Error: not found generation of entity: " + name + " in model run: " + run.Name)
+		return helper.ErrorFmt("Error: not found generation of entity: %s in model run: %s", name, run.Name)
 	}
 
 	// make csv header
@@ -123,7 +122,7 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 
 		hdr, err = cvtMicro.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make microdata csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make microdata csv header:", name, ":", err)
 		}
 		if theCfg.isIdCsv {
 			cvtRow, err = cvtMicro.ToCsvIdRow()
@@ -131,14 +130,14 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 			cvtRow, err = cvtMicro.ToCsvRow()
 		}
 		if err != nil {
-			return errors.New("Failed to create microdata converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create microdata converter to csv:", name, ":", err)
 		}
 
 	} else { // get language-specific metadata
 
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
-			return errors.New("Error at get language-specific metadata: " + err.Error())
+			return helper.ErrorMsg("Error at get language-specific metadata:", err)
 		}
 
 		cvtLoc := &db.CellMicroLocaleConverter{
@@ -150,11 +149,11 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 
 		hdr, err = cvtLoc.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make microdata csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make microdata csv header:", name, ":", err)
 		}
 		cvtRow, err = cvtLoc.ToCsvRow()
 		if err != nil {
-			return errors.New("Failed to create microdata converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create microdata converter to csv:", name, ":", err)
 		}
 	}
 
@@ -173,7 +172,7 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 
 	// write csv header
 	if err := csvWr.Write(hdr); err != nil {
-		return errors.New("Error at csv write: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at csv write:", name, ":", err)
 	}
 
 	// convert cell into []string and write line into csv file
@@ -199,7 +198,7 @@ func microdataRunValue(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.R
 	// read entity microdata
 	_, err = db.ReadMicrodataTo(srcDb, meta, &microLt, cvtWr)
 	if err != nil {
-		return errors.New("Error at microdata output: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at microdata output:", name, ":", err)
 	}
 
 	csvWr.Flush() // flush csv to response

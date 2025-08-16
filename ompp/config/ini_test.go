@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"unicode"
+
+	"github.com/openmpp/go/ompp/helper"
 )
 
 func TestIni(t *testing.T) {
@@ -101,12 +103,12 @@ func TestIni(t *testing.T) {
 	checkString(`end`, `end`, ``)
 
 	// merge KeyValue to ini file content
-	eaIni = MergeSectionKeyIniEntry(eaIni, "OpenM.IniFile", "OpenM/to/IniFile")
-	eaIni = MergeSectionKeyIniEntry(eaIni, "openm.IniFile", "openm/to/IniFile")
-	eaIni = MergeSectionKeyIniEntry(eaIni, "Log.Sql", "TRUE")
-	eaIni = MergeSectionKeyIniEntry(eaIni, "openm.inifile", "openm/to/inifile")
-	eaIni = MergeSectionKeyIniEntry(eaIni, "Log.Sql", "false")
-	eaIni = InsertIniEntry(eaIni, "Log", "Sql", "ERROR")
+	eaIni = helper.MergeSectionKeyIniEntry(eaIni, "OpenM.IniFile", "OpenM/to/IniFile")
+	eaIni = helper.MergeSectionKeyIniEntry(eaIni, "openm.IniFile", "openm/to/IniFile")
+	eaIni = helper.MergeSectionKeyIniEntry(eaIni, "Log.Sql", "TRUE")
+	eaIni = helper.MergeSectionKeyIniEntry(eaIni, "openm.inifile", "openm/to/inifile")
+	eaIni = helper.MergeSectionKeyIniEntry(eaIni, "Log.Sql", "false")
+	eaIni = helper.InsertIniEntry(eaIni, "Log", "Sql", "ERROR")
 
 	t.Log("==== After MergeSectionKey ====")
 	for k, e := range eaIni {
@@ -164,7 +166,7 @@ func TestIni(t *testing.T) {
 	// verify ini sections
 	// it must be in the same order
 
-	scLst := IniSectionList(eaIni)
+	scLst := helper.IniSectionList(eaIni)
 
 	t.Log("==== Ini sections ====")
 

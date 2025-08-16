@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,7 +28,7 @@ func toJsonOutput(jsonPath string, src interface{}) error {
 	ce := json.NewEncoder(os.Stdout)
 	ce.SetIndent("", "  ")
 	if err := ce.Encode(src); err != nil {
-		return errors.New("json encode error: " + err.Error())
+		return helper.ErrorMsg("json encode error:", err)
 	}
 	return nil
 }
@@ -129,7 +128,7 @@ func makeOutputDir(path string, isKeep bool) error {
 	if path != "" {
 		if !isKeep {
 			if isOk := dirDeleteAndLog(path); !isOk {
-				return errors.New("Error: unable to delete: " + path)
+				return helper.ErrorMsg("Error: unable to delete:", path)
 			}
 		}
 		if err := os.MkdirAll(path, 0750); err != nil {
@@ -150,7 +149,7 @@ func dirDeleteAndLog(path string) bool {
 		return true // OK: nothing to delete
 	}
 
-	omppLog.Log("Delete: ", path)
+	omppLog.Log("Delete:", path)
 
 	if e := os.RemoveAll(path); e != nil && !os.IsNotExist(e) {
 		omppLog.Log(e)

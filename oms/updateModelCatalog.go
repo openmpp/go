@@ -151,7 +151,7 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isLogDir bool, modelLogDir string) ([]modelDef, error) {
 
 	// read common.message.ini
-	cmIni := []config.IniEntry{}
+	cmIni := []helper.IniEntry{}
 	if ea, e := config.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
 		cmIni = ea
 	}

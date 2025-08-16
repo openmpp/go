@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openmpp/go/ompp/config"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // GetLanguages return language rows from lang_lst join to lang_word tables and map from lang_code to lang_id.
@@ -154,7 +154,7 @@ func NewLangMsg(lwLst []LangWord, mwLst []ModelLangWord) []LangMsg {
 
 // merge of model.message.ini, common.message.ini,
 // use content of message.ini to append languages and insert or update translated strings
-func AppendLangMsgFromIni(msgLst []LangMsg, eiLst []config.IniEntry) []LangMsg {
+func AppendLangMsgFromIni(msgLst []LangMsg, eiLst []helper.IniEntry) []LangMsg {
 
 	for _, ei := range eiLst {
 

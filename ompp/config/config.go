@@ -52,7 +52,7 @@ const (
 type RunOptions struct {
 	KeyValue        map[string]string // (key=>value) from command line arguments and ini-file
 	DefaultKeyValue map[string]string // default (key=>value), if non-empty default for command line argument
-	Ini             []IniEntry        // options as ini (section, key) => value
+	Ini             []helper.IniEntry // options as ini (section, key) => value
 	iniPath         string            // path to ini-file
 }
 
@@ -91,7 +91,7 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 	runOpts := &RunOptions{
 		KeyValue:        make(map[string]string),
 		DefaultKeyValue: make(map[string]string),
-		Ini:             []IniEntry{},
+		Ini:             []helper.IniEntry{},
 	}
 	logOpts := &LogOptions{
 		IsConsole: true,
@@ -183,7 +183,7 @@ func New(encodingKey string, isExtra bool, optFs []FullShort) (*RunOptions, *Log
 		if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
 			continue // skip invalid section.key
 		}
-		runOpts.Ini = MergeIniEntry(runOpts.Ini, sck[0], sck[1], val)
+		runOpts.Ini = helper.MergeIniEntry(runOpts.Ini, sck[0], sck[1], val)
 	}
 
 	return runOpts, logOpts, nil
@@ -201,7 +201,7 @@ func FromIni(iniPath string, encodingName string) (*RunOptions, error) {
 	runOpts := &RunOptions{
 		KeyValue:        map[string]string{},
 		DefaultKeyValue: map[string]string{},
-		Ini:             []IniEntry{},
+		Ini:             []helper.IniEntry{},
 	}
 
 	// parse ini-file using encoding, if it is not empty

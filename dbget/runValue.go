@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -23,23 +22,23 @@ func runValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: model run not found")
+		return helper.ErrorMsg("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 	runMeta, err := db.GetRunFull(srcDb, run)
 	if err != nil {
-		return errors.New("Error at get model run: " + run.Name + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", run.Name, err)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// create output directory
@@ -48,7 +47,7 @@ func runValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	isDefaultTop := theCfg.dir == ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", runMeta.Run.Name)
+		omppLog.Log("Do", theCfg.action, runMeta.Run.Name)
 	} else {
 
 		if runTop == "" {
@@ -64,7 +63,7 @@ func runValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 				return err
 			}
 		}
-		omppLog.Log("Do ", theCfg.action, ": "+runTop)
+		omppLog.Log("Do", theCfg.action, ":", runTop)
 	}
 
 	return runValueOut(srcDb, meta, runMeta, runTop, isDefaultTop, runOpts)
@@ -109,12 +108,12 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 
 	// write all parameters into csv file
 	nP := len(meta.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := 0; j < nP; j++ {
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", meta.Param[j].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[j].Name)
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -128,7 +127,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 
 	// write output tables into csv file, if the table included in run results
 	nT := len(runMeta.Table)
-	omppLog.Log("  Tables: ", nT)
+	omppLog.Log("  Tables:", nT)
 
 	for j := 0; j < nT; j++ {
 
@@ -143,7 +142,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 		if name == "" {
 			continue // skip table: it is suppressed and not in run results
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", name)
+		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nT, ":", name)
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -157,7 +156,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 
 	// write microdata into csv file, if there is any microdata for that model run
 	if nMd > 0 {
-		omppLog.Log("  Microdata: ", nMd)
+		omppLog.Log("  Microdata:", nMd)
 
 		for j := 0; j < nMd; j++ {
 
@@ -165,9 +164,9 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 			eId := runMeta.EntityGen[j].EntityId
 			eIdx, isFound := meta.EntityByKey(eId)
 			if !isFound {
-				return errors.New("error: entity not found by Id: " + strconv.Itoa(eId) + " " + runMeta.EntityGen[j].GenDigest)
+				return helper.ErrorMsg("error: entity not found by Id:", eId, runMeta.EntityGen[j].GenDigest)
 			}
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nMd, ": ", meta.Entity[eIdx].Name)
+			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nMd, ":", meta.Entity[eIdx].Name)
 
 			fp := ""
 			if !theCfg.isConsole {
@@ -191,16 +190,16 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// run list includes all runs, use only sucessfully completed
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 	rl, err := db.GetRunList(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model runs list: " + err.Error())
+		return helper.ErrorMsg("Error at get model runs list:", err)
 	}
 	rl = slices.DeleteFunc(rl, func(r db.RunRow) bool { return r.Status != db.DoneRunStatus })
 
 	if len(rl) <= 0 {
-		omppLog.Log("Do ", theCfg.action, ": ", "there are no completed model runs")
+		omppLog.Log("Do", theCfg.action, ":", "there are no completed model runs")
 		return nil
 	}
 
@@ -223,7 +222,7 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	isDefaultTop := !isUseIdNames && theCfg.dir == ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", meta.Model.Name)
+		omppLog.Log("Do", theCfg.action, meta.Model.Name)
 	} else {
 		if csvTop == "" {
 			csvTop = filepath.Join(helper.CleanFileName(meta.Model.Name))
@@ -231,7 +230,7 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 				return err
 			}
 		}
-		omppLog.Log("Do ", theCfg.action, ": "+csvTop)
+		omppLog.Log("Do", theCfg.action, ":", csvTop)
 	}
 
 	// for each run write parameters, output tables and microdata into csv or tsv files
@@ -239,12 +238,12 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 
 		runMeta, err := db.GetRunFull(srcDb, &rm)
 		if err != nil {
-			return errors.New("Error at get model run: " + rm.Name + " " + err.Error())
+			return helper.ErrorMsg("Error at get model run:", rm.Name, err)
 		}
 		if runMeta.Run.Status != db.DoneRunStatus {
 			continue // unexpected change of model run status
 		}
-		omppLog.Log("Model run ", rm.RunId, " ", rm.Name)
+		omppLog.Log("Model run", rm.RunId, rm.Name)
 
 		// run output directory is: run.Name_Of_the_Run or run.ID.Name_Of_the_Run
 		runTop := ""
@@ -274,7 +273,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// get model run list and run_txt if user language defined
@@ -287,7 +286,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		rl, err = db.GetRunList(srcDb, modelId)
 	}
 	if err != nil {
-		return errors.New("Error at get model runs list: " + err.Error())
+		return helper.ErrorMsg("Error at get model runs list:", err)
 	}
 
 	// for each run_lst find run_txt row if exist and convert to "public" run format
@@ -319,7 +318,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			p, err = (&db.RunMeta{Run: rl[ni]}).ToPublic(meta)
 		}
 		if err != nil {
-			return errors.New("Error at run conversion: " + err.Error())
+			return helper.ErrorMsg("Error at run conversion:", err)
 		}
 		if p != nil {
 			rpl[ni] = *p
@@ -327,7 +326,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	}
 
 	if len(rpl) <= 0 {
-		omppLog.Log("Do ", theCfg.action, ": ", "there are no completed model runs")
+		omppLog.Log("Do", theCfg.action, ":", "there are no completed model runs")
 		return nil
 	}
 
@@ -336,7 +335,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	ext := extByKind()
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", meta.Model.Name)
+		omppLog.Log("Do", theCfg.action, meta.Model.Name)
 	} else {
 		fp = theCfg.fileName
 		if fp == "" {
@@ -344,7 +343,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": ", fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	// write json output into file or console
@@ -414,7 +413,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			return true, row, nil // end of run_lst rows
 		})
 	if err != nil {
-		return errors.New("failed to write run list into csv " + err.Error())
+		return helper.ErrorMsg("failed to write run list into csv", err)
 	}
 
 	return nil

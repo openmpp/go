@@ -5,12 +5,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
-	"strconv"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -20,19 +19,19 @@ func parameterRunValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err.Error())
 	}
 	if run == nil {
-		return errors.New("Error: model run not found")
+		return helper.ErrorMsg("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 
 	// write parameter values to csv or tsv file
@@ -40,7 +39,7 @@ func parameterRunValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 	fp := ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", name)
+		omppLog.Log("Do", theCfg.action, name)
 	} else {
 
 		fp = theCfg.fileName
@@ -49,7 +48,7 @@ func parameterRunValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	return parameterValue(srcDb, meta, name, run.RunId, false, fp, false, nil)
@@ -61,13 +60,13 @@ func parameterWsValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// get model metadata and find parameter
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	paramName := runOpts.String(paramArgKey)
 	idx, ok := meta.ParamByName(paramName)
 	if !ok {
-		return errors.New("model parameter not found: " + paramName)
+		return helper.ErrorMsg("model parameter not found:", paramName)
 	}
 
 	// find workset, it must be readonly and check if parameter exists in that workset
@@ -78,16 +77,16 @@ func parameterWsValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 	nSub, _, err := db.GetWorksetParam(srcDb, wsRow.SetId, meta.Param[idx].ParamHid)
 	if err != nil {
-		return errors.New("Error at getting workset parameters list: " + wsRow.Name + ": " + err.Error())
+		return helper.ErrorMsg("Error at getting workset parameters list:", wsRow.Name, ":", err)
 	}
 	if nSub <= 0 {
-		return errors.New("Workset: " + wsRow.Name + " must contain parameter: " + paramName)
+		return helper.ErrorMsg("Workset: %s must contain parameter: %s", wsRow.Name, paramName)
 	}
 
 	// write parameter values to csv or tsv file
 	fp := ""
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", paramName)
+		omppLog.Log("Do", theCfg.action, paramName)
 	} else {
 
 		fp = theCfg.fileName
@@ -96,7 +95,7 @@ func parameterWsValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	return parameterValue(srcDb, meta, paramName, wsRow.SetId, true, fp, false, nil)
@@ -109,14 +108,14 @@ func parameterWsValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, isFromSet bool, path string, isOld bool, csvHdr []string) error {
 
 	if name == "" {
-		return errors.New("Invalid (empty) parameter name")
+		return helper.ErrorMsg("Invalid (empty) parameter name")
 	}
 	if meta == nil {
-		return errors.New("Invalid (empty) model metadata")
+		return helper.ErrorMsg("Invalid (empty) model metadata")
 	}
 	_, ok := meta.ParamByName(name)
 	if !ok {
-		return errors.New("Error: model parameter not found: " + name)
+		return helper.ErrorMsg("Error: model parameter not found:", name)
 	}
 
 	// make csv header
@@ -142,7 +141,7 @@ func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, 
 
 		hdr, err = cvtParam.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make parameter csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make parameter csv header:", name, ":", err)
 		}
 		if theCfg.isIdCsv {
 			cvtRow, err = cvtParam.ToCsvIdRow()
@@ -150,14 +149,14 @@ func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, 
 			cvtRow, err = cvtParam.ToCsvRow()
 		}
 		if err != nil {
-			return errors.New("Failed to create parameter converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create parameter converter to csv:", name, ":", err)
 		}
 
 	} else { // get language-specific metadata
 
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
-			return errors.New("Error at get model text metadata: " + err.Error())
+			return helper.ErrorMsg("Error at get model text metadata:", err)
 		}
 
 		cvtLoc := &db.CellParamLocaleConverter{
@@ -169,11 +168,11 @@ func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, 
 
 		hdr, err = cvtLoc.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make parameter csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make parameter csv header:", name, ":", err)
 		}
 		cvtRow, err = cvtLoc.ToCsvRow()
 		if err != nil {
-			return errors.New("Failed to create parameter converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create parameter converter to csv:", name, ":", err)
 		}
 	}
 
@@ -196,7 +195,7 @@ func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, 
 		h = csvHdr
 	}
 	if err := csvWr.Write(h); err != nil {
-		return errors.New("Error at csv write: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at csv write:", name, ":", err)
 	}
 
 	// convert cell into []string and write line into csv file
@@ -224,7 +223,7 @@ func parameterValue(srcDb *sql.DB, meta *db.ModelMeta, name string, fromId int, 
 	// read parameter values page
 	_, err = db.ReadParameterTo(srcDb, meta, &paramLt, cvtWr)
 	if err != nil {
-		return errors.New("Error at parameter output: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at parameter output:", name, ":", err)
 	}
 
 	csvWr.Flush() // flush csv to response

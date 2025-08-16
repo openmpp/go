@@ -5,12 +5,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
-	"strconv"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -20,19 +19,19 @@ func tableAcc(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return errors.New("Error at get model run: " + msg + " " + err.Error())
+		return helper.ErrorMsg("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return errors.New("Error: model run not found")
+		return helper.ErrorMsg("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return errors.New("Error: model run not completed successfully: " + run.Name)
+		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// write output table accumulators to csv or tsv file
@@ -40,7 +39,7 @@ func tableAcc(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	fp := ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", name)
+		omppLog.Log("Do", theCfg.action, name)
 	} else {
 
 		fp = theCfg.fileName
@@ -49,7 +48,7 @@ func tableAcc(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": "+fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	return tableRunAcc(srcDb, meta, name, run.RunId, runOpts, fp)
@@ -60,14 +59,14 @@ func tableAcc(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runOpts *config.RunOptions, path string) error {
 
 	if name == "" {
-		return errors.New("Invalid (empty) output table name")
+		return helper.ErrorMsg("Invalid (empty) output table name")
 	}
 	if meta == nil {
-		return errors.New("Invalid (empty) model metadata")
+		return helper.ErrorMsg("Invalid (empty) model metadata")
 	}
 	_, ok := meta.OutTableByName(name)
 	if !ok {
-		return errors.New("Error: model output table not found: " + name)
+		return helper.ErrorMsg("Error: model output table not found:", name)
 	}
 
 	// make csv header
@@ -98,7 +97,7 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 
 		hdr, err = cvtAcc.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make output table csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make output table csv header:", name, ":", err)
 		}
 		if theCfg.isIdCsv {
 			cvtRow, err = cvtAcc.ToCsvIdRow()
@@ -106,14 +105,14 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 			cvtRow, err = cvtAcc.ToCsvRow()
 		}
 		if err != nil {
-			return errors.New("Failed to create output table converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create output table converter to csv:", name, ":", err)
 		}
 
 	} else { // get language-specific metadata
 
 		langDef, err := db.GetLanguages(srcDb)
 		if err != nil {
-			return errors.New("Error at get language-specific metadata: " + err.Error())
+			return helper.ErrorMsg("Error at get language-specific metadata:", err)
 		}
 
 		// make list of model translated strings: merge common.message.ini and lang_word
@@ -126,7 +125,7 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 		// model language-specific lables for dimensions, items and tables
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
-			return errors.New("Error at get model text metadata: " + err.Error())
+			return helper.ErrorMsg("Error at get model text metadata:", err)
 		}
 
 		cvtLoc := &db.CellAccLocaleConverter{
@@ -140,11 +139,11 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 
 		hdr, err = cvtLoc.CsvHeader()
 		if err != nil {
-			return errors.New("Failed to make output table csv header: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to make output table csv header:", name, ":", err)
 		}
 		cvtRow, err = cvtLoc.ToCsvRow()
 		if err != nil {
-			return errors.New("Failed to create output table converter to csv: " + name + ": " + err.Error())
+			return helper.ErrorMsg("Failed to create output table converter to csv:", name, ":", err)
 		}
 	}
 
@@ -163,7 +162,7 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 
 	// write csv header
 	if err := csvWr.Write(hdr); err != nil {
-		return errors.New("Error at csv write: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at csv write:", name, ":", err)
 	}
 
 	// convert cell into []string and write line into csv file
@@ -189,7 +188,7 @@ func tableRunAcc(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 	// read output table accumulators
 	_, err = db.ReadOutputTableTo(srcDb, meta, &tblLt, cvtWr)
 	if err != nil {
-		return errors.New("Error at output table output: " + name + ": " + err.Error())
+		return helper.ErrorMsg("Error at output table output:", name, ":", err)
 	}
 
 	csvWr.Flush() // flush csv to response

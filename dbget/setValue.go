@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -23,7 +22,7 @@ func setValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// find workset, it must be readonly
@@ -37,7 +36,7 @@ func setValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	wsDir := theCfg.dir
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", wsRow.Name)
+		omppLog.Log("Do", theCfg.action, wsRow.Name)
 	} else {
 
 		if wsDir == "" {
@@ -46,7 +45,7 @@ func setValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		if err = makeOutputDir(wsDir, theCfg.isKeepOutputDir); err != nil {
 			return err
 		}
-		omppLog.Log("Do ", theCfg.action, ": "+wsDir)
+		omppLog.Log("Do", theCfg.action, ":", wsDir)
 	}
 
 	return setValueOut(srcDb, meta, wsRow, wsDir)
@@ -58,23 +57,23 @@ func setValueOut(srcDb *sql.DB, meta *db.ModelMeta, wsRow *db.WorksetRow, paramC
 	// get workset parameters list
 	hIds, _, _, err := db.GetWorksetParamList(srcDb, wsRow.SetId)
 	if err != nil {
-		return errors.New("Error: unable to get workset parameters list: " + wsRow.Name + ": " + err.Error())
+		return helper.ErrorMsg("Error: unable to get workset parameters list:", wsRow.Name, ":", err)
 	}
 
 	// write all parameters into csv file
 	nP := len(hIds)
 
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := 0; j < nP; j++ {
 
 		idx, ok := meta.ParamByHid(hIds[j])
 		if !ok {
-			return errors.New("missing workset parameter Hid: " + strconv.Itoa(hIds[j]) + " workset: " + wsRow.Name)
+			return helper.ErrorFmt("missing workset parameter Hid: %d  workset: %s", hIds[j], wsRow.Name)
 		}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", meta.Param[idx].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[idx].Name)
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -95,17 +94,17 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata and list of readonly worksets
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	wsLst, err := db.GetWorksetList(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get workset list by model id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get workset list by model id:", modelId, ":", err)
 	}
 	wsLst = slices.DeleteFunc(wsLst, func(w db.WorksetRow) bool { return !w.IsReadonly })
 
 	if len(wsLst) <= 0 {
-		omppLog.Log("Do ", theCfg.action, ": ", "there are no readonly worksets")
+		omppLog.Log("Do", theCfg.action, ":", "there are no readonly worksets")
 		return nil
 	}
 
@@ -114,7 +113,7 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	csvTop := theCfg.dir
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", meta.Model.Name)
+		omppLog.Log("Do", theCfg.action, meta.Model.Name)
 	} else {
 		if csvTop == "" {
 			csvTop = filepath.Join(helper.CleanFileName(meta.Model.Name))
@@ -122,7 +121,7 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 				return err
 			}
 		}
-		omppLog.Log("Do ", theCfg.action, ": "+csvTop)
+		omppLog.Log("Do", theCfg.action, ":", csvTop)
 	}
 
 	// for each workset write parameters into csv or tsv files
@@ -131,7 +130,7 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		if !ws.IsReadonly {
 			continue // unexpected change of workset readonly status
 		}
-		omppLog.Log("Workset ", ws.SetId, " ", ws.Name)
+		omppLog.Log("Workset", ws.SetId, ws.Name)
 
 		// workset output directory: set.Name
 		wsDir := ""
@@ -158,7 +157,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// get model run list and run_txt if user language defined
@@ -171,11 +170,11 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		wl, err = db.GetWorksetList(srcDb, modelId)
 	}
 	if err != nil {
-		return errors.New("Error at get model workset list: " + err.Error())
+		return helper.ErrorMsg("Error at get model workset list:", err)
 	}
 
 	if len(wl) <= 0 {
-		omppLog.Log("Do ", theCfg.action, ": ", "there are no input sets (no input scenarios)")
+		omppLog.Log("Do", theCfg.action, ":", "there are no input sets (no input scenarios)")
 		return nil
 	}
 
@@ -204,7 +203,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			p, err = (&db.WorksetMeta{Set: wl[ni]}).ToPublic(srcDb, meta)
 		}
 		if err != nil {
-			return errors.New("Error at workset conversion: " + err.Error())
+			return helper.ErrorMsg("Error at workset conversion:", err)
 		}
 		if p != nil {
 			wpl[ni] = *p
@@ -216,7 +215,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	ext := extByKind()
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", meta.Model.Name)
+		omppLog.Log("Do", theCfg.action, meta.Model.Name)
 	} else {
 		fp = theCfg.fileName
 		if fp == "" {
@@ -224,7 +223,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do ", theCfg.action, ": ", fp)
+		omppLog.Log("Do", theCfg.action, ":", fp)
 	}
 
 	// write json output into file or console
@@ -268,7 +267,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			return true, row, nil // end of run_lst rows
 		})
 	if err != nil {
-		return errors.New("failed to write workset list into csv " + err.Error())
+		return helper.ErrorMsg("failed to write workset list into csv", err)
 	}
 
 	return nil

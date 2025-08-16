@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 	"strconv"
 
@@ -258,10 +257,10 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 	// get model row, it should exists if model id still valid
 	mdRow, err := db.GetModelRow(srcDb, modelId)
 	if err != nil {
-		return errors.New("Error at get model metadata by id: " + strconv.Itoa(modelId) + ": " + err.Error())
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 	if mdRow == nil {
-		return errors.New("Error at get model row by id: " + strconv.Itoa(modelId))
+		return helper.ErrorMsg("Error at get model row by id:", modelId)
 	}
 
 	// for json use specified file name or make default as modelName.old-model.json
@@ -271,7 +270,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 	ext := extByKind()
 
 	if theCfg.isConsole {
-		omppLog.Log("Do ", theCfg.action, " ", mdRow.Name)
+		omppLog.Log("Do", theCfg.action, mdRow.Name)
 	} else {
 		if theCfg.kind == asJson {
 
@@ -281,7 +280,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			}
 			fp = filepath.Join(theCfg.dir, fp)
 
-			omppLog.Log("Do ", theCfg.action, ": ", fp)
+			omppLog.Log("Do", theCfg.action, ":", fp)
 
 		} else {
 			if dir == "" {
@@ -291,7 +290,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			if err := makeOutputDir(dir, theCfg.isKeepOutputDir); err != nil {
 				return err
 			}
-			omppLog.Log("Do ", theCfg.action, ": ", dir)
+			omppLog.Log("Do", theCfg.action, ":", dir)
 		}
 	}
 
@@ -399,7 +398,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 	if !theCfg.isNoLang {
 
 		if len(mcv.LanguageDic) <= 0 {
-			return errors.New("Error at get model language: " + theCfg.lang)
+			return helper.ErrorMsg("Error at get model language:", theCfg.lang)
 		}
 		langFlt = "M.LanguageID = " + strconv.Itoa(mcv.LanguageDic[0].LanguageID)
 	}
@@ -432,7 +431,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 		return err
 	}
 	if len(mcv.ModelDic) <= 0 {
-		return errors.New("ModelDic rows not found, model id: " + strconv.Itoa(modelId) + " language: " + theCfg.lang)
+		return helper.ErrorFmt("ModelDic rows not found, model id: %d language: %s", modelId, theCfg.lang)
 	}
 	// ModelInfoDic and SimulationInfoDic: convert Cases from run_option string to int
 	q = "SELECT" +
@@ -1139,7 +1138,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "LanguageDic" + ext + err.Error())
+		helper.ErrorMsg("failed to write into", "LanguageDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1167,7 +1166,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ModelDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ModelDic"+ext, err)
 	}
 
 	row = make([]string, 12)
@@ -1197,7 +1196,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ModelInfoDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ModelInfoDic"+ext, err)
 	}
 
 	row = make([]string, 12)
@@ -1227,7 +1226,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "SimulationInfoDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "SimulationInfoDic"+ext, err)
 	}
 
 	row = make([]string, 10)
@@ -1261,7 +1260,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ScenarioDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ScenarioDic"+ext, err)
 	}
 
 	row = make([]string, 2)
@@ -1279,7 +1278,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TypeDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TypeDic"+ext, err)
 	}
 
 	row = make([]string, 2)
@@ -1297,7 +1296,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "SimpleTypeDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "SimpleTypeDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1319,7 +1318,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "LogicalDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "LogicalDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1347,7 +1346,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ClassificationDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ClassificationDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1375,7 +1374,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ClassificationValueDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ClassificationValueDic"+ext, err)
 	}
 
 	row = make([]string, 7)
@@ -1404,7 +1403,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "RangeDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "RangeDic"+ext, err)
 	}
 
 	row = make([]string, 2)
@@ -1422,7 +1421,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "RangeValueDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "RangeValueDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1450,7 +1449,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "PartitionDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "PartitionDic"+ext, err)
 	}
 
 	row = make([]string, 4)
@@ -1470,7 +1469,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "PartitionValueDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "PartitionValueDic"+ext, err)
 	}
 
 	row = make([]string, 4)
@@ -1490,7 +1489,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "PartitionIntervalDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "PartitionIntervalDic"+ext, err)
 	}
 
 	row = make([]string, 11)
@@ -1530,7 +1529,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ParameterDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ParameterDic"+ext, err)
 	}
 
 	row = make([]string, 4)
@@ -1550,7 +1549,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ParameterDimensionDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ParameterDimensionDic"+ext, err)
 	}
 
 	row = make([]string, 7)
@@ -1579,7 +1578,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ParameterGroupDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ParameterGroupDic"+ext, err)
 	}
 
 	row = make([]string, 4)
@@ -1605,7 +1604,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "ParameterGroupMemberDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "ParameterGroupMemberDic"+ext, err)
 	}
 
 	row = make([]string, 12)
@@ -1647,7 +1646,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TableDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TableDic"+ext, err)
 	}
 
 	row = make([]string, 12)
@@ -1689,7 +1688,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "UserTableDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "UserTableDic"+ext, err)
 	}
 
 	row = make([]string, 8)
@@ -1719,7 +1718,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TableClassDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TableClassDic"+ext, err)
 	}
 
 	row = make([]string, 7)
@@ -1748,7 +1747,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TableExpressionDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TableExpressionDic"+ext, err)
 	}
 
 	row = make([]string, 6)
@@ -1776,7 +1775,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TableGroupDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TableGroupDic"+ext, err)
 	}
 
 	row = make([]string, 4)
@@ -1802,7 +1801,7 @@ func modelOldMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write into " + "TableGroupMemberDic" + ext + err.Error())
+		return helper.ErrorMsg("failed to write into", "TableGroupMemberDic"+ext, err)
 	}
 
 	return nil

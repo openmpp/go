@@ -21,14 +21,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/helper"
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
 )
 
 // log control state
@@ -42,29 +39,6 @@ var (
 	lastDay       int                                  // if daily log then day current daily stamp
 	logOpts       = config.LogOptions{IsConsole: true} // log options, default is log to console
 )
-
-// translated messages from message.ini file(s)
-var (
-	msgLock sync.Mutex                             // mutex to lock for message string search or update
-	msgLang string                                 // message language: msgIni section
-	msgMap                   = map[string]string{} // message map to find translation
-	msgPrt  *message.Printer = nil                 // language specific printer, if not null then use it instead of fmt
-)
-
-// return translated string, if translation not found then retrun source string
-func LT(src string) string {
-	if src == "" {
-		return src
-	}
-
-	msgLock.Lock()
-	defer msgLock.Unlock()
-
-	if t, ok := msgMap[src]; ok {
-		return t
-	}
-	return src
-}
 
 // LogIfTime do Log(msg) not more often then every nSeconds.
 // It does nothing if time now < lastT + nSeconds. Time is a Unix time, seconds since epoch.
@@ -95,110 +69,49 @@ func New(opts *config.LogOptions) {
 // translate first msg[0] item using message.ini content,
 // use language specific msgPrt printer instead of fmt by default
 func Log(msg ...any) {
-	doLog(false, msg...)
+	now := time.Now()
+	writeToLog(
+		now,
+		helper.MakeDateTime(now)+" "+helper.Msg(msg...),
+	)
 }
 
 // Log message to console and log file,
 // put space between msg items
 func LogNoLT(msg ...any) {
-	doLog(true, msg...)
+	now := time.Now()
+	writeToLog(
+		now,
+		helper.MakeDateTime(now)+" "+helper.MsgNoLT(msg...),
+	)
 }
 
 // log formattted message to console and log file,
 // translate format string using message.ini content,
 // use language specific msgPrt printer instead of fmt by default
 func LogFmt(format string, msg ...any) {
-	doLogFmt(false, format, msg...)
+	if format == "" {
+		Log(msg...) // ignore empty format to avoid ugly output
+	} else {
+		now := time.Now()
+		writeToLog(
+			now,
+			helper.MakeDateTime(now)+" "+helper.Fmt(format, msg...),
+		)
+	}
 }
 
 // log formattted message to console and log file,
 func LogFmtNoLT(format string, msg ...any) {
-	doLogFmt(true, format, msg...)
-}
-
-// Log message to console and log file,
-// put space between msg items
-func doLog(isNoLT bool, msg ...any) {
-	now := time.Now()
-	m := helper.MakeDateTime(now) + " " + makeMsg(isNoLT, msg...)
-	writeToLog(now, m)
-}
-
-// return joined msg items by space, use Sprint for each item,
-// translate first msg[0] item using message.ini content,
-// use language specific msgPrt printer instead of fmt by default
-func Msg(msg ...any) string {
-	return makeMsg(false, msg...)
-}
-
-// return string formatted by Sprintf
-// translate format string using message.ini content,
-// use language specific msgPrt printer instead of fmt by default
-func Fmt(format string, msg ...any) string {
-
-	if format != "" {
-		if msgPrt != nil {
-			return msgPrt.Sprintf(LT(format), msg...)
-		} else {
-			return fmt.Sprintf(format, msg...)
-		}
-	}
-	if msgPrt != nil {
-		return msgPrt.Sprint(msg...)
-	}
-	return fmt.Sprint(msg...)
-}
-
-// log formattted message to console and log file,
-// translate format string using message.ini content
-func doLogFmt(isNoLT bool, format string, msg ...any) {
-
 	if format == "" {
-		doLog(isNoLT, msg...) // ignore empty format to avoid ugly output
-		return
-	}
-
-	now := time.Now()
-	m := ""
-
-	if !isNoLT && msgPrt != nil {
-		m = helper.MakeDateTime(now) + " " + msgPrt.Sprintf(LT(format), msg...)
+		LogNoLT(msg...) // ignore empty format to avoid ugly output
 	} else {
-		m = helper.MakeDateTime(now) + " " + fmt.Sprintf(format, msg...)
+		now := time.Now()
+		writeToLog(
+			now,
+			helper.MakeDateTime(now)+" "+fmt.Sprintf(format, msg...),
+		)
 	}
-	writeToLog(now, m)
-}
-
-// Join msg items by space and translate first msg[0] item using message.ini content
-func makeMsg(isNoLT bool, msg ...any) string {
-
-	if len(msg) <= 0 {
-		return ""
-	}
-	// translate first item of msg[] if it is a string
-	m := ""
-	if m0, ok := msg[0].(string); ok {
-		if !isNoLT {
-			m = LT(m0)
-		} else {
-			m = m0
-		}
-	} else {
-		if !isNoLT && msgPrt != nil {
-			m = msgPrt.Sprint(msg[0])
-		} else {
-			m = fmt.Sprint(msg[0])
-		}
-	}
-	// append the rest of message items
-	for _, v := range msg[1:] {
-		if !isNoLT && msgPrt != nil {
-			m += " " + msgPrt.Sprint(v)
-		} else {
-			m += " " + fmt.Sprint(v)
-		}
-	}
-	return m
 }
 
 // LogSql sql query to file
@@ -292,7 +205,7 @@ func writeToLogFile(msg string) bool {
 	return err == nil
 }
 
-// Load translated messages from language sections of message.ini files.
+// Load translated messages from language sections of exeName.message.ini go-common.message.ini files.
 // It is a merge of exeName.message.ini and go.common.message.ini.
 // If exeName is empty or exeName.message.ini file not exist then do nothing
 func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string) (string, error) {
@@ -314,7 +227,7 @@ func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string
 	// read go-common.message.ini and merge with exe message.ini
 	if cmIni, e := config.ReadSharedMessageIni("go-common.message.ini", exeDir, encodingName); e == nil {
 		for _, ea := range cmIni {
-			msgIni = config.MergeIniEntry(msgIni, ea.Section, ea.Key, ea.Val)
+			msgIni = helper.MergeIniEntry(msgIni, ea.Section, ea.Key, ea.Val)
 		}
 	}
 
@@ -322,58 +235,7 @@ func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string
 		return userLang, nil // message.ini is empty
 	}
 
-	// match message.ini languages to user language to build message.ini sectioans list ordered by language match confidence
-	// known issue: it does not understand .UTF-8
-	// examples: en_CA.UTF-8 => en-US, fr_CA.UTF-8 => fr
-
-	mMap := map[string]string{}
-	uLang := ""
-	uTag := language.Und
-
-	if userLang != "" {
-		uTag = language.Make(userLang)
-		uLang = uTag.String()
-		if uLang == "und" {
-			uLang = "" // undefined user language
-		}
-
-		scLst := config.IniSectionList(msgIni)
-		langLst := make([]string, 0, len(scLst))
-		cLst := make([]language.Confidence, 0, len(scLst))
-
-		for _, sn := range scLst {
-
-			lt := []language.Tag{language.Make(sn)}
-			_, _, c := language.NewMatcher(lt).Match(uTag)
-			if c > language.No {
-				langLst = append(langLst, sn)
-				cLst = append(cLst, c)
-			}
-		}
-
-		// sort language list in confidence decsending order
-		sort.SliceStable(langLst, func(i, j int) bool { return cLst[i] < cLst[j] })
-
-		// include most confident translation into message map
-		for _, ln := range langLst {
-			for k := range msgIni {
-				if msgIni[k].Section == ln {
-					mMap[msgIni[k].Key] = msgIni[k].Val
-				}
-			}
-		}
-
-	}
-
 	// update user language name and translation map
-	msgLock.Lock()
-	defer msgLock.Unlock()
-
-	if uLang != "" && uLang != "und" {
-		msgPrt = message.NewPrinter(uTag)
-	}
-	msgLang = uLang
-	msgMap = mMap
-
-	return msgLang, nil
+	uLang := helper.SetMsg(userLang, msgIni)
+	return uLang, nil
 }

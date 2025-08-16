@@ -765,7 +765,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 	}
 
 	// if ini file file path specified as run option then read ini file and merge with other run options
-	eaIni := []config.IniEntry{}
+	eaIni := []helper.IniEntry{}
 
 	if iniPath != "" {
 
@@ -804,7 +804,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 	if len(iniKeyVal) > 0 {
 
 		for key, val := range iniKeyVal {
-			eaIni = config.MergeSectionKeyIniEntry(eaIni, key, val)
+			eaIni = helper.MergeSectionKeyIniEntry(eaIni, key, val)
 
 		}
 

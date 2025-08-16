@@ -5,11 +5,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -39,7 +39,7 @@ func modelList(srcDb *sql.DB) error {
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do model-list: " + fp)
+		omppLog.Log("Do model-list:", fp)
 	}
 
 	// write json output into file or console
@@ -69,7 +69,7 @@ func modelList(srcDb *sql.DB) error {
 			}
 			if theCfg.isNoLang || lc == "" {
 				lc = mLst[k].DefaultLangCode
-				omppLog.Log("Using default model language: ", lc)
+				omppLog.Log("Using default model language:", lc)
 			}
 			if lc != "" {
 				txt, e := db.GetModelTextRowById(srcDb, mLst[k].ModelId, lc)
@@ -133,7 +133,7 @@ func modelList(srcDb *sql.DB) error {
 				}
 				if theCfg.isNoLang || lc == "" {
 					lc = mLst[idx].DefaultLangCode
-					omppLog.Log("Using default model language: ", lc)
+					omppLog.Log("Using default model language:", lc)
 				}
 				if lc != "" {
 					txt, e := db.GetModelTextRowById(srcDb, mLst[idx].ModelId, lc)
@@ -160,7 +160,7 @@ func modelList(srcDb *sql.DB) error {
 			return true, row, nil // end of model_dic rows
 		})
 	if err != nil {
-		return errors.New("failed to write model into csv " + err.Error())
+		return helper.ErrorMsg("failed to write model into csv", err)
 	}
 
 	return nil

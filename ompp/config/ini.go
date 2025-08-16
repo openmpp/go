@@ -7,20 +7,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/openmpp/go/ompp/helper"
 )
-
-// Ini-file entry: section, key and value
-type IniEntry struct {
-	Section string // section: in lower case, without [], space trimed
-	Key     string // key: in lower case, without =, space trimed
-	Val     string // value: space trimed and unquoted ("quotes" or 'apostrophes' removed)
-}
 
 /*
 NewIni read ini-file content into  IniEntry[] of { Section, Key Value }
@@ -61,31 +53,31 @@ Example:
 	       text with spaces\
 	       "
 */
-func NewIni(iniPath string, encodingName string) ([]IniEntry, error) {
+func NewIni(iniPath string, encodingName string) ([]helper.IniEntry, error) {
 
 	if iniPath == "" {
-		return []IniEntry{}, nil // no ini-file
+		return []helper.IniEntry{}, nil // no ini-file
 	}
 
 	// read ini-file and convert to utf-8
 	s, err := helper.FileToUtf8(iniPath, encodingName)
 	if err != nil {
-		return []IniEntry{}, errors.New("reading ini-file to utf-8 failed: " + err.Error())
+		return []helper.IniEntry{}, errors.New("reading ini-file to utf-8 failed: " + err.Error())
 	}
 
 	// parse ini-file into strings map of (section.key)=>value
 	eaIni, err := loadIni(s)
 	if err != nil {
-		return []IniEntry{}, errors.New("reading ini-file failed: " + err.Error())
+		return []helper.IniEntry{}, errors.New("reading ini-file failed: " + err.Error())
 	}
 
 	return eaIni, nil
 }
 
 // Parse ini-file content into strings map of (section.key)=>value
-func loadIni(iniContent string) ([]IniEntry, error) {
+func loadIni(iniContent string) ([]helper.IniEntry, error) {
 
-	eaIni := []IniEntry{}
+	eaIni := []helper.IniEntry{}
 
 	var section, key, val, line string
 	var isContinue, isQuote bool
@@ -116,7 +108,7 @@ func loadIni(iniContent string) ([]IniEntry, error) {
 		if len(line) <= 0 {
 
 			if key != "" {
-				eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
+				eaIni = helper.MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 
 				key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 			}
@@ -161,7 +153,7 @@ func loadIni(iniContent string) ([]IniEntry, error) {
 		if len(line) <= 0 {
 
 			if key != "" {
-				eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
+				eaIni = helper.MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 				key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 			}
 			continue // skip line: it is a comment only line
@@ -215,92 +207,17 @@ func loadIni(iniContent string) ([]IniEntry, error) {
 		} else {
 
 			val = val + line
-			eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
+			eaIni = helper.MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 			key, val, isContinue, isQuote, cQuote = "", "", false, false, 0 // reset state
 		}
 	}
 
 	// last line: continuation at last line without cr-lf
 	if isContinue && section != "" && key != "" {
-		eaIni = MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
+		eaIni = helper.MergeIniEntry(eaIni, section, key, helper.UnQuote(val))
 	}
 
 	return eaIni, nil
-}
-
-// Insert new or update existing ini file entry:
-// search by (section, key) in source []IniEntry
-// if not found then insert new entry
-// if found and isUpdate true then update existing entry with new value
-func AddIniEntry(isUpdate bool, eaIni []IniEntry, section, key, val string) []IniEntry {
-
-	scIdx := -1
-	for k := 0; scIdx < 0 && k < len(eaIni); k++ {
-		if strings.EqualFold(eaIni[k].Section, section) {
-			scIdx = k
-		}
-	}
-	if scIdx < 0 { // section not found: append new section, key value
-
-		return append(eaIni, IniEntry{Section: section, Key: key, Val: val})
-
-	} // else section found: search key inside of the section
-
-	for ; scIdx < len(eaIni) && strings.EqualFold(eaIni[scIdx].Section, section); scIdx++ {
-		if strings.EqualFold(eaIni[scIdx].Key, key) {
-			if isUpdate {
-				eaIni[scIdx].Val = val // section and key found: update existing section.key with new value
-			}
-			return eaIni // key found: return []IniEnty array with updated value or original value
-		}
-	}
-	// else key not found in the section: insert new key at the end of section
-
-	return slices.Insert(eaIni, scIdx, IniEntry{Section: section, Key: key, Val: val})
-}
-
-// Update existing or insert new ini file entry:
-// search by (section, key) in source []IniEntry
-// if not found then insert new entry
-// if found then update existing entry with new value
-func MergeIniEntry(eaIni []IniEntry, section, key, val string) []IniEntry {
-	return AddIniEntry(true, eaIni, section, key, val)
-}
-
-// Insert new ini file entry if not already exists:
-// search by (section, key) in source []IniEntry
-// if not found then insert new entry
-func InsertIniEntry(eaIni []IniEntry, section, key, val string) []IniEntry {
-	return AddIniEntry(false, eaIni, section, key, val)
-}
-
-// Update existing or insert new ini file entry:
-// sectionKey expected to be: section.key if not then exit and do nothing.
-// find section and key in source []IniEntry
-// if not found then insert new entry
-// if found then update existing entry with new value
-func MergeSectionKeyIniEntry(eaIni []IniEntry, sectionKey, val string) []IniEntry {
-
-	sck := strings.SplitN(sectionKey, ".", 2) // expected section.key
-	if len(sck) < 2 || sck[0] == "" || sck[1] == "" {
-		return eaIni // skip invalid section.key
-	}
-	return MergeIniEntry(eaIni, sck[0], sck[1], val)
-}
-
-// return ini-file sections
-func IniSectionList(eaIni []IniEntry) []string {
-
-	scLst := []string{}
-	sc := ""
-
-	for _, e := range eaIni {
-		if e.Section != sc {
-			scLst = append(scLst, e.Section)
-		}
-		sc = e.Section
-	}
-	return scLst
 }
 
 // read common.message.ini file if exists in one of:
@@ -308,7 +225,7 @@ func IniSectionList(eaIni []IniEntry) []string {
 //	path/to/exe/common.message.ini
 //	OM_ROOT/common.message.ini
 //	OM_ROOT/models/common.message.ini
-func ReadCommonMessageIni(exeDir string, encodingName string) ([]IniEntry, error) {
+func ReadCommonMessageIni(exeDir string, encodingName string) ([]helper.IniEntry, error) {
 	return ReadSharedMessageIni("common.message.ini", exeDir, encodingName)
 }
 
@@ -319,10 +236,10 @@ func ReadCommonMessageIni(exeDir string, encodingName string) ([]IniEntry, error
 //	OM_ROOT/models/commonName.message.ini
 //
 // if commonName is empty then return empty result
-func ReadSharedMessageIni(sharedName, exeDir string, encodingName string) ([]IniEntry, error) {
+func ReadSharedMessageIni(sharedName, exeDir string, encodingName string) ([]helper.IniEntry, error) {
 
 	if sharedName == "" {
-		return []IniEntry{}, nil
+		return []helper.IniEntry{}, nil
 	}
 	if cmIni, e := ReadMessageIni(sharedName, exeDir, encodingName); e == nil && len(cmIni) > 0 {
 		return cmIni, e
@@ -333,20 +250,20 @@ func ReadSharedMessageIni(sharedName, exeDir string, encodingName string) ([]Ini
 		}
 		return ReadMessageIni(sharedName, filepath.Join(omroot, "models"), encodingName)
 	}
-	return []IniEntry{}, nil
+	return []helper.IniEntry{}, nil
 }
 
 // read path/to/exe/name.message.ini,
 // it does not return error if message.ini not exist
-func ReadMessageIni(name, dir string, encodingName string) ([]IniEntry, error) {
+func ReadMessageIni(name, dir string, encodingName string) ([]helper.IniEntry, error) {
 
 	if name == "" {
-		return []IniEntry{}, nil // file name is empty
+		return []helper.IniEntry{}, nil // file name is empty
 	}
 	p := filepath.Join(dir, name+".message.ini")
 
 	if !helper.IsFileExist(p) {
-		return []IniEntry{}, nil // message.ini not found
+		return []helper.IniEntry{}, nil // message.ini not found
 	}
 
 	return NewIni(p, encodingName)
