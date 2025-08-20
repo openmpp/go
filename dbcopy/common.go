@@ -21,7 +21,7 @@ func dirDeleteAndLog(path string) bool {
 		return true // OK: nothing to delete
 	}
 
-	omppLog.Log("Delete: ", path)
+	omppLog.Log("Delete:", path)
 
 	if e := os.RemoveAll(path); e != nil && !os.IsNotExist(e) {
 		omppLog.Log(e)

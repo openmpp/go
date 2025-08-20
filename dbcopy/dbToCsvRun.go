@@ -29,7 +29,7 @@ func toRunCsv(
 
 	// create run subdir under model dir
 	runId := meta.Run.RunId
-	omppLog.Log("Model run ", runId, " ", meta.Run.Name)
+	omppLog.Log("Model run", runId, meta.Run.Name)
 
 	// make output directory as one of:
 	// all_model_runs, run.Name_Of_the_Run, run.NN.Name_Of_the_Run
@@ -97,7 +97,7 @@ func toRunCsv(
 			FromId: runId,
 		}}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", paramLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, paramLt.Name))
 
 		err := toCellCsvFile(dbConn, modelDef, paramLt, cvtParam, fileCreated, paramCsvDir, firstCol, firstVal)
 		if err != nil {
@@ -138,7 +138,7 @@ func toRunCsv(
 
 	// write output tables into csv file, if the table included in run results
 	nT := len(modelDef.Table)
-	omppLog.Log("  Tables: ", nT)
+	omppLog.Log("  Tables:", nT)
 
 	for j := 0; j < nT; j++ {
 
@@ -173,7 +173,7 @@ func toRunCsv(
 		cvtAcc := &db.CellAccConverter{CellTableConverter: ctc}
 		cvtAll := &db.CellAllAccConverter{CellTableConverter: ctc}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", tblLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nT, tblLt.Name))
 
 		err := toCellCsvFile(dbConn, modelDef, tblLt, cvtExpr, fileCreated, tableCsvDir, firstCol, firstVal)
 		if err != nil {
@@ -186,7 +186,7 @@ func toRunCsv(
 			tblLt.IsAccum = true
 			tblLt.IsAllAccum = false
 
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", tblLt.Name, " accumulators")
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s accumulators", j, nT, tblLt.Name))
 
 			err = toCellCsvFile(dbConn, modelDef, tblLt, cvtAcc, fileCreated, tableCsvDir, firstCol, firstVal)
 			if err != nil {
@@ -197,7 +197,7 @@ func toRunCsv(
 			tblLt.IsAccum = true
 			tblLt.IsAllAccum = true
 
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", tblLt.Name, " all accumulators")
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s all accumulators", j, nT, tblLt.Name))
 
 			err = toCellCsvFile(dbConn, modelDef, tblLt, cvtAll, fileCreated, tableCsvDir, firstCol, firstVal)
 			if err != nil {
@@ -209,7 +209,7 @@ func toRunCsv(
 	// write microdata into csv file, if there is any microdata for that model run and microadata write enabled
 	if !theCfg.isNoMicrodata && nMd > 0 {
 
-		omppLog.Log("  Microdata: ", nMd)
+		omppLog.Log("  Microdata:", nMd)
 
 		for j := 0; j < nMd; j++ {
 
@@ -236,7 +236,7 @@ func toRunCsv(
 				GenDigest: meta.EntityGen[j].GenDigest,
 			}
 
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nMd, ": ", microLt.Name)
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nMd, microLt.Name))
 
 			err := toCellCsvFile(dbConn, modelDef, microLt, cvtMicro, fileCreated, microCsvDir, firstCol, firstVal)
 			if err != nil {

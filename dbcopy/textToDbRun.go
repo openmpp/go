@@ -270,13 +270,13 @@ func fromRunTextToDb(
 
 	// restore run parameters: all model parameters must be included in the run
 	nP := len(modelDef.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := range modelDef.Param {
 
 		// read parameter values from csv file
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", modelDef.Param[j].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, modelDef.Param[j].Name))
 
 		// insert parameter values in model run
 		paramLt := db.WriteParamLayout{
@@ -311,7 +311,7 @@ func fromRunTextToDb(
 
 	// restore run output tables accumulators and expressions, if the table included in run results
 	nT := len(modelDef.Table)
-	omppLog.Log("  Tables: ", nT)
+	omppLog.Log("  Tables:", nT)
 
 	for j := range modelDef.Table {
 
@@ -345,7 +345,7 @@ func fromRunTextToDb(
 		cvtExpr := db.CellExprConverter{CellTableConverter: ctc}
 		cvtAcc := db.CellAccConverter{CellTableConverter: ctc}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", tblLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nT, tblLt.Name))
 
 		err := writeTableFromCsvFiles(dbConn, modelDef, tblLt, tableCsvDir, cvtExpr, cvtAcc)
 		if err != nil {
@@ -376,7 +376,7 @@ func fromRunTextToDb(
 	// read entity microdata values from csv file
 	if nMd > 0 {
 
-		omppLog.Log("  Microdata: ", nMd)
+		omppLog.Log("  Microdata:", nMd)
 
 		for j := 0; j < nMd; j++ {
 
@@ -396,7 +396,7 @@ func fromRunTextToDb(
 				DoubleFmt: theCfg.doubleFmt,
 			}}
 
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nMd, ": ", microLt.Name)
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nMd, microLt.Name))
 
 			err := writeMicroFromCsvFile(dbConn, dbFacet, modelDef, meta, microLt, microCsvDir, cvtMicro)
 			if err != nil {

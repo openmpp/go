@@ -225,12 +225,11 @@ func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string
 	}
 
 	// read go-common.message.ini and merge with exe message.ini
-	if cmIni, e := config.ReadSharedMessageIni("go-common.message.ini", exeDir, encodingName); e == nil {
+	if cmIni, e := config.ReadSharedMessageIni("go-common", exeDir, encodingName); e == nil {
 		for _, ea := range cmIni {
-			msgIni = helper.MergeIniEntry(msgIni, ea.Section, ea.Key, ea.Val)
+			msgIni = helper.InsertIniEntry(msgIni, ea.Section, ea.Key, ea.Val)
 		}
 	}
-
 	if len(msgIni) <= 0 {
 		return userLang, nil // message.ini is empty
 	}

@@ -85,7 +85,7 @@ User can override default OS language:
 	dbget -m modelOne -do all-runs -dbget.Language en-CA
 	dbget -m modelOne -do all-runs -dbget.Language isl
 
-If isl = Icelandic language not found in model database then closest languge will be used, for example: DA,
+If isl = Icelandic language not found in model database then closest language will be used, for example: DA,
 or, if no match found in database then it is a default model language.
 
 If user do not want language specific labels in the output then -dbget.NoLanguage option can be used.
@@ -797,7 +797,7 @@ func mainBody(args []string) error {
 		mLang = ""
 	}
 	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, mLang, theCfg.encodingName); err != nil {
-		omppLog.Log("Error at loading dbget.message.ini:", err)
+		omppLog.Log("Error at loading dbget.message.ini or go-common.message.ini:", err)
 	}
 
 	// validate language options: user specified language cannot be combined with NoLanguage or IdCsv option

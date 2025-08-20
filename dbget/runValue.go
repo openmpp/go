@@ -113,7 +113,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 
 	for j := 0; j < nP; j++ {
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[j].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, meta.Param[j].Name))
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -142,7 +142,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 		if name == "" {
 			continue // skip table: it is suppressed and not in run results
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nT, ":", name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nT, name))
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -166,7 +166,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 			if !isFound {
 				return helper.ErrorMsg("error: entity not found by Id:", eId, runMeta.EntityGen[j].GenDigest)
 			}
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nMd, ":", meta.Entity[eIdx].Name)
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nMd, meta.Entity[eIdx].Name))
 
 			fp := ""
 			if !theCfg.isConsole {
@@ -199,7 +199,7 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	rl = slices.DeleteFunc(rl, func(r db.RunRow) bool { return r.Status != db.DoneRunStatus })
 
 	if len(rl) <= 0 {
-		omppLog.Log("Do", theCfg.action, ":", "there are no completed model runs")
+		omppLog.LogFmt("Do %s: there are no completed model runs", theCfg.action)
 		return nil
 	}
 
@@ -326,7 +326,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	}
 
 	if len(rpl) <= 0 {
-		omppLog.Log("Do", theCfg.action, ":", "there are no completed model runs")
+		omppLog.LogFmt("Do %s: there are no completed model runs", theCfg.action)
 		return nil
 	}
 

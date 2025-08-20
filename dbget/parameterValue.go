@@ -77,7 +77,7 @@ func parameterWsValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 	nSub, _, err := db.GetWorksetParam(srcDb, wsRow.SetId, meta.Param[idx].ParamHid)
 	if err != nil {
-		return helper.ErrorMsg("Error at getting workset parameters list:", wsRow.Name, ":", err)
+		return helper.ErrorMsg("Error at get workset parameters list:", wsRow.Name, ":", err)
 	}
 	if nSub <= 0 {
 		return helper.ErrorMsg("Workset: %s must contain parameter: %s", wsRow.Name, paramName)

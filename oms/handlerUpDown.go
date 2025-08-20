@@ -359,7 +359,7 @@ func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder string
 	if folder == "" || folder != filepath.Base(helper.CleanFileName(folder)) {
 		return errors.New("Folder name invalid (or empty): " + folder)
 	}
-	omppLog.Log("Delete: ", upDown, " ", folder)
+	omppLog.Log("Delete:", upDown, folder)
 
 	// create new up-or-down.progress.log file and write delete header
 	logPath := filepath.Join(upDownDir, folder+".progress."+upDown+".log")

@@ -12,6 +12,7 @@ import (
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -222,7 +223,7 @@ func copyWorksetDbToDb(
 	// read all workset parameters and copy into destination database
 	omppLog.Log("Workset ", dstWs.Set.Name, " from id ", srcId, " to ", dstId)
 	nP := len(paramLst)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	paramLt := &db.ReadParamLayout{ReadLayout: db.ReadLayout{FromId: srcId}, IsFromSet: true}
@@ -234,7 +235,7 @@ func copyWorksetDbToDb(
 		paramLt.Name = paramLst[j].Name
 		cLst := list.New()
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", paramLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, paramLt.Name))
 
 		_, err := db.ReadParameterTo(srcDb, srcModel, paramLt, func(src interface{}) (bool, error) {
 			cLst.PushBack(src)

@@ -70,10 +70,10 @@ func setValueOut(srcDb *sql.DB, meta *db.ModelMeta, wsRow *db.WorksetRow, paramC
 
 		idx, ok := meta.ParamByHid(hIds[j])
 		if !ok {
-			return helper.ErrorFmt("missing workset parameter Hid: %d  workset: %s", hIds[j], wsRow.Name)
+			return helper.ErrorFmt("missing workset parameter Hid: %d workset: %s", hIds[j], wsRow.Name)
 		}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[idx].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, meta.Param[idx].Name))
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -104,7 +104,7 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	wsLst = slices.DeleteFunc(wsLst, func(w db.WorksetRow) bool { return !w.IsReadonly })
 
 	if len(wsLst) <= 0 {
-		omppLog.Log("Do", theCfg.action, ":", "there are no readonly worksets")
+		omppLog.Log("Do %s: there are no readonly worksets", theCfg.action)
 		return nil
 	}
 
@@ -174,7 +174,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	}
 
 	if len(wl) <= 0 {
-		omppLog.Log("Do", theCfg.action, ":", "there are no input sets (no input scenarios)")
+		omppLog.LogFmt("Do %s: there are no input sets (no input scenarios)", theCfg.action)
 		return nil
 	}
 

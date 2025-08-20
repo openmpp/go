@@ -99,7 +99,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 	me := ompp.ModelMetaEncoder{}
 	err = me.New(meta, txt, theCfg.lang, meta.Model.DefaultLangCode)
 	if err != nil {
-		return helper.ErrorMsg("Invalid (empty) model metadata, default model languge:", meta.Model.DefaultLangCode, ":", err)
+		return helper.ErrorMsg("Invalid (empty) model metadata, default model language:", meta.Model.DefaultLangCode, ":", err)
 	}
 
 	// write json output into file or console

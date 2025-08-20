@@ -267,7 +267,7 @@ func toWorksetCsv(
 
 	// write parameter into csv file
 	nP := len(meta.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := 0; j < nP; j++ {
@@ -291,7 +291,7 @@ func toWorksetCsv(
 			IsFromSet: true,
 		}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", paramLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, paramLt.Name))
 
 		err := toCellCsvFile(dbConn, modelDef, paramLt, cvtParam, fileCreated, csvDir, firstCol, firstVal)
 		if err != nil {

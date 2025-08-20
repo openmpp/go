@@ -85,7 +85,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 
 	for j := 0; j < nP; j++ {
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nP, ":", meta.Param[j].Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, meta.Param[j].Name))
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -114,7 +114,7 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		if name == "" {
 			continue // skip table: it is suppressed and not in run results
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, "of", nT, ":", name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nT, name))
 
 		fp := ""
 		if !theCfg.isConsole {
@@ -212,11 +212,11 @@ func tableOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error
 	// get model metadata and find output table
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id: ", modelId, ":", err)
+		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
 	}
 	name := runOpts.String(tableArgKey)
 	if name == "" {
-		return helper.ErrorMsg("Invalid (empty) output tabel name")
+		return helper.ErrorMsg("Invalid (empty) output table name")
 	}
 
 	// write parameter values to csv or tsv file

@@ -22,7 +22,6 @@ package db
 import (
 	"container/list"
 	"database/sql"
-	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -74,7 +73,7 @@ func Open(dbConnStr, dbDriver string, isFacetRequired bool) (*sql.DB, Facet, err
 
 	// check if ODBC compiled in, use go install -tags odbc to do this
 	if !IsOdbcSupported && dbDriver == OdbcDbDriver {
-		return nil, DefaultFacet, errors.New("ODBC database connection not supported (executable build without ODBC library)")
+		return nil, DefaultFacet, helper.ErrorMsg("ODBC database connection not supported (executable build without ODBC library)")
 	}
 
 	// empty connection string likely produce error message "invalid openM++ database", explain to the user source of the problem
@@ -175,7 +174,7 @@ func prepareSqlite(dbConnStr string) (string, string, error) {
 	// check SQLite connection string parts
 	dbPath := kv["Database"]
 	if dbPath == "" {
-		return "", "", errors.New("SQLIte database file path cannot be empty")
+		return "", "", helper.ErrorMsg("SQLIte database file path cannot be empty")
 	}
 
 	m := kv["OpenMode"]
@@ -187,14 +186,14 @@ func prepareSqlite(dbConnStr string) (string, string, error) {
 	case "create":
 		m = "rwc"
 	default:
-		return "", "", errors.New("SQLIte invalid OpenMode=" + m)
+		return "", "", helper.ErrorMsg("SQLIte invalid OpenMode", m)
 	}
 
 	// check if file exist:
 	// sqlite3 driver does create new file if not exist, it should return an error
 	if m == "ro" || m == "rw" {
 		if _, err := os.Stat(dbPath); err != nil {
-			return "", "", errors.New("SQLIte file not exist (or not accessible) " + dbPath)
+			return "", "", helper.ErrorMsg("SQLIte file not exist (or not accessible)", dbPath)
 		}
 	}
 
@@ -230,7 +229,7 @@ func prepareSqlite(dbConnStr string) (string, string, error) {
 // SelectFirst select first db row and pass it to cvt() for row.Scan()
 func SelectFirst(dbConn *sql.DB, query string, cvt func(row *sql.Row) error) error {
 	if dbConn == nil {
-		return errors.New("invalid database connection")
+		return helper.ErrorMsg("invalid database connection")
 	}
 	omppLog.LogSql(query)
 	return cvt(dbConn.QueryRow(query))
@@ -240,7 +239,7 @@ func SelectFirst(dbConn *sql.DB, query string, cvt func(row *sql.Row) error) err
 func SelectRows(dbConn *sql.DB, query string, cvt func(rows *sql.Rows) error) error {
 
 	if dbConn == nil {
-		return errors.New("invalid database connection")
+		return helper.ErrorMsg("invalid database connection")
 	}
 	omppLog.LogSql(query)
 
@@ -264,7 +263,7 @@ func SelectRows(dbConn *sql.DB, query string, cvt func(rows *sql.Rows) error) er
 func SelectRowsTo(dbConn *sql.DB, query string, cvt func(rows *sql.Rows) (bool, error)) error {
 
 	if dbConn == nil {
-		return errors.New("invalid database connection")
+		return helper.ErrorMsg("invalid database connection")
 	}
 	omppLog.LogSql(query)
 
@@ -296,7 +295,7 @@ func SelectToList(
 	dbConn *sql.DB, query string, layout ReadPageLayout, cvt func(rows *sql.Rows) (interface{}, error)) (*list.List, *ReadPageLayout, error) {
 
 	if dbConn == nil {
-		return nil, nil, errors.New("invalid database connection")
+		return nil, nil, helper.ErrorMsg("invalid database connection")
 	}
 
 	// query db rows
@@ -378,7 +377,7 @@ func SelectToList(
 // Update execute sql query outside of transaction scope (on different connection)
 func Update(dbConn *sql.DB, query string) error {
 	if dbConn == nil {
-		return errors.New("invalid database connection")
+		return helper.ErrorMsg("invalid database connection")
 	}
 	omppLog.LogSql(query)
 
@@ -390,7 +389,7 @@ func Update(dbConn *sql.DB, query string) error {
 func TrxSelectRows(dbTrx *sql.Tx, query string, cvt func(rows *sql.Rows) error) error {
 
 	if dbTrx == nil {
-		return errors.New("invalid database transaction")
+		return helper.ErrorMsg("invalid database transaction")
 	}
 	omppLog.LogSql(query)
 
@@ -412,7 +411,7 @@ func TrxSelectRows(dbTrx *sql.Tx, query string, cvt func(rows *sql.Rows) error) 
 // TrxSelectFirst select first db row in transaction scope and pass it to cvt() for row.Scan()
 func TrxSelectFirst(dbTrx *sql.Tx, query string, cvt func(row *sql.Row) error) error {
 	if dbTrx == nil {
-		return errors.New("invalid database transaction")
+		return helper.ErrorMsg("invalid database transaction")
 	}
 	omppLog.LogSql(query)
 	return cvt(dbTrx.QueryRow(query))
@@ -421,7 +420,7 @@ func TrxSelectFirst(dbTrx *sql.Tx, query string, cvt func(row *sql.Row) error) e
 // TrxUpdate execute sql query in transaction scope
 func TrxUpdate(dbTrx *sql.Tx, query string) error {
 	if dbTrx == nil {
-		return errors.New("invalid database transaction")
+		return helper.ErrorMsg("invalid database transaction")
 	}
 	omppLog.LogSql(query)
 
@@ -433,7 +432,7 @@ func TrxUpdate(dbTrx *sql.Tx, query string) error {
 func TrxUpdateStatement(dbTrx *sql.Tx, query string, put func() (bool, []interface{}, error)) error {
 
 	if dbTrx == nil {
-		return errors.New("invalid database transaction")
+		return helper.ErrorMsg("invalid database transaction")
 	}
 	omppLog.LogSql(query)
 
@@ -486,12 +485,12 @@ func CheckOpenmppSchemaVersion(dbConn *sql.DB) error {
 
 	nv, err := OpenmppSchemaVersion(dbConn)
 	switch {
-	case err != nil || err == nil && nv <= 0:
-		return errors.New("error: invalid database, likely not an openM++ database")
+	case err != nil || nv <= 0:
+		return helper.ErrorMsg("error: invalid database, likely not an openM++ database")
 	case nv < MinSchemaVersion:
-		return errors.New("error: incompatible, old version of database: " + strconv.Itoa(nv) + ", please use earlier version of openM++ tools")
+		return helper.ErrorFmt("error: incompatible, old version of database: %d, please use earlier version of openM++ tools", nv)
 	case nv > MaxSchemaVersion:
-		return errors.New("error: incompatible, newer version of database: " + strconv.Itoa(nv) + ", please use more recent version of openM++ tools")
+		return helper.ErrorFmt("error: incompatible, newer version of database: %d, please use more recent version of openM++ tools", nv)
 	}
 	return nil
 }

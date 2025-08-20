@@ -194,7 +194,7 @@ func fileDeleteAndLog(isLog bool, path string) bool {
 		return true
 	}
 	if isLog {
-		omppLog.Log("Delete: ", path)
+		omppLog.Log("Delete:", path)
 	}
 	if e := os.Remove(path); e != nil && !os.IsNotExist(e) {
 		omppLog.Log(e)

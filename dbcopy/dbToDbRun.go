@@ -12,6 +12,7 @@ import (
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -179,7 +180,7 @@ func copyRunDbToDb(
 	// copy all run parameters, output accumulators and expressions from source to destination
 	omppLog.Log("Model run from ", srcId, " ", pub.Name, " to ", dstId)
 	nP := len(srcModel.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	// copy all parameters values for that model run
@@ -192,7 +193,7 @@ func copyRunDbToDb(
 				FromId: srcId,
 			},
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", paramLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, paramLt.Name))
 
 		cLst := list.New()
 
@@ -225,7 +226,7 @@ func copyRunDbToDb(
 
 	// copy all output tables values for that model run, if the table included in run results
 	nT := len(srcModel.Table)
-	omppLog.Log("  Tables: ", nT)
+	omppLog.Log("  Tables:", nT)
 
 	for j := range srcModel.Table {
 
@@ -249,7 +250,7 @@ func copyRunDbToDb(
 			},
 			IsAccum: true,
 		}
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nT, ": ", tblLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nT, tblLt.Name))
 
 		acLst := list.New()
 
@@ -294,7 +295,7 @@ func copyRunDbToDb(
 
 	if nMd > 0 {
 
-		omppLog.Log("  Microdata: ", nMd)
+		omppLog.Log("  Microdata:", nMd)
 
 		for j := 0; j < nMd; j++ {
 
@@ -305,7 +306,7 @@ func copyRunDbToDb(
 					FromId: srcId},
 				GenDigest: pub.Entity[j].GenDigest,
 			}
-			logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nMd, ": ", microLt.Name)
+			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nMd, microLt.Name))
 
 			cLst := list.New()
 

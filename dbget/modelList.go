@@ -30,7 +30,7 @@ func modelList(srcDb *sql.DB) error {
 	fp := ""
 
 	if theCfg.isConsole {
-		omppLog.Log("Do model-list")
+		omppLog.Log("Do", "model-list")
 	} else {
 
 		fp = theCfg.fileName
@@ -39,7 +39,7 @@ func modelList(srcDb *sql.DB) error {
 		}
 		fp = filepath.Join(theCfg.dir, fp)
 
-		omppLog.Log("Do model-list:", fp)
+		omppLog.Log("Do", "model-list:", fp)
 	}
 
 	// write json output into file or console

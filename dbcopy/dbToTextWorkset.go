@@ -199,7 +199,7 @@ func toWorksetText(
 
 	// write all parameters into csv files
 	nP := len(pub.Param)
-	omppLog.Log("  Parameters: ", nP)
+	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
 
 	for j := 0; j < nP; j++ {
@@ -218,7 +218,7 @@ func toWorksetText(
 			IsFromSet: true,
 		}
 
-		logT = omppLog.LogIfTime(logT, logPeriod, "    ", j, " of ", nP, ": ", paramLt.Name)
+		logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nP, paramLt.Name))
 
 		err = toCellCsvFile(dbConn, modelDef, paramLt, cvtParam, fileCreated, csvDir, "", "")
 		if err != nil {
