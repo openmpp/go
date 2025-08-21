@@ -5,10 +5,10 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // toModelTextCsv writes model text metadata (description and notes) into csv files.
@@ -46,7 +46,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of model text rows
 		})
 	if err != nil {
-		return errors.New("failed to write model text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "model_dic_txt.csv", err)
 	}
 
 	// write type text rows into csv
@@ -76,7 +76,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of type text rows
 		})
 	if err != nil {
-		return errors.New("failed to write type text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "type_dic_txt.csv", err)
 	}
 
 	// write type enum text rows into csv
@@ -112,7 +112,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of type enum text rows
 		})
 	if err != nil {
-		return errors.New("failed to write enum text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "type_enum_txt.csv", err)
 	}
 
 	// write parameter text rows into csv
@@ -142,7 +142,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of parameter text rows
 		})
 	if err != nil {
-		return errors.New("failed to write model parameter text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "parameter_dic_txt.csv", err)
 	}
 
 	// write parameter dimensions text rows into csv
@@ -173,7 +173,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of parameter dimensions text rows
 		})
 	if err != nil {
-		return errors.New("failed to write parameter dimensions text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "parameter_dims_txt.csv", err)
 	}
 
 	// write output table text rows into csv
@@ -211,7 +211,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of output table text rows
 		})
 	if err != nil {
-		return errors.New("failed to write output table text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_dic_txt.csv", err)
 	}
 
 	// write output table dimension text rows into csv
@@ -242,7 +242,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of output table dimension text rows
 		})
 	if err != nil {
-		return errors.New("failed to write output table dimensions text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_dims_txt.csv", err)
 	}
 
 	// write output table accumulator text rows into csv
@@ -273,7 +273,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of output table accumulator text rows
 		})
 	if err != nil {
-		return errors.New("failed to write output table accumulators text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_acc_txt.csv", err)
 	}
 
 	// write output table expression text rows into csv
@@ -304,7 +304,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of output table expression text rows
 		})
 	if err != nil {
-		return errors.New("failed to write output table expressions text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_expr_txt.csv", err)
 	}
 
 	// write entity text rows into csv
@@ -334,7 +334,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of entity text rows
 		})
 	if err != nil {
-		return errors.New("failed to write model entities text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_dic_txt.csv", err)
 	}
 
 	// write entity attributes text rows into csv
@@ -365,7 +365,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of entity attributes text rows
 		})
 	if err != nil {
-		return errors.New("failed to write entity attributes text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_attr_txt.csv", err)
 	}
 
 	// write group text rows into csv
@@ -395,7 +395,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of group text rows
 		})
 	if err != nil {
-		return errors.New("failed to write group text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "group_txt.csv", err)
 	}
 
 	// write entity group text rows into csv
@@ -426,7 +426,7 @@ func toModelTextCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of entity group text rows
 		})
 	if err != nil {
-		return errors.New("failed to write entity group text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_group_txt.csv", err)
 	}
 
 	return nil

@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,7 +21,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 
 	// validate parameters
 	if modelName == "" {
-		return errors.New("invalid (empty) model name")
+		return helper.ErrorNew("invalid (empty) model name")
 	}
 
 	// get modeling task name and id
@@ -30,7 +29,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	taskId := runOpts.Int(taskIdArgKey, 0)
 
 	if taskId < 0 || taskId == 0 && taskName == "" {
-		return errors.New("dbcopy invalid argument(s) for modeling task id: " + runOpts.String(taskIdArgKey) + " and/or name: " + runOpts.String(taskNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for modeling task id: %s and/or name: %s", runOpts.String(taskIdArgKey), runOpts.String(taskNameArgKey))
 	}
 
 	// deirectory for task metadata: it is input directory/modelName
@@ -66,20 +65,20 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			return err
 		}
 		if len(fl) <= 0 {
-			return errors.New("no metadata json file found for modeling task: " + strconv.Itoa(taskId) + " " + taskName)
+			return helper.ErrorNew("no metadata json file found for modeling task:", taskId, taskName)
 		}
 		if len(fl) > 1 {
-			omppLog.Log("found multiple modeling task metadata json files, using: " + filepath.Base(metaPath))
+			omppLog.Log("found multiple modeling task metadata json files, using:", filepath.Base(metaPath))
 		}
 		metaPath = fl[0]
 	}
 
 	// check results: metadata json file must exist
 	if metaPath == "" {
-		return errors.New("no metadata json file found for modeling task: " + strconv.Itoa(taskId) + " " + taskName)
+		return helper.ErrorNew("no metadata json file found for modeling task:", taskId, taskName)
 	}
 	if _, err := os.Stat(metaPath); err != nil {
-		return errors.New("no metadata json file found for modeling task: " + strconv.Itoa(taskId) + " " + taskName)
+		return helper.ErrorNew("no metadata json file found for modeling task:", taskId, taskName)
 	}
 
 	// open source database connection and check is it valid
@@ -118,7 +117,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 		return err
 	}
 	if !isExist {
-		return errors.New("modeling task not found or empty: " + strconv.Itoa(taskId) + " " + taskName)
+		return helper.ErrorNew("modeling task not found or empty:", taskId, taskName)
 	}
 
 	// task name: use task name from json metadata, if empty
@@ -172,7 +171,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			}
 			jsonPath = fl[0]
 			if len(fl) > 1 {
-				omppLog.Log("found multiple model run metadata json files, using: " + filepath.Base(jsonPath))
+				omppLog.Log("found multiple model run metadata json files, using:", filepath.Base(jsonPath))
 			}
 
 			// csv directory: check if csv directory exist for that json file
@@ -240,7 +239,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 		if len(fl) >= 1 { // set name is unique per model, it is expected to be only one file
 			jsonPath = fl[0]
 			if len(fl) > 1 {
-				omppLog.Log("found multiple workset metadata json files, using: " + filepath.Base(jsonPath))
+				omppLog.Log("found multiple workset metadata json files, using:", filepath.Base(jsonPath))
 			}
 		}
 
@@ -269,7 +268,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			if len(fl) >= 1 {
 				csvDir = fl[0]
 				if len(fl) > 1 {
-					omppLog.Log("found multiple workset csv directories, using: " + filepath.Base(csvDir))
+					omppLog.Log("found multiple workset csv directories, using:", filepath.Base(csvDir))
 				}
 			}
 		}
@@ -310,13 +309,13 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// display warnings if any workset not found (files and csv directories not found)
 	// display warnings if any model runs not found or not completed
 	if isSetNotFound {
-		omppLog.Log("Warning: task ", pub.Name, " workset(s) not found, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not found, copy of task incomplete", pub.Name)
 	}
 	if isRunNotFound {
-		omppLog.Log("Warning: task ", pub.Name, " model run(s) not found, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not found, copy of task run history incomplete", pub.Name)
 	}
 	if isRunNotCompleted {
-		omppLog.Log("Warning: task ", pub.Name, " model run(s) not completed, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not completed, copy of task run history incomplete", pub.Name)
 	}
 
 	// rename destination task
@@ -330,7 +329,7 @@ func textToDbTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	if err != nil {
 		return err
 	}
-	omppLog.Log("Modeling task from ", srcTaskName, " into: ", dstId, " ", pub.Name)
+	omppLog.LogFmt("Modeling task from %s into: %d %s", srcTaskName, dstId, pub.Name)
 
 	return nil
 }
@@ -366,7 +365,7 @@ func fromTaskListJsonToDb(dbConn *sql.DB, modelDef *db.ModelMeta, langDef *db.La
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Modeling task from ", pub.Name, " into id: ", dstId)
+		omppLog.LogFmt("Modeling task from %s into id: %d", pub.Name, dstId)
 	}
 
 	return nil
@@ -383,10 +382,10 @@ func fromTaskJsonToDb(
 		return 0, err
 	}
 	if isSetNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " worksets not found, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not found, copy of task incomplete", meta.Task.Name)
 	}
 	if isTaskRunNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " worksets or model runs not found, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s worksets or model runs not found, copy of task run history incomplete", meta.Task.Name)
 	}
 
 	// save modeling task metadata

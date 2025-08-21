@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -118,7 +117,7 @@ func toRunCsv(
 					if paramName == "" {
 						k, ok := modelDef.ParamByHid(meta.Param[j].ParamHid)
 						if !ok {
-							return errors.New("parameter not found by Hid: " + strconv.Itoa(meta.Param[j].ParamHid))
+							return helper.ErrorNew("parameter not found by Hid:", meta.Param[j].ParamHid)
 						}
 						paramName = modelDef.Param[k].Name
 					}
@@ -216,7 +215,7 @@ func toRunCsv(
 			eId := meta.EntityGen[j].EntityId
 			eIdx, isFound := modelDef.EntityByKey(eId)
 			if !isFound {
-				return errors.New("error: entity not found by Id: " + strconv.Itoa(eId) + " " + meta.EntityGen[j].GenDigest)
+				return helper.ErrorNew("error: entity not found by Id:", eId, meta.EntityGen[j].GenDigest)
 			}
 
 			cvtMicro := &db.CellMicroConverter{CellEntityConverter: db.CellEntityConverter{

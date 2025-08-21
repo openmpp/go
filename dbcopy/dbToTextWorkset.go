@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,16 +26,16 @@ func dbToTextWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	// conflicting options: use set id if positive else use set name
 	if runOpts.IsExist(setNameArgKey) && runOpts.IsExist(setIdArgKey) {
 		if setId > 0 {
-			omppLog.Log("dbcopy options conflict. Using set id: ", setId, " ignore set name: ", setName)
+			omppLog.LogFmt("dbcopy options conflict. Using set id: %d, not a set name: %s", setId, setName)
 			setName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using set name: ", setName, " ignore set id: ", setId)
+			omppLog.LogFmt("dbcopy options conflict. Using set name: %s, not a set id: %d", setName, setId)
 			setId = 0
 		}
 	}
 
 	if setId < 0 || setId == 0 && setName == "" {
-		return errors.New("dbcopy invalid argument(s) for set id: " + runOpts.String(setIdArgKey) + " and/or set name: " + runOpts.String(setNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for set id: %s and/or set name: %s", runOpts.String(setIdArgKey), runOpts.String(setNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -80,14 +79,14 @@ func dbToTextWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found, set id: " + strconv.Itoa(setId))
+			return helper.ErrorNew("workset not found, set id:", setId)
 		}
 	} else {
 		if wsRow, err = db.GetWorksetByName(srcDb, modelDef.Model.ModelId, setName); err != nil {
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found: " + setName)
+			return helper.ErrorNew("Workset not found:", setName)
 		}
 	}
 
@@ -98,13 +97,13 @@ func dbToTextWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 
 	// check: workset must be readonly
 	if !wm.Set.IsReadonly {
-		return errors.New("workset must be readonly: " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name)
+		return helper.ErrorNew("workset must be readonly:", wsRow.SetId, wsRow.Name)
 	}
 
 	// create new output directory for workset metadata
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(outDir); !ok {
-			return errors.New("Error: unable to delete: " + outDir)
+			return helper.ErrorNew("Error: unable to delete:", outDir)
 		}
 	}
 	if err = os.MkdirAll(outDir, 0750); err != nil {
@@ -128,7 +127,7 @@ func dbToTextWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Packed ", zipPath)
+		omppLog.Log("Packed", zipPath)
 	}
 
 	return nil
@@ -172,7 +171,7 @@ func toWorksetText(
 
 	// convert db rows into "public" format
 	setId := meta.Set.SetId
-	omppLog.Log("Workset ", setId, " ", meta.Set.Name)
+	omppLog.Log("Workset", setId, meta.Set.Name)
 
 	pub, err := meta.ToPublic(dbConn, modelDef)
 	if err != nil {
@@ -190,7 +189,7 @@ func toWorksetText(
 
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(csvDir); !ok {
-			return errors.New("Error: unable to delete: " + csvDir)
+			return helper.ErrorNew("Error: unable to delete:", csvDir)
 		}
 	}
 	if err = os.MkdirAll(csvDir, 0750); err != nil {

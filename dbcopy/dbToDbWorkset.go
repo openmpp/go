@@ -6,8 +6,6 @@ package main
 import (
 	"container/list"
 	"database/sql"
-	"errors"
-	"strconv"
 	"time"
 
 	"github.com/openmpp/go/ompp/config"
@@ -26,16 +24,16 @@ func dbToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOpti
 	// conflicting options: use set id if positive else use set name
 	if runOpts.IsExist(setNameArgKey) && runOpts.IsExist(setIdArgKey) {
 		if setId > 0 {
-			omppLog.Log("dbcopy options conflict. Using set id: ", setId, " ignore set name: ", setName)
+			omppLog.LogFmt("dbcopy options conflict. Using set id: %d, not a set name: %s", setId, setName)
 			setName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using set name: ", setName, " ignore set id: ", setId)
+			omppLog.LogFmt("dbcopy options conflict. Using set name: %s, not a set id: %d", setName, setId)
 			setId = 0
 		}
 	}
 
 	if setId < 0 || setId == 0 && setName == "" {
-		return errors.New("dbcopy invalid argument(s) for set id: " + runOpts.String(setIdArgKey) + " and/or set name: " + runOpts.String(setNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for set id: %s and/or set name: %s", runOpts.String(setIdArgKey), runOpts.String(setNameArgKey))
 	}
 
 	// validate source and destination
@@ -43,7 +41,7 @@ func dbToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOpti
 	csOut, dnOut := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), runOpts.String(toDbDriverArgKey))
 
 	if csInp == csOut && dnInp == dnOut {
-		return errors.New("source same as destination: cannot overwrite model in database")
+		return helper.ErrorNew("source same as destination: cannot overwrite model in database")
 	}
 
 	// open source database connection and check is it valid
@@ -82,14 +80,14 @@ func dbToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOpti
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found, set id: " + strconv.Itoa(setId))
+			return helper.ErrorNew("workset not found, set id:", setId)
 		}
 	} else {
 		if wsRow, err = db.GetWorksetByName(srcDb, srcModel.Model.ModelId, setName); err != nil {
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found: " + setName)
+			return helper.ErrorNew("Workset not found:", setName)
 		}
 	}
 
@@ -100,7 +98,7 @@ func dbToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOpti
 
 	// check: workset must be readonly
 	if !srcWs.Set.IsReadonly {
-		return errors.New("workset must be readonly: " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name)
+		return helper.ErrorNew("workset must be readonly:", wsRow.SetId, wsRow.Name)
 	}
 
 	// destination: get model metadata
@@ -177,7 +175,7 @@ func copyWorksetDbToDb(
 
 	// validate parameters
 	if pub == nil {
-		return 0, errors.New("invalid (empty) source workset metadata, source workset not found or not exists")
+		return 0, helper.ErrorNew("invalid (empty) source workset metadata, source workset not found or not exists")
 	}
 
 	// save workset metadata as "read-write" and after importing all parameters set it as "readonly"
@@ -194,7 +192,7 @@ func copyWorksetDbToDb(
 		return 0, err
 	}
 	if dstWs.Set.BaseRunId <= 0 && pub.BaseRunDigest != "" {
-		omppLog.Log("Warning: workset ", dstWs.Set.Name, ", base run not found by digest ", pub.BaseRunDigest)
+		omppLog.LogFmt("Warning: workset %s, base run not found by digest %s", dstWs.Set.Name, pub.BaseRunDigest)
 	}
 
 	// if destination workset exists then make it read-write and delete all existing parameters from workset
@@ -205,11 +203,11 @@ func copyWorksetDbToDb(
 	if wsRow != nil {
 		err = db.UpdateWorksetReadonly(dstDb, wsRow.SetId, false) // make destination workset read-write
 		if err != nil {
-			return 0, errors.New("failed to clear workset read-only status: " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " " + err.Error())
+			return 0, helper.ErrorNew("failed to clear workset read-only status:", wsRow.SetId, wsRow.Name, err)
 		}
 		err = db.DeleteWorksetAllParameters(dstDb, wsRow.SetId) // delete all parameters from workset
 		if err != nil {
-			return 0, errors.New("failed to delete workset " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " " + err.Error())
+			return 0, helper.ErrorNew("failed to delete workset", wsRow.SetId, wsRow.Name, err)
 		}
 	}
 
@@ -221,7 +219,7 @@ func copyWorksetDbToDb(
 	dstId := dstWs.Set.SetId // actual set id from destination database
 
 	// read all workset parameters and copy into destination database
-	omppLog.Log("Workset ", dstWs.Set.Name, " from id ", srcId, " to ", dstId)
+	omppLog.LogFmt("Workset %s from id %d to %d", dstWs.Set.Name, srcId, dstId)
 	nP := len(paramLst)
 	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
@@ -245,7 +243,7 @@ func copyWorksetDbToDb(
 			return 0, err
 		}
 		if cLst.Len() <= 0 { // parameter data must exist for all parameters
-			return 0, errors.New("missing workset parameter values " + paramLt.Name + " set id: " + strconv.Itoa(paramLt.FromId))
+			return 0, helper.ErrorFmt("missing workset parameter values %s set id: %d", paramLt.Name, paramLt.FromId)
 		}
 
 		// destination: insert or update parameter values in workset

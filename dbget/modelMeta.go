@@ -36,7 +36,7 @@ func writeNote(dir, name string, langCode string, note *string) error {
 
 	err := os.WriteFile(filepath.Join(dir, nm), []byte(*note), 0644)
 	if err != nil {
-		return helper.ErrorMsg("failed to write notes:", name, langCode, ":", err)
+		return helper.ErrorNew("failed to write notes:", name, langCode, ":", err)
 	}
 	return nil
 }
@@ -47,10 +47,10 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 	if meta == nil {
-		return helper.ErrorMsg("Invalid (empty) model metadata")
+		return helper.ErrorNew("Invalid (empty) model metadata")
 	}
 
 	// for json use specified file name or make default as modelName.model.json
@@ -93,13 +93,13 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 	// read model text metadata from database and update catalog
 	txt, err := db.GetModelText(srcDb, modelId, "", true)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model text metadata:", meta.Model.Name, ":", err)
+		return helper.ErrorNew("Error at get model text metadata:", meta.Model.Name, ":", err)
 	}
 
 	me := ompp.ModelMetaEncoder{}
 	err = me.New(meta, txt, theCfg.lang, meta.Model.DefaultLangCode)
 	if err != nil {
-		return helper.ErrorMsg("Invalid (empty) model metadata, default model language:", meta.Model.DefaultLangCode, ":", err)
+		return helper.ErrorNew("Invalid (empty) model metadata, default model language:", meta.Model.DefaultLangCode, ":", err)
 	}
 
 	// write json output into file or console
@@ -111,7 +111,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 		} else {
 			f, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 			if err != nil {
-				return helper.ErrorMsg("json file create error:", err)
+				return helper.ErrorNew("json file create error:", err)
 			}
 			defer f.Close()
 			w = f
@@ -202,7 +202,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "model_dic"+ext, err)
+		return helper.ErrorNew("failed to write into", "model_dic"+ext, err)
 	}
 
 	// write language row, language words and model words into csv
@@ -224,7 +224,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 				return false, row, nil
 			})
 		if err != nil {
-			return helper.ErrorMsg("failed to write into", "lang_lst"+ext, err)
+			return helper.ErrorNew("failed to write into", "lang_lst"+ext, err)
 		}
 
 		// write language word rows into csv
@@ -259,7 +259,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 				return false, row, nil
 			})
 		if err != nil {
-			return helper.ErrorMsg("failed to write into", "lang_word"+ext, err)
+			return helper.ErrorNew("failed to write into", "lang_word"+ext, err)
 		}
 
 		// write model words into csv
@@ -303,7 +303,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 				return false, row, nil
 			})
 		if err != nil {
-			return helper.ErrorMsg("failed to write into", "model_word"+ext, err)
+			return helper.ErrorNew("failed to write into", "model_word"+ext, err)
 		}
 	}
 
@@ -339,7 +339,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "type_dic"+ext, err)
+		return helper.ErrorNew("failed to write into", "type_dic"+ext, err)
 	}
 
 	// write type_enum_lst rows with description and notes
@@ -395,7 +395,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "type_enum_lst"+ext, err)
+		return helper.ErrorNew("failed to write into", "type_enum_lst"+ext, err)
 	}
 
 	// write parameter rows with description and notes
@@ -435,7 +435,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "parameter_dic"+ext, err)
+		return helper.ErrorNew("failed to write into", "parameter_dic"+ext, err)
 	}
 
 	// write parameter_dims rows with description and notes
@@ -484,7 +484,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "parameter_dims"+ext, err)
+		return helper.ErrorNew("failed to write into", "parameter_dims"+ext, err)
 	}
 
 	// write table_dic rows with description and notes
@@ -531,7 +531,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "table_dic"+ext, err)
+		return helper.ErrorNew("failed to write into", "table_dic"+ext, err)
 	}
 
 	// write table_dims rows with description and notes
@@ -582,7 +582,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "table_dims"+ext, err)
+		return helper.ErrorNew("failed to write into", "table_dims"+ext, err)
 	}
 
 	// write table_acc rows with description and notes
@@ -632,7 +632,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "table_acc"+ext, err)
+		return helper.ErrorNew("failed to write into", "table_acc"+ext, err)
 	}
 
 	// write table_expr rows with description and notes
@@ -682,7 +682,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "table_expr"+ext, err)
+		return helper.ErrorNew("failed to write into", "table_expr"+ext, err)
 	}
 
 	// write entity rows with description and notes
@@ -713,7 +713,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "entity_dic"+ext, err)
+		return helper.ErrorNew("failed to write into", "entity_dic"+ext, err)
 	}
 
 	// write entity attribute rows with description and notes
@@ -763,7 +763,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "entity_attr"+ext, err)
+		return helper.ErrorNew("failed to write into", "entity_attr"+ext, err)
 	}
 
 	// write group rows with description and notes
@@ -795,7 +795,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "group_lst"+ext, err)
+		return helper.ErrorNew("failed to write into", "group_lst"+ext, err)
 	}
 
 	// write group parent-child rows into csv
@@ -846,7 +846,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "group_pc"+ext, err)
+		return helper.ErrorNew("failed to write into", "group_pc"+ext, err)
 	}
 
 	// write entity attribute group rows with description and notes
@@ -878,7 +878,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "entity_group_lst"+ext, err)
+		return helper.ErrorNew("failed to write into", "entity_group_lst"+ext, err)
 	}
 
 	// write entity attributes group parent-child rows into csv
@@ -930,7 +930,7 @@ func modelMeta(srcDb *sql.DB, modelId int) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write into", "entity_group_pc"+ext, err)
+		return helper.ErrorNew("failed to write into", "entity_group_pc"+ext, err)
 	}
 
 	return nil

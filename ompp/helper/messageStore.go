@@ -25,7 +25,7 @@ var (
 )
 
 // short form of: errors.New(helper.Msg(msg))
-func ErrorMsg(msg ...any) error { return errors.New(Msg(msg...)) }
+func ErrorNew(msg ...any) error { return errors.New(Msg(msg...)) }
 
 // short form of: errors.New(helper.Fmt(format, msg))
 func ErrorFmt(format string, msg ...any) error { return errors.New(Fmt(format, msg...)) }

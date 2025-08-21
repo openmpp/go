@@ -31,7 +31,7 @@ func textToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	setId := runOpts.Int(setIdArgKey, 0)
 
 	if setId < 0 || setId == 0 && setName == "" {
-		return errors.New("dbcopy invalid argument(s) for set id: " + runOpts.String(setIdArgKey) + " and/or set name: " + runOpts.String(setNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for set id: %s and/or set name: %s", runOpts.String(setIdArgKey), runOpts.String(setNameArgKey))
 	}
 
 	// root for workset data: input directory or name of input.zip
@@ -51,7 +51,7 @@ func textToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	// unzip if required and use unzipped directory as "root" input diretory
 	if runOpts.Bool(zipArgKey) {
 		base := filepath.Base(inpDir)
-		omppLog.Log("Unpack ", base, ".zip")
+		omppLog.Log("Unpack", base+".zip")
 
 		outDir := runOpts.String(outputDirArgKey)
 		if outDir == "" {
@@ -103,7 +103,7 @@ func textToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 		if len(fl) >= 1 {
 			metaPath = fl[0]
 			if len(fl) > 1 {
-				omppLog.Log("found multiple workset metadata json files, using: " + filepath.Base(metaPath))
+				omppLog.Log("found multiple workset metadata json files, using:", filepath.Base(metaPath))
 			}
 		}
 
@@ -132,7 +132,7 @@ func textToDbWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 			if len(fl) >= 1 {
 				csvDir = fl[0]
 				if len(fl) > 1 {
-					omppLog.Log("found multiple workset csv directories, using: " + filepath.Base(csvDir))
+					omppLog.Log("found multiple workset csv directories, using:", filepath.Base(csvDir))
 				}
 			}
 		}
@@ -322,7 +322,7 @@ func fromWorksetTextToDb(
 		return 0, err
 	}
 	if ws.Set.BaseRunId <= 0 && pub.BaseRunDigest != "" {
-		omppLog.Log("Warning: workset ", ws.Set.Name, ", base run not found by digest ", pub.BaseRunDigest)
+		omppLog.LogFmt("Warning: workset %s, base run not found by digest %s", ws.Set.Name, pub.BaseRunDigest)
 	}
 
 	// if destination workset exists then make it read-write and delete all existing parameters from workset
@@ -413,7 +413,7 @@ func updateWorksetParamFromCsvFile(
 
 	f, err := os.Open(filepath.Join(csvDir, fn))
 	if err != nil {
-		return errors.New("csv file open error: " + fn + ": " + err.Error())
+		return helper.ErrorNew("csv file open error:", fn, ":", err)
 	}
 	defer f.Close()
 

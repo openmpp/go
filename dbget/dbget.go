@@ -746,7 +746,7 @@ func mainBody(args []string) error {
 	// parse command line arguments and ini-file
 	runOpts, logOpts, err := config.New(encodingArgKey, false, optFs)
 	if err != nil {
-		return helper.ErrorMsg("invalid arguments:", err)
+		return helper.ErrorNew("invalid arguments:", err)
 	}
 	if isPipe {
 		logOpts.IsConsole = false // suppress log console output if -pipe required
@@ -765,7 +765,7 @@ func mainBody(args []string) error {
 	// path to bin directory where dbget.exe is located
 	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
-		return helper.ErrorMsg("Error: unable to make absolute path to dbget:", err)
+		return helper.ErrorNew("Error: unable to make absolute path to dbget:", err)
 	}
 	theCfg.binDir = filepath.Dir(selfPath)
 
@@ -819,7 +819,7 @@ func mainBody(args []string) error {
 		case "json":
 			theCfg.kind = asJson
 		default:
-			return helper.ErrorMsg("invalid arguments:", asArgKey, f)
+			return helper.ErrorNew("invalid arguments:", asArgKey, f)
 		}
 	} else {
 		if runOpts.IsExist(csvArgKey) && (runOpts.IsExist(tsvArgKey) || runOpts.IsExist(jsonArgKey)) ||
@@ -849,7 +849,7 @@ func mainBody(args []string) error {
 		if theCfg.action != "model-list" &&
 			theCfg.action != "model" && theCfg.action != "old-model" &&
 			theCfg.action != "run-list" && theCfg.action != "set-list" {
-			return helper.ErrorMsg("JSON output not allowed for:", theCfg.action)
+			return helper.ErrorNew("JSON output not allowed for:", theCfg.action)
 		}
 	}
 
@@ -877,7 +877,7 @@ func mainBody(args []string) error {
 		theCfg.modelDigest = runOpts.String(modelDigestArgKey)
 
 		if theCfg.modelName == "" && theCfg.modelDigest == "" {
-			return helper.ErrorMsg("invalid (empty) model name and model digest")
+			return helper.ErrorNew("invalid (empty) model name and model digest")
 		}
 		omppLog.Log("Model", theCfg.modelName, theCfg.modelDigest)
 
@@ -894,7 +894,7 @@ func mainBody(args []string) error {
 			return err
 		}
 		if mdRow == nil {
-			return helper.ErrorMsg("model not found by Id:", modelId)
+			return helper.ErrorNew("model not found by Id:", modelId)
 		}
 
 		// match user language to model language, use default model language if there are no match
@@ -924,37 +924,37 @@ func mainBody(args []string) error {
 
 	if doParamName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "parameter" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "parameter"
 	}
 	if doParamWsName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "parameter-set" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "parameter-set"
 	}
 	if doTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "table" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "table"
 	}
 	if doAccTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "sub-table" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "sub-table"
 	}
 	if doAllAccTableName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "sub-table-all" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "sub-table-all"
 	}
 	if doEntityName != "" {
 		if runOpts.IsExist(cmdArgKey) && theCfg.action != "micro" {
-			return helper.ErrorMsg("invalid action argument:", theCfg.action)
+			return helper.ErrorNew("invalid action argument:", theCfg.action)
 		}
 		theCfg.action = "micro"
 	}
@@ -1002,7 +1002,7 @@ func mainBody(args []string) error {
 	case "old-table":
 		return tableOldValue(srcDb, modelId, runOpts)
 	}
-	return helper.ErrorMsg("invalid action argument:", theCfg.action)
+	return helper.ErrorNew("invalid action argument:", theCfg.action)
 }
 
 // exitOnPanic log error message and exit with return = 2

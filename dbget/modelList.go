@@ -160,7 +160,7 @@ func modelList(srcDb *sql.DB) error {
 			return true, row, nil // end of model_dic rows
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write model into csv", err)
+		return helper.ErrorNew("failed to write model into csv", err)
 	}
 
 	return nil

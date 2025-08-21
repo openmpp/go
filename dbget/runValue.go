@@ -22,23 +22,23 @@ func runValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", msg, err)
+		return helper.ErrorNew("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return helper.ErrorMsg("Error: model run not found")
+		return helper.ErrorNew("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
+		return helper.ErrorNew("Error: model run not completed successfully:", run.Name)
 	}
 	runMeta, err := db.GetRunFull(srcDb, run)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", run.Name, err)
+		return helper.ErrorNew("Error at get model run:", run.Name, err)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// create output directory
@@ -164,7 +164,7 @@ func runValueOut(srcDb *sql.DB, meta *db.ModelMeta, runMeta *db.RunMeta, runTop 
 			eId := runMeta.EntityGen[j].EntityId
 			eIdx, isFound := meta.EntityByKey(eId)
 			if !isFound {
-				return helper.ErrorMsg("error: entity not found by Id:", eId, runMeta.EntityGen[j].GenDigest)
+				return helper.ErrorNew("error: entity not found by Id:", eId, runMeta.EntityGen[j].GenDigest)
 			}
 			logT = omppLog.LogIfTime(logT, logPeriod, helper.Fmt("    %d of %d: %s", j, nMd, meta.Entity[eIdx].Name))
 
@@ -190,11 +190,11 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// run list includes all runs, use only sucessfully completed
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 	rl, err := db.GetRunList(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model runs list:", err)
+		return helper.ErrorNew("Error at get model runs list:", err)
 	}
 	rl = slices.DeleteFunc(rl, func(r db.RunRow) bool { return r.Status != db.DoneRunStatus })
 
@@ -238,7 +238,7 @@ func runAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 
 		runMeta, err := db.GetRunFull(srcDb, &rm)
 		if err != nil {
-			return helper.ErrorMsg("Error at get model run:", rm.Name, err)
+			return helper.ErrorNew("Error at get model run:", rm.Name, err)
 		}
 		if runMeta.Run.Status != db.DoneRunStatus {
 			continue // unexpected change of model run status
@@ -273,7 +273,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// get model run list and run_txt if user language defined
@@ -286,7 +286,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		rl, err = db.GetRunList(srcDb, modelId)
 	}
 	if err != nil {
-		return helper.ErrorMsg("Error at get model runs list:", err)
+		return helper.ErrorNew("Error at get model runs list:", err)
 	}
 
 	// for each run_lst find run_txt row if exist and convert to "public" run format
@@ -318,7 +318,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			p, err = (&db.RunMeta{Run: rl[ni]}).ToPublic(meta)
 		}
 		if err != nil {
-			return helper.ErrorMsg("Error at run conversion:", err)
+			return helper.ErrorNew("Error at run conversion:", err)
 		}
 		if p != nil {
 			rpl[ni] = *p
@@ -413,7 +413,7 @@ func runList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			return true, row, nil // end of run_lst rows
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write run list into csv", err)
+		return helper.ErrorNew("failed to write run list into csv", err)
 	}
 
 	return nil

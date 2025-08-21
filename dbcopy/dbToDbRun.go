@@ -6,8 +6,6 @@ package main
 import (
 	"container/list"
 	"database/sql"
-	"errors"
-	"strconv"
 	"time"
 
 	"github.com/openmpp/go/ompp/config"
@@ -24,7 +22,7 @@ func dbToDbRun(modelName string, modelDigest string, runOpts *config.RunOptions)
 	csOut, dnOut := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), runOpts.String(toDbDriverArgKey))
 
 	if csInp == csOut && dnInp == dnOut {
-		return errors.New("source same as destination: cannot overwrite model in database")
+		return helper.ErrorNew("source same as destination: cannot overwrite model in database")
 	}
 
 	// open source database connection and check is it valid
@@ -59,24 +57,25 @@ func dbToDbRun(modelName string, modelDigest string, runOpts *config.RunOptions)
 	// find source model run metadata by id, run digest or name
 	runId, runDigest, runName, isFirst, isLast := runIdDigestNameFromOptions(runOpts)
 	if runId < 0 || runId == 0 && runName == "" && runDigest == "" && !isFirst && !isLast {
-		return errors.New("dbcopy invalid argument(s) run id: " + runOpts.String(runIdArgKey) + ", run name: " + runOpts.String(runNameArgKey) + ", run digest: " + runOpts.String(runDigestArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) run id: %s, run name: %s, run digest: %s",
+			runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 	runRow, e := findModelRunByIdDigestName(srcDb, srcModel.Model.ModelId, runId, runDigest, runName, isFirst, isLast)
 	if e != nil {
 		return e
 	}
 	if runRow == nil {
-		return errors.New("model run not found: " + runOpts.String(runIdArgKey) + " " + runOpts.String(runNameArgKey) + " " + runOpts.String(runDigestArgKey))
+		return helper.ErrorNew("Model run not found:", runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 
 	// check is this run belong to the source model
 	if runRow.ModelId != srcModel.Model.ModelId {
-		return errors.New("model run " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("model run %d %s %s does not belong to model %s %s", runRow.RunId, runRow.Name, runRow.RunDigest, modelName, modelDigest)
 	}
 
 	// run must be completed: status success, error or exit
 	if !db.IsRunCompleted(runRow.Status) {
-		return errors.New("model run not completed: " + strconv.Itoa(runRow.RunId) + " " + runRow.Name)
+		return helper.ErrorNew("model run not completed:", runRow.RunId, runRow.Name, runRow.RunDigest)
 	}
 
 	// get full model run metadata
@@ -157,7 +156,7 @@ func copyRunDbToDb(
 
 	// validate parameters
 	if pub == nil {
-		return 0, errors.New("invalid (empty) source model run metadata, source run not found or not exists")
+		return 0, helper.ErrorNew("invalid (empty) source model run metadata, source run not found or not exists")
 	}
 
 	// destination: convert from "public" format into destination db rows
@@ -173,12 +172,12 @@ func copyRunDbToDb(
 	}
 	dstId := dstRun.Run.RunId
 	if isExist { // exit if model run already exist
-		omppLog.Log("Model run ", srcId, " ", pub.Name, " already exists as ", dstId)
+		omppLog.LogFmt("Model run %d %s already exists as %d", srcId, pub.Name, dstId)
 		return dstId, nil
 	}
 
 	// copy all run parameters, output accumulators and expressions from source to destination
-	omppLog.Log("Model run from ", srcId, " ", pub.Name, " to ", dstId)
+	omppLog.LogFmt("Model run from %d %s to %d", srcId, pub.Name, dstId)
 	nP := len(srcModel.Param)
 	omppLog.Log("  Parameters:", nP)
 	logT := time.Now().Unix()
@@ -205,7 +204,7 @@ func copyRunDbToDb(
 			return 0, err
 		}
 		if cLst.Len() <= 0 { // parameter data must exist for all parameters
-			return 0, errors.New("missing run parameter values " + paramLt.Name + " run id: " + strconv.Itoa(paramLt.FromId))
+			return 0, helper.ErrorFmt("missing run parameter values %s run id: %d", paramLt.Name, paramLt.FromId)
 		}
 
 		// destination: insert parameter values in model run
@@ -318,7 +317,7 @@ func copyRunDbToDb(
 				return 0, err
 			}
 			if cLst.Len() != pub.Entity[j].RowCount {
-				return 0, errors.New("missing run microdata values " + microLt.Name + " run id: " + strconv.Itoa(microLt.FromId))
+				return 0, helper.ErrorFmt("missing run microdata values %s run id: %d", microLt.Name, microLt.FromId)
 			}
 
 			// destination: insert microdata values into model run

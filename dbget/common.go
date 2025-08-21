@@ -28,7 +28,7 @@ func toJsonOutput(jsonPath string, src interface{}) error {
 	ce := json.NewEncoder(os.Stdout)
 	ce.SetIndent("", "  ")
 	if err := ce.Encode(src); err != nil {
-		return helper.ErrorMsg("json encode error:", err)
+		return helper.ErrorNew("json encode error:", err)
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func makeOutputDir(path string, isKeep bool) error {
 	if path != "" {
 		if !isKeep {
 			if isOk := dirDeleteAndLog(path); !isOk {
-				return helper.ErrorMsg("Error: unable to delete:", path)
+				return helper.ErrorNew("Error: unable to delete:", path)
 			}
 		}
 		if err := os.MkdirAll(path, 0750); err != nil {

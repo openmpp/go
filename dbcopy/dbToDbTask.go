@@ -5,11 +5,10 @@ package main
 
 import (
 	"database/sql"
-	"errors"
-	"strconv"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -23,16 +22,16 @@ func dbToDbTask(modelName string, modelDigest string, runOpts *config.RunOptions
 	// conflicting options: use task id if positive else use task name
 	if runOpts.IsExist(taskNameArgKey) && runOpts.IsExist(taskIdArgKey) {
 		if taskId > 0 {
-			omppLog.Log("dbcopy options conflict. Using task id: ", taskId, " ignore task name: ", taskName)
+			omppLog.LogFmt("dbcopy options conflict. Using task id: %d, not a task name: %s", taskId, taskName)
 			taskName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using task name: ", taskName, " ignore task id: ", taskId)
+			omppLog.LogFmt("dbcopy options conflict. Using task name: %s, not a task id: %d", taskName, taskId)
 			taskId = 0
 		}
 	}
 
 	if taskId < 0 || taskId == 0 && taskName == "" {
-		return errors.New("dbcopy invalid argument(s) for task id: " + runOpts.String(taskIdArgKey) + " and/or task name: " + runOpts.String(taskNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for task id: %s and/or task name: %s", runOpts.String(taskIdArgKey), runOpts.String(taskNameArgKey))
 	}
 
 	// validate source and destination
@@ -40,7 +39,7 @@ func dbToDbTask(modelName string, modelDigest string, runOpts *config.RunOptions
 	csOut, dnOut := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), runOpts.String(toDbDriverArgKey))
 
 	if csInp == csOut && dnInp == dnOut {
-		return errors.New("source same as destination: cannot overwrite model in database")
+		return helper.ErrorNew("source same as destination: cannot overwrite model in database")
 	}
 
 	// open source database connection and check is it valid
@@ -79,14 +78,14 @@ func dbToDbTask(modelName string, modelDigest string, runOpts *config.RunOptions
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found, task id: " + strconv.Itoa(taskId))
+			return helper.ErrorNew("modeling task not found, task id:", taskId)
 		}
 	} else {
 		if taskRow, err = db.GetTaskByName(srcDb, srcModel.Model.ModelId, taskName); err != nil {
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found: " + taskName)
+			return helper.ErrorNew("modeling task not found:", taskName)
 		}
 	}
 
@@ -231,16 +230,16 @@ func dbToDbTask(modelName string, modelDigest string, runOpts *config.RunOptions
 	// display warnings if any worksets not found or not readonly
 	// display warnings if any model runs not exists or not completed
 	if isSetNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " workset(s) not found, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not found, copy of task incomplete", meta.Task.Name)
 	}
 	if isSetNotReadOnly {
-		omppLog.Log("Warning: task ", meta.Task.Name, " workset(s) not readonly, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not readonly, copy of task incomplete", meta.Task.Name)
 	}
 	if isRunNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " model run(s) not found, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not found, copy of task run history incomplete", meta.Task.Name)
 	}
 	if isRunNotCompleted {
-		omppLog.Log("Warning: task ", meta.Task.Name, " model run(s) not completed, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not completed, copy of task run history incomplete", meta.Task.Name)
 	}
 
 	// convert task db rows into "public" format
@@ -300,7 +299,7 @@ func copyTaskDbToDb(
 
 	// validate parameters
 	if pub == nil {
-		return 0, errors.New("invalid (empty) source modeling task metadata, source task not found or not exists")
+		return 0, helper.ErrorNew("invalid (empty) source modeling task metadata, source task not found or not exists")
 	}
 
 	// destination: convert from "public" format into destination db rows
@@ -309,10 +308,10 @@ func copyTaskDbToDb(
 		return 0, err
 	}
 	if isSetNotFound {
-		omppLog.Log("Warning: task ", dstTask.Task.Name, " worksets not found, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not found, copy of task incomplete", dstTask.Task.Name)
 	}
 	if isTaskRunNotFound {
-		omppLog.Log("Warning: task ", dstTask.Task.Name, " worksets or model runs not found, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s worksets or model runs not found, copy of task run history incomplete", dstTask.Task.Name)
 	}
 
 	// destination: save modeling task metadata
@@ -321,7 +320,7 @@ func copyTaskDbToDb(
 		return 0, err
 	}
 	dstId := dstTask.Task.TaskId
-	omppLog.Log("Modeling task from ", srcId, " ", pub.Name, " to ", dstId)
+	omppLog.LogFmt("Modeling task from %d %s to %d", srcId, pub.Name, dstId)
 
 	return dstId, nil
 }

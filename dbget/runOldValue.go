@@ -21,23 +21,23 @@ func runOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// find first model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", msg, err)
+		return helper.ErrorNew("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return helper.ErrorMsg("Error: first model run not found")
+		return helper.ErrorNew("Error: first model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
+		return helper.ErrorNew("Error: model run not completed successfully:", run.Name)
 	}
 	runMeta, err := db.GetRunFull(srcDb, run)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", run.Name, err)
+		return helper.ErrorNew("Error at get model run:", run.Name, err)
 	}
 
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// create output directory and sub directories for parameters and output tables
@@ -135,23 +135,23 @@ func parameterOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) e
 	// find first model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", msg, err)
+		return helper.ErrorNew("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return helper.ErrorMsg("Error: first model run not found")
+		return helper.ErrorNew("Error: first model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
+		return helper.ErrorNew("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata and find parameter
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 	name := runOpts.String(paramArgKey)
 	if name == "" {
-		return helper.ErrorMsg("Invalid (empty) parameter name")
+		return helper.ErrorNew("Invalid (empty) parameter name")
 	}
 
 	// write parameter values to csv or tsv file
@@ -178,7 +178,7 @@ func parameterOldOut(srcDb *sql.DB, meta *db.ModelMeta, name string, run *db.Run
 	// find parameter
 	idx, ok := meta.ParamByName(name)
 	if !ok {
-		return helper.ErrorMsg("Error: model parameter not found:", name)
+		return helper.ErrorNew("Error: model parameter not found:", name)
 	}
 
 	// create compatibility view parameter header: Dim0 Dim1....Value
@@ -200,23 +200,23 @@ func tableOldValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error
 	// find model run
 	msg, run, err := findRun(srcDb, modelId, "", 0, true, false)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model run:", msg, err)
+		return helper.ErrorNew("Error at get model run:", msg, err)
 	}
 	if run == nil {
-		return helper.ErrorMsg("Error: model run not found")
+		return helper.ErrorNew("Error: model run not found")
 	}
 	if run.Status != db.DoneRunStatus {
-		return helper.ErrorMsg("Error: model run not completed successfully:", run.Name)
+		return helper.ErrorNew("Error: model run not completed successfully:", run.Name)
 	}
 
 	// get model metadata and find output table
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 	name := runOpts.String(tableArgKey)
 	if name == "" {
-		return helper.ErrorMsg("Invalid (empty) output table name")
+		return helper.ErrorNew("Invalid (empty) output table name")
 	}
 
 	// write parameter values to csv or tsv file
@@ -243,7 +243,7 @@ func tableOldOut(srcDb *sql.DB, meta *db.ModelMeta, name string, runId int, runO
 	// find output table
 	idx, ok := meta.OutTableByName(name)
 	if !ok {
-		return helper.ErrorMsg("Error: model output table not found:", name)
+		return helper.ErrorNew("Error: model output table not found:", name)
 	}
 
 	// create compatibility view output table header: Dim0 Dim1....Value

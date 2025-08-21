@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -67,7 +66,7 @@ func toWorksetListCsv(
 			return true, row, nil // end of workset rows
 		})
 	if err != nil {
-		return errors.New("failed to write worksets into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "workset_lst.csv", err)
 	}
 
 	// write workset text rows into csv
@@ -113,7 +112,7 @@ func toWorksetListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write worksets text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "workset_txt.csv", err)
 	}
 
 	// write workset parameter rows into csv
@@ -154,7 +153,7 @@ func toWorksetListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write workset parameters into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "workset_parameter.csv", err)
 	}
 
 	// write workset parameter text (parameter value notes) rows into csv
@@ -211,7 +210,7 @@ func toWorksetListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write workset parameter text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "workset_parameter_txt.csv", err)
 	}
 
 	return nil
@@ -229,7 +228,7 @@ func toWorksetCsv(
 
 	// create workset subdir under output dir
 	setId := meta.Set.SetId
-	omppLog.Log("Workset ", setId, " ", meta.Set.Name)
+	omppLog.Log("Workset", setId, meta.Set.Name)
 
 	// make output directory as one of:
 	// all_input_sets, set.Name_Of_the_Set, as set.NN.Name_Of_the_Set
@@ -246,7 +245,7 @@ func toWorksetCsv(
 
 	if !isAllInOne && !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(csvDir); !ok {
-			return errors.New("Error: unable to delete: " + csvDir)
+			return helper.ErrorNew("Error: unable to delete:", csvDir)
 		}
 	}
 	if err := os.MkdirAll(csvDir, 0750); err != nil {
@@ -274,7 +273,7 @@ func toWorksetCsv(
 
 		idx, ok := modelDef.ParamByHid(meta.Param[j].ParamHid)
 		if !ok {
-			return errors.New("missing workset parameter Hid: " + strconv.Itoa(meta.Param[j].ParamHid) + " workset: " + strconv.Itoa(setId) + " " + meta.Set.Name)
+			helper.ErrorNew("missing workset parameter Hid: %d workset: %d, %s", meta.Param[j].ParamHid, setId, meta.Set.Name)
 		}
 
 		cvtParam := &db.CellParamConverter{
@@ -312,7 +311,7 @@ func toWorksetCsv(
 					if paramName == "" {
 						k, ok := modelDef.ParamByHid(meta.Param[j].ParamHid)
 						if !ok {
-							return errors.New("parameter not found by Hid: " + strconv.Itoa(meta.Param[j].ParamHid))
+							return helper.ErrorNew("parameter not found by Hid:", meta.Param[j].ParamHid)
 						}
 						paramName = modelDef.Param[k].Name
 					}

@@ -6,7 +6,6 @@ package main
 import (
 	"database/sql"
 	"encoding/csv"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,7 +48,7 @@ func dbToCsv(modelName string, modelDigest string, isAllInOne bool, runOpts *con
 
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(outDir); !ok {
-			return errors.New("Error: unable to delete: " + outDir)
+			return helper.ErrorNew("Error: unable to delete:" + outDir)
 		}
 	}
 	if err = os.MkdirAll(outDir, 0750); err != nil {
@@ -116,7 +115,7 @@ func dbToCsv(modelName string, modelDigest string, isAllInOne bool, runOpts *con
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Packed ", zipPath)
+		omppLog.Log("Packed", zipPath)
 	}
 
 	return nil
@@ -148,7 +147,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of model rows
 		})
 	if err != nil {
-		return errors.New("failed to write model into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "model_dic.csv", err)
 	}
 
 	// write type rows into csv
@@ -174,7 +173,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of type rows
 		})
 	if err != nil {
-		return errors.New("failed to write model types into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "type_dic.csv", err)
 	}
 
 	// write type enum rows into csv
@@ -226,7 +225,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write model enums into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "type_enum_lst.csv", err)
 	}
 
 	// write parameter rows into csv
@@ -260,7 +259,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of parameter rows
 		})
 	if err != nil {
-		return errors.New("failed to write parameters into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "parameter_dic.csv", err)
 	}
 
 	// write parameter import rows into csv
@@ -302,7 +301,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write parameter import into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "parameter_import.csv", err)
 	}
 
 	// write parameter dimension rows into csv
@@ -344,7 +343,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write parameter dimensions into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "parameter_dims.csv", err)
 	}
 
 	// write output table rows into csv
@@ -381,7 +380,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of output table rows
 		})
 	if err != nil {
-		return errors.New("failed to write output tables into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_dic.csv", err)
 	}
 
 	// write output tables dimension rows into csv
@@ -425,7 +424,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write output table dimensions into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_dims.csv", err)
 	}
 
 	// write output tables accumulator rows into csv
@@ -468,7 +467,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write output table accumulators into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_acc.csv", err)
 	}
 
 	// write output tables expression rows into csv
@@ -511,7 +510,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write output table expressions into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "table_expr.csv", err)
 	}
 
 	// write model entity rows into csv
@@ -536,7 +535,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of model entity rows
 		})
 	if err != nil {
-		return errors.New("failed to write model entities into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_dic.csv", err)
 	}
 
 	// write entity attribute rows into csv
@@ -579,7 +578,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write entity attributes into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_attr.csv", err)
 	}
 
 	// write model group rows into csv
@@ -603,7 +602,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of model group rows
 		})
 	if err != nil {
-		return errors.New("failed to write model groups into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "group_lst.csv", err)
 	}
 
 	// write group parent-child rows into csv
@@ -654,7 +653,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write group parent-child into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "group_pc.csv", err)
 	}
 
 	// write model entity group rows into csv
@@ -678,7 +677,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return true, row, nil // end of model group rows
 		})
 	if err != nil {
-		return errors.New("failed to write model entity groups into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_group_lst.csv", err)
 	}
 
 	// write entity group parent-child rows into csv
@@ -730,7 +729,7 @@ func toModelCsv(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write entity group parent-child into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "entity_group_pc.csv", err)
 	}
 
 	return nil

@@ -20,15 +20,15 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// find base model run
 	msg, baseRun, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return helper.ErrorMsg("Error at get base model run:", msg, err)
+		return helper.ErrorNew("Error at get base model run:", msg, err)
 	}
 	if baseRun != nil {
 		if baseRun.Status != db.DoneRunStatus {
-			return helper.ErrorMsg("Error: base model run not completed successfully:", msg)
+			return helper.ErrorNew("Error: base model run not completed successfully:", msg)
 		}
 	} else {
 		if runOpts.String(runArgKey) != "" || runOpts.Int(runIdArgKey, 0) != 0 || runOpts.Bool(runFirstArgKey) || runOpts.Bool(runLastArgKey) {
-			return helper.ErrorMsg("Error: base model run not found")
+			return helper.ErrorNew("Error: base model run not found")
 		}
 	}
 
@@ -39,10 +39,10 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	pushToVar := func(src string, m string, r *db.RunRow) error {
 
 		if src != "" && r == nil {
-			return helper.ErrorMsg("Error: model run not found:", src)
+			return helper.ErrorNew("Error: Model run not found:", src)
 		}
 		if r.Status != db.DoneRunStatus {
-			return helper.ErrorMsg("Error: model run not completed successfully:", m)
+			return helper.ErrorNew("Error: model run not completed successfully:", m)
 		}
 		if baseRun == nil { // if base run not specified then use first run as base run
 			baseRun = r
@@ -73,7 +73,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 			m, r, e := findRun(srcDb, modelId, rdsn, 0, false, false)
 			if e != nil {
-				return helper.ErrorMsg("Error at get model run:", m, e)
+				return helper.ErrorNew("Error at get model run:", m, e)
 			}
 			if e = pushToVar(rdsn, m, r); e != nil {
 				return e
@@ -90,12 +90,12 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 			}
 			rId, e := strconv.Atoi(sId)
 			if e != nil || rId <= 0 {
-				return helper.ErrorMsg("Invalid model run id:", sId)
+				return helper.ErrorNew("Invalid model run id:", sId)
 			}
 
 			m, r, e := findRun(srcDb, modelId, "", rId, false, false)
 			if e != nil {
-				return helper.ErrorMsg("Error at get model run:", m, e)
+				return helper.ErrorNew("Error at get model run:", m, e)
 			}
 			if e = pushToVar(sId, m, r); e != nil {
 				return e
@@ -107,7 +107,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 		m, r, e := findRun(srcDb, modelId, "", 0, true, false)
 		if e != nil {
-			return helper.ErrorMsg("Error at get first model run:", m, e)
+			return helper.ErrorNew("Error at get first model run:", m, e)
 		}
 		if e = pushToVar(m, m, r); e != nil {
 			return e
@@ -118,7 +118,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 		m, r, e := findRun(srcDb, modelId, "", 0, false, true)
 		if e != nil {
-			return helper.ErrorMsg("Error at get last model run:", m, e)
+			return helper.ErrorNew("Error at get last model run:", m, e)
 		}
 		if e = pushToVar(m, m, r); e != nil {
 			return e
@@ -127,21 +127,21 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 	// check: base model run must exist
 	if baseRun == nil {
-		return helper.ErrorMsg("Error: base model run not found")
+		return helper.ErrorNew("Error: base model run not found")
 	}
 
 	// get microdata entity, group by attributes and calcultion expression(s)
 	entityName := runOpts.String(entityArgKey)
 	if entityName == "" {
-		return helper.ErrorMsg("Invalid (empty) microdata entity name")
+		return helper.ErrorNew("Invalid (empty) microdata entity name")
 	}
 	groupBy := helper.ParseCsvLine(runOpts.String(groupByArgKey), ',')
 	if len(groupBy) <= 0 {
-		return helper.ErrorMsg("Invalid (empty) microdata group by attributes")
+		return helper.ErrorNew("Invalid (empty) microdata group by attributes")
 	}
 	cLst := helper.ParseCsvLine(runOpts.String(aggrArgKey), ',')
 	if len(cLst) <= 0 {
-		return helper.ErrorMsg("Invalid (empty) microdata aggregation expression(s)")
+		return helper.ErrorNew("Invalid (empty) microdata aggregation expression(s)")
 	}
 
 	// set aggregation expressions
@@ -168,13 +168,13 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// get model metadata and find entity
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, err)
 	}
 
 	// find model entity by entity name
 	eIdx, ok := meta.EntityByName(entityName)
 	if !ok {
-		return helper.ErrorMsg("Error: model entity not found:" + entityName)
+		return helper.ErrorNew("Error: model entity not found:" + entityName)
 	}
 	ent := &meta.Entity[eIdx]
 
@@ -192,7 +192,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 		GroupBy:  calcLt.GroupBy,
 	}
 	if e := cvtMicro.SetCalcIdNameMap(calcLt.Calculation); e != nil {
-		return helper.ErrorMsg("Failed to create microdata aggregation converter to csv:", entityName, e)
+		return helper.ErrorNew("Failed to create microdata aggregation converter to csv:", entityName, e)
 	}
 
 	// set run id to name map in the convereter
@@ -209,7 +209,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// get list of entity generations for base model run
 	egLst, err := db.GetEntityGenList(srcDb, baseRun.RunId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get run entities:", entityName, ":", baseRun.RunId, ":", err)
+		return helper.ErrorNew("Error at get run entities:", entityName, ":", baseRun.RunId, ":", err)
 	}
 
 	// find entity generation by entity id, as it is today model run has only one entity generation for each entity
@@ -222,7 +222,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 		}
 	}
 	if gIdx < 0 {
-		return helper.ErrorMsg("Error: model run entity generation not found:", entityName, ":", baseRun.RunId)
+		return helper.ErrorNew("Error: model run entity generation not found:", entityName, ":", baseRun.RunId)
 	}
 	entGen := &egLst[gIdx] // entity generation exists in the base run
 
@@ -233,7 +233,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 		aIdx, ok := ent.AttrByKey(ga.AttrId)
 		if !ok {
-			return helper.ErrorMsg("entity attribute not found by id:", ga.AttrId, entityName)
+			return helper.ErrorNew("entity attribute not found by id:", ga.AttrId, entityName)
 		}
 		attrs[k] = ent.Attr[aIdx]
 	}
@@ -241,7 +241,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// find all run_entity rows for that entity generation
 	runEnt, err := db.GetRunEntityGenByModel(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get run entities by model id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get run entities by model id:", modelId, ":", err)
 	}
 
 	n := 0
@@ -262,7 +262,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 			isFound = runEnt[j].RunId == runIds[k]
 		}
 		if !isFound {
-			return helper.ErrorMsg("Failed to create microdata aggregation converter to csv, entity not found in the run:", runIds[k], ":", entityName)
+			return helper.ErrorNew("Failed to create microdata aggregation converter to csv, entity not found in the run:", runIds[k], ":", entityName)
 		}
 	}
 
@@ -274,7 +274,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 			isFound = attrs[j].Name == calcLt.GroupBy[k]
 		}
 		if !isFound {
-			return helper.ErrorMsg("Invalid group by attribute:", entityName+"."+calcLt.GroupBy[k])
+			return helper.ErrorNew("Invalid group by attribute:", entityName+"."+calcLt.GroupBy[k])
 		}
 	}
 
@@ -297,7 +297,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 		hdr, err = cvtMicro.CsvHeader()
 		if err != nil {
-			return helper.ErrorMsg("Failed to make microdata csv header:", entityName, ":", err)
+			return helper.ErrorNew("Failed to make microdata csv header:", entityName, ":", err)
 		}
 		if theCfg.isIdCsv {
 			cvtRow, err = cvtMicro.ToCsvIdRow()
@@ -306,14 +306,14 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 			hdr[0] = "run_name" // first column is a run name
 		}
 		if err != nil {
-			return helper.ErrorMsg("Failed to create microdata converter to csv:", entityName, ":", err)
+			return helper.ErrorNew("Failed to create microdata converter to csv:", entityName, ":", err)
 		}
 
 	} else { // get language-specific metadata
 
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
-			return helper.ErrorMsg("Error at get language-specific metadata:", err)
+			return helper.ErrorNew("Error at get language-specific metadata:", err)
 		}
 
 		cvtLoc := &db.CellMicroCalcLocaleConverter{
@@ -325,11 +325,11 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 		hdr, err = cvtLoc.CsvHeader()
 		if err != nil {
-			return helper.ErrorMsg("Failed to make microdata csv header:", entityName, ":", err)
+			return helper.ErrorNew("Failed to make microdata csv header:", entityName, ":", err)
 		}
 		cvtRow, err = cvtLoc.ToCsvRow()
 		if err != nil {
-			return helper.ErrorMsg("Failed to create microdata converter to csv:", entityName, ":", err)
+			return helper.ErrorNew("Failed to create microdata converter to csv:", entityName, ":", err)
 		}
 	}
 
@@ -362,7 +362,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 
 	// write csv header
 	if err := csvWr.Write(hdr); err != nil {
-		return helper.ErrorMsg("Error at csv write:", entityName, ":", err)
+		return helper.ErrorNew("Error at csv write:", entityName, ":", err)
 	}
 
 	// convert microdata cell into []string and write line into csv file
@@ -388,7 +388,7 @@ func microdataCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) er
 	// read microdata values page
 	_, err = db.ReadMicrodataCalculateTo(srcDb, meta, &microLt, &calcLt, runIds, cvtWr)
 	if err != nil {
-		return helper.ErrorMsg("Error at microdata run aggregation output:", entityName, ":", microLt.GenDigest, ":", err)
+		return helper.ErrorNew("Error at microdata run aggregation output:", entityName, ":", microLt.GenDigest, ":", err)
 	}
 
 	csvWr.Flush() // flush csv to output stream

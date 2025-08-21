@@ -5,11 +5,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // write all model run data into csv files: parameters, output expressions and accumulators
@@ -94,7 +94,7 @@ func toRunListCsv(
 			return true, row, nil // end of model run rows
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write model run into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_lst.csv", err)
 	}
 
 	// write model run text rows into csv
@@ -140,7 +140,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write model run text into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_txt.csv", err)
 	}
 
 	// convert run option map to array of (id,key,value) rows
@@ -173,7 +173,7 @@ func toRunListCsv(
 			return true, row, nil // end of run rows
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write model run text into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_option.csv", err)
 	}
 
 	// write run parameter rows into csv
@@ -213,7 +213,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run parameters into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_parameter.csv", err)
 	}
 
 	// write parameter value notes rows into csv
@@ -270,7 +270,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write model run parameter text into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_parameter_txt.csv", err)
 	}
 
 	// write run output tables rows into csv
@@ -309,7 +309,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run output tables into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_table.csv", err)
 	}
 
 	// write run entity generation rows into csv: entity_gen join to model_entity_dic
@@ -353,7 +353,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run entity generations into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "entity_gen.csv", err)
 	}
 
 	// write run entity generation attributes rows into csv: entity_gen_attr join to entity_gen rows
@@ -405,7 +405,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run entity generation attributes into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "entity_gen_attr.csv", err)
 	}
 
 	// write run entity rows into csv: run_entity join to entity_gen rows
@@ -446,7 +446,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run entities into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_entity.csv", err)
 	}
 
 	// write run progress rows into csv
@@ -494,7 +494,7 @@ func toRunListCsv(
 			return false, row, nil
 		})
 	if err != nil {
-		return isUseIdNames, errors.New("failed to write run progress into csv " + err.Error())
+		return isUseIdNames, helper.ErrorNew("failed to write into", "run_progress.csv", err)
 	}
 
 	return isUseIdNames, nil

@@ -5,10 +5,10 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // toTaskListCsv writes all successfully completed tasks and tasks run history into csv files.
@@ -39,7 +39,7 @@ func toTaskListCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of task rows
 		})
 	if err != nil {
-		return errors.New("failed to write modeling tasks into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "task_lst.csv", err)
 	}
 
 	// write task text rows into csv
@@ -85,7 +85,7 @@ func toTaskListCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write modeling tasks text into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "task_txt.csv", err)
 	}
 
 	// write task body (task sets) rows into csv
@@ -124,7 +124,7 @@ func toTaskListCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write modeling task sets into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "task_set.csv", err)
 	}
 
 	// write task run history rows into csv
@@ -169,7 +169,7 @@ func toTaskListCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write task run history into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "task_run_lst.csv", err)
 	}
 
 	// write task run history body (set id, run id pair) rows into csv
@@ -221,7 +221,7 @@ func toTaskListCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return false, row, nil
 		})
 	if err != nil {
-		return errors.New("failed to write task run history body into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "task_run_set.csv", err)
 	}
 
 	return nil

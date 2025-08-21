@@ -249,6 +249,12 @@ If dbcopy used for massive database copy it may be convenient to control it from
 
 	dbcopy -dbcopy.PidSaveTo some/dir/dbcopy.pid.txt
 
+By default dbcopy log messages are in user OS language matched to dbcopy.message.ini file.
+User can override message language:
+
+	dbcopy -m modelOne -dbcopy.Language FR
+	dbcopy -m modelOne -dbcopy.Language fr-CA
+
 Also dbcopy support OpenM++ standard log settings (described in openM++ wiki):
 
 	-OpenM.LogToConsole: if true then log to standard output, default: true
@@ -262,16 +268,18 @@ Also dbcopy support OpenM++ standard log settings (described in openM++ wiki):
 package main
 
 import (
-	"errors"
 	"flag"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/jeandeaual/go-locale"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -319,6 +327,7 @@ const (
 	doubleFormatArgKey  = "dbcopy.DoubleFormat"      // convert to string format for float and double
 	encodingArgKey      = "dbcopy.CodePage"          // code page for converting source files, e.g. windows-1252
 	useUtf8CsvArgKey    = "dbcopy.Utf8BomIntoCsv"    // if true then write utf-8 BOM into csv file
+	langArgKey          = "dbcopy.Language"          // output messages language: fr-CA
 	pidFileArgKey       = "dbcopy.PidSaveTo"         // file path to save dbcopy processs ID
 )
 
@@ -354,7 +363,7 @@ func main() {
 
 	err := mainBody(os.Args)
 	if err != nil {
-		omppLog.Log(err.Error())
+		omppLog.LogNoLT(err.Error())
 		os.Exit(1)
 	}
 	omppLog.Log("Done.") // compeleted OK
@@ -403,8 +412,9 @@ func mainBody(args []string) error {
 	_ = flag.Bool(noZeroArgKey, theCfg.isNoZeroCsv, "if true then do not write zero values into output tables .csv files")
 	_ = flag.Bool(noNullArgKey, theCfg.isNoNullCsv, "if true then do not write NULL values into output tables .csv files")
 	_ = flag.String(doubleFormatArgKey, theCfg.doubleFmt, "convert to string format for float and double")
-	_ = flag.String(encodingArgKey, theCfg.encodingName, "code page to convert source file into utf-8, e.g.: windows-1252")
 	_ = flag.Bool(useUtf8CsvArgKey, theCfg.isWriteUtf8Bom, "if true then write utf-8 BOM into csv file")
+	_ = flag.String(encodingArgKey, theCfg.encodingName, "code page to convert source file into utf-8, e.g.: windows-1252")
+	_ = flag.String(langArgKey, "", "output messages language, e.g.: fr-CA")
 	_ = flag.String(pidFileArgKey, "", "file path to save dbcopy process ID")
 
 	// pairs of full and short argument names to map short name to full name
@@ -417,7 +427,7 @@ func mainBody(args []string) error {
 	// parse command line arguments and ini-file
 	runOpts, logOpts, err := config.New(encodingArgKey, false, optFs)
 	if err != nil {
-		return errors.New("invalid arguments: " + err.Error())
+		return helper.ErrorNew("invalid arguments:", err)
 	}
 
 	omppLog.New(logOpts) // adjust log options according to command line arguments or ini-values
@@ -426,9 +436,32 @@ func mainBody(args []string) error {
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			omppLog.Log("Error writing PID to file: ", pidFile)
+			omppLog.Log("Error writing PID to file:", pidFile)
 			return err
 		}
+	}
+
+	// path to bin directory where dbcopy.exe is located
+	selfPath, err := filepath.Abs(args[0])
+	if err != nil {
+		return helper.ErrorNew("Error: unable to make absolute path to dbcopy:", err)
+	}
+	binDir := filepath.Dir(selfPath)
+
+	// get default user language
+	mLang := runOpts.String(langArgKey)
+
+	if mLang == "" { // get default user language
+
+		mLang, err = locale.GetLocale()
+		if err != nil {
+			omppLog.Log("Warning: unable to get user default language")
+		}
+	}
+
+	// load translated strings from dbcopy.message.ini
+	if _, err = omppLog.LoadMessageIni("dbcopy", binDir, mLang, theCfg.encodingName); err != nil {
+		omppLog.Log("Error at loading dbcopy.message.ini or go-common.message.ini:", err)
 	}
 
 	// model name or model digest is required
@@ -436,9 +469,9 @@ func mainBody(args []string) error {
 	modelDigest := runOpts.String(modelDigestArgKey)
 
 	if modelName == "" && modelDigest == "" {
-		return errors.New("invalid (empty) model name and model digest")
+		return helper.ErrorNew("invalid (empty) model name and model digest")
 	}
-	omppLog.Log("Model ", modelName, " ", modelDigest)
+	omppLog.Log("Model", modelName, modelDigest)
 
 	// set run options
 	theCfg.isKeepOutputDir = runOpts.Bool(keepOutputDirArgKey)
@@ -460,45 +493,46 @@ func mainBody(args []string) error {
 	isRename := runOpts.Bool(renameArgKey)
 
 	if (isDel || isRename) && runOpts.IsExist(copyToArgKey) {
-		return errors.New("dbcopy invalid arguments: " + deleteArgKey + " or " + renameArgKey + " cannot be used with " + copyToArgKey)
+		return helper.ErrorFmt("dbcopy invalid arguments: %s or %s cannot be used with %s", deleteArgKey, renameArgKey, copyToArgKey)
 	}
 	// to-database can be used only with "db" or "db2db"
 	if copyToArg != "db" && copyToArg != "db2db" &&
 		(runOpts.IsExist(toDbConnStrArgKey) || runOpts.IsExist(toDbDriverArgKey) || runOpts.IsExist(toSqliteArgKey)) {
-		return errors.New("dbcopy invalid arguments: output database can be specified only if " + copyToArgKey + "=db or =db2db")
+		return helper.ErrorFmt("dbcopy invalid arguments: output database can be specified only if %s =db or =db2db", copyToArgKey)
 	}
 	// id csv is only for output
 	if copyToArg != "text" && copyToArg != "csv" && copyToArg != "csv-all" && runOpts.IsExist(useIdCsvArgKey) {
-		return errors.New("dbcopy invalid arguments: " + useIdCsvArgKey + " can be used only if " + copyToArgKey + "=text or =csv or =csv-all")
+		return helper.ErrorFmt("dbcopy invalid arguments: %s can be used only if %s=text or =csv or =csv-all", useIdCsvArgKey, copyToArgKey)
 	}
 	// no zero and no null options can be used only for csv output
 	if copyToArg != "csv" && copyToArg != "csv-all" && (runOpts.IsExist(noZeroArgKey) || runOpts.IsExist(noNullArgKey)) {
-		return errors.New("dbcopy invalid arguments: " + noZeroArgKey + " / " + noNullArgKey + " can be used only if " + copyToArgKey + "=text or =csv or =csv-all")
+		return helper.ErrorFmt("dbcopy invalid arguments: %s or %s can be used only if %s =text or =csv or =csv-all", noZeroArgKey, noNullArgKey, copyToArgKey)
 	}
 	// parameter directory is only for workset copy db-to-text or text-to-db
 	if runOpts.IsExist(paramDirArgKey) &&
 		(copyToArg != "text" && copyToArg != "db" || !runOpts.IsExist(setNameArgKey) && !runOpts.IsExist(setIdArgKey)) {
-		return errors.New("dbcopy invalid arguments: " + paramDirArgKey + " can be used only with " + setNameArgKey + " or " + setIdArgKey + " and if " + copyToArgKey + "=text or =db")
+		return helper.ErrorFmt("dbcopy invalid arguments: %s can be used only with %s  or %s  and if %s =text or =db", paramDirArgKey, setNameArgKey, setIdArgKey, copyToArgKey)
 	}
 	// new run name can be used with run name, run id or run digest arguments
 	if runOpts.IsExist(runNewNameArgKey) &&
 		(!isRename ||
 			!runOpts.IsExist(runNameArgKey) && !runOpts.IsExist(runIdArgKey) && !runOpts.IsExist(runDigestArgKey) &&
 				!runOpts.IsExist(runFirstArgKey) && !runOpts.IsExist(runLastArgKey)) {
-		return errors.New("dbcopy invalid arguments: " + runNewNameArgKey + " must be used with " + renameArgKey +
-			" and any of: " + runNameArgKey + ", " + runIdArgKey + ", " + runDigestArgKey + ", " + runFirstArgKey + ", " + runLastArgKey)
+		return helper.ErrorFmt("dbcopy invalid arguments: %s must be used with %s and any of: %s %s %s %s %s",
+			runNameArgKey, renameArgKey,
+			runNameArgKey, runIdArgKey, runDigestArgKey, runFirstArgKey, runLastArgKey)
 	}
 	// new set name can be used with set name or set id arguments
 	if runOpts.IsExist(setNewNameArgKey) &&
 		(isRename ||
 			!runOpts.IsExist(setNameArgKey) && !runOpts.IsExist(setIdArgKey)) {
-		return errors.New("dbcopy invalid arguments: " + setNewNameArgKey + " must be used with " + renameArgKey + " any of: " + setNameArgKey + ", " + setIdArgKey)
+		return helper.ErrorFmt("dbcopy invalid arguments: %s must be used with %s any of: %s %s", setNewNameArgKey, renameArgKey, setNameArgKey, setIdArgKey)
 	}
 	// new task name can be used with task name or task id arguments
 	if runOpts.IsExist(taskNewNameArgKey) &&
 		(!isRename ||
 			!runOpts.IsExist(taskNameArgKey) && !runOpts.IsExist(taskIdArgKey)) {
-		return errors.New("dbcopy invalid arguments: " + taskNewNameArgKey + " must be used with " + renameArgKey + " any of: " + taskNameArgKey + ", " + taskIdArgKey)
+		return helper.ErrorFmt("dbcopy invalid arguments: %s must be used with %s and any of: %s %s", taskNewNameArgKey, renameArgKey, taskNameArgKey, taskIdArgKey)
 	}
 
 	// do delete model run, workset or entire model
@@ -536,7 +570,7 @@ func mainBody(args []string) error {
 		case runOpts.IsExist(taskNameArgKey) || runOpts.IsExist(taskIdArgKey): // rename modeling task
 			err = dbRenameTask(modelName, modelDigest, runOpts)
 		default:
-			return errors.New("dbcopy invalid argument(s) for rename operation")
+			return helper.ErrorNew("dbcopy invalid argument(s) for", renameArgKey)
 		}
 
 	// copy model run
@@ -551,7 +585,7 @@ func mainBody(args []string) error {
 		case "db2db":
 			err = dbToDbRun(modelName, modelDigest, runOpts)
 		default:
-			return errors.New("dbcopy invalid argument for copy-to: " + copyToArg)
+			return helper.ErrorNew("dbcopy invalid argument for", copyToArgKey, ":", copyToArg)
 		}
 
 	// copy workset
@@ -565,7 +599,7 @@ func mainBody(args []string) error {
 		case "db2db":
 			err = dbToDbWorkset(modelName, modelDigest, runOpts)
 		default:
-			return errors.New("dbcopy invalid argument for copy-to: " + copyToArg)
+			return helper.ErrorNew("dbcopy invalid argument for", copyToArgKey, ":", copyToArg)
 		}
 
 	// copy modeling task
@@ -579,7 +613,7 @@ func mainBody(args []string) error {
 		case "db2db":
 			err = dbToDbTask(modelName, modelDigest, runOpts)
 		default:
-			return errors.New("dbcopy invalid argument for copy-to: " + copyToArg)
+			return helper.ErrorNew("dbcopy invalid argument for", copyToArgKey, ":", copyToArg)
 		}
 
 	default: // copy entire model
@@ -596,7 +630,7 @@ func mainBody(args []string) error {
 		case "db2db":
 			err = dbToDb(modelName, modelDigest, runOpts)
 		default:
-			return errors.New("dbcopy invalid argument for copy-to: " + copyToArg)
+			return helper.ErrorNew("dbcopy invalid argument for", copyToArgKey, ":", copyToArg)
 		}
 	}
 
@@ -611,11 +645,11 @@ func exitOnPanic() {
 	}
 	switch e := r.(type) {
 	case error:
-		omppLog.Log(e.Error())
+		omppLog.LogNoLT(e.Error())
 	case string:
-		omppLog.Log(e)
+		omppLog.LogNoLT(e)
 	default:
-		omppLog.Log("FAILED")
+		omppLog.LogNoLT("FAILED")
 	}
 	os.Exit(2) // final exit
 }

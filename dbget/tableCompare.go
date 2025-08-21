@@ -22,15 +22,15 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 	// find base model run
 	msg, baseRun, err := findRun(srcDb, modelId, runOpts.String(runArgKey), runOpts.Int(runIdArgKey, 0), runOpts.Bool(runFirstArgKey), runOpts.Bool(runLastArgKey))
 	if err != nil {
-		return helper.ErrorMsg("Error at get base model run:", msg, err)
+		return helper.ErrorNew("Error at get base model run:", msg, err)
 	}
 	if baseRun != nil {
 		if baseRun.Status != db.DoneRunStatus {
-			return helper.ErrorMsg("Error: base model run not completed successfully:", msg)
+			return helper.ErrorNew("Error: base model run not completed successfully:", msg)
 		}
 	} else {
 		if runOpts.String(runArgKey) != "" || runOpts.Int(runIdArgKey, 0) != 0 || runOpts.Bool(runFirstArgKey) || runOpts.Bool(runLastArgKey) {
-			return helper.ErrorMsg("Error: base model run not found")
+			return helper.ErrorNew("Error: base model run not found")
 		}
 	}
 
@@ -41,10 +41,10 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 	pushToVar := func(src string, m string, r *db.RunRow) error {
 
 		if src != "" && r == nil {
-			return helper.ErrorMsg("Error: model run not found:", src)
+			return helper.ErrorNew("Error: model run not found:", src)
 		}
 		if r.Status != db.DoneRunStatus {
-			return helper.ErrorMsg("Error: model run not completed successfully:", m)
+			return helper.ErrorNew("Error: model run not completed successfully:", m)
 		}
 		if baseRun == nil { // if base run not specified then use first run as base run
 			baseRun = r
@@ -75,7 +75,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 			m, r, e := findRun(srcDb, modelId, rdsn, 0, false, false)
 			if e != nil {
-				return helper.ErrorMsg("Error at get model run:", m, e)
+				return helper.ErrorNew("Error at get model run:", m, e)
 			}
 			if e = pushToVar(rdsn, m, r); e != nil {
 				return e
@@ -92,12 +92,12 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 			}
 			rId, e := strconv.Atoi(sId)
 			if e != nil || rId <= 0 {
-				return helper.ErrorMsg("Invalid model run id:", sId)
+				return helper.ErrorNew("Invalid model run id:", sId)
 			}
 
 			m, r, e := findRun(srcDb, modelId, "", rId, false, false)
 			if e != nil {
-				return helper.ErrorMsg("Error at get model run:", m, e)
+				return helper.ErrorNew("Error at get model run:", m, e)
 			}
 			if e = pushToVar(sId, m, r); e != nil {
 				return e
@@ -109,7 +109,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 		m, r, e := findRun(srcDb, modelId, "", 0, true, false)
 		if e != nil {
-			return helper.ErrorMsg("Error at get first model run:", m, e)
+			return helper.ErrorNew("Error at get first model run:", m, e)
 		}
 		if e = pushToVar(m, m, r); e != nil {
 			return e
@@ -120,7 +120,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 		m, r, e := findRun(srcDb, modelId, "", 0, false, true)
 		if e != nil {
-			return helper.ErrorMsg("Error at get last model run:", m, e)
+			return helper.ErrorNew("Error at get last model run:", m, e)
 		}
 		if e = pushToVar(m, m, r); e != nil {
 			return e
@@ -129,18 +129,18 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 	// check: base model run must exist
 	if baseRun == nil {
-		return helper.ErrorMsg("Error: base model run not found")
+		return helper.ErrorNew("Error: base model run not found")
 	}
 
 	// get model metadata and check if table exists in the model
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 	name := runOpts.String(tableArgKey)
 
 	if _, ok := meta.OutTableByName(name); !ok {
-		return helper.ErrorMsg("Error: model output table not found:", name)
+		return helper.ErrorNew("Error: model output table not found:", name)
 	}
 
 	// set  calculate layout: calculation and aggregation expressions
@@ -185,7 +185,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 		}
 	}
 	if len(calcLt) <= 0 {
-		return helper.ErrorMsg("Error: invalid (empty) calculation and aggregation expression", runOpts.String(calcArgKey), runOpts.String(aggrArgKey))
+		return helper.ErrorNew("Error: invalid (empty) calculation and aggregation expression", runOpts.String(calcArgKey), runOpts.String(aggrArgKey))
 	}
 
 	// create cell converter to csv
@@ -201,7 +201,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 		CalcMaps: db.EmptyCalcMaps(),
 	}
 	if e := cvtTable.SetCalcIdNameMap(calcLt); e != nil {
-		return helper.ErrorMsg("Failed to create output table converter to csv:", meta.Model.Name, name)
+		return helper.ErrorNew("Failed to create output table converter to csv:", meta.Model.Name, name)
 	}
 
 	// set run id to name map in the convereter
@@ -230,7 +230,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 		hdr, err = cvtTable.CsvHeader()
 		if err != nil {
-			return helper.ErrorMsg("Failed to make output table csv header:", name, ":", err)
+			return helper.ErrorNew("Failed to make output table csv header:", name, ":", err)
 		}
 		if theCfg.isIdCsv {
 			cvtRow, err = cvtTable.ToCsvIdRow()
@@ -239,14 +239,14 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 			hdr[0] = "run_name" // first column is a run name
 		}
 		if err != nil {
-			return helper.ErrorMsg("Failed to create output table converter to csv:", name, ":", err)
+			return helper.ErrorNew("Failed to create output table converter to csv:", name, ":", err)
 		}
 
 	} else { // get language-specific metadata
 
 		langDef, err := db.GetLanguages(srcDb)
 		if err != nil {
-			return helper.ErrorMsg("Error at get language-specific metadata:", err)
+			return helper.ErrorNew("Error at get language-specific metadata:", err)
 		}
 
 		// make list of model translated strings: merge common.message.ini and lang_word
@@ -259,7 +259,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 		// model language-specific lables for dimensions, items and tables
 		txt, err := db.GetModelText(srcDb, meta.Model.ModelId, theCfg.lang, true)
 		if err != nil {
-			return helper.ErrorMsg("Error at get language-specific metadata:", err)
+			return helper.ErrorNew("Error at get language-specific metadata:", err)
 		}
 
 		cvtLoc := &db.CellTableCalcLocaleConverter{
@@ -272,11 +272,11 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 		hdr, err = cvtLoc.CsvHeader()
 		if err != nil {
-			return helper.ErrorMsg("Failed to make output table csv header:", name, ":", err)
+			return helper.ErrorNew("Failed to make output table csv header:", name, ":", err)
 		}
 		cvtRow, err = cvtLoc.ToCsvRow()
 		if err != nil {
-			return helper.ErrorMsg("Failed to create output table converter to csv:", name, ":", err)
+			return helper.ErrorNew("Failed to create output table converter to csv:", name, ":", err)
 		}
 	}
 
@@ -310,7 +310,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 
 	// write csv header
 	if err := csvWr.Write(hdr); err != nil {
-		return helper.ErrorMsg("Error at csv write:", name, ":", err)
+		return helper.ErrorNew("Error at csv write:", name, ":", err)
 	}
 
 	// convert output table cell into []string and write line into csv file
@@ -336,7 +336,7 @@ func tableCompare(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error 
 	// read output table page
 	_, err = db.ReadOutputTableCalculteTo(srcDb, meta, &tableLt, calcLt, runIds, cvtWr)
 	if err != nil {
-		return helper.ErrorMsg("Error at output table aggregation output:", name, ":", err)
+		return helper.ErrorNew("Error at output table aggregation output:", name, ":", err)
 	}
 
 	csvWr.Flush() // flush csv to output stream

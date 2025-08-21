@@ -4,11 +4,9 @@
 package main
 
 import (
-	"errors"
-	"strconv"
-
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -34,15 +32,15 @@ func dbDeleteModel(modelName string, modelDigest string, runOpts *config.RunOpti
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// delete model metadata and drop model tables
-	omppLog.Log("Delete ", modelName, " ", modelDigest)
+	omppLog.Log("Delete:", modelName, modelDigest)
 
 	err = db.DeleteModel(srcDb, modelId)
 	if err != nil {
-		return errors.New("model delete failed " + modelName + " " + modelDigest + " " + err.Error())
+		return helper.ErrorNew("model delete failed", modelName, modelDigest, ":", err)
 	}
 	return nil
 }
@@ -69,38 +67,39 @@ func dbDeleteRun(modelName string, modelDigest string, runOpts *config.RunOption
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// find model run metadata by id, run digest or name
 	runId, runDigest, runName, isFirst, isLast := runIdDigestNameFromOptions(runOpts)
 	if runId < 0 || runId == 0 && runName == "" && runDigest == "" && !isFirst && !isLast {
-		return errors.New("dbcopy invalid argument(s) run id: " + runOpts.String(runIdArgKey) + ", run name: " + runOpts.String(runNameArgKey) + ", run digest: " + runOpts.String(runDigestArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) run id: %s, run name: %s, run digest: %s",
+			runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 	runRow, e := findModelRunByIdDigestName(srcDb, modelId, runId, runDigest, runName, isFirst, isLast)
 	if e != nil {
 		return e
 	}
 	if runRow == nil {
-		return errors.New("model run not found: " + runOpts.String(runIdArgKey) + " " + runOpts.String(runNameArgKey) + " " + runOpts.String(runDigestArgKey))
+		return helper.ErrorNew("Model run not found:", runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 
 	// check is this run belong to the model
 	if runRow.ModelId != modelId {
-		return errors.New("model run " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("model run %d %s %s does not belong to model %s %s", runRow.RunId, runRow.Name, runRow.RunDigest, modelName, modelDigest)
 	}
 
 	// run must be completed: status success, error or exit
 	if !db.IsRunCompleted(runRow.Status) && runRow.Status != db.DeleteRunStatus {
-		return errors.New("model run not completed: " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest)
+		return helper.ErrorNew("model run not completed:", runRow.RunId, runRow.Name, runRow.RunDigest)
 	}
 
 	// delete model run metadata, parameters run values and output tables run values from database
-	omppLog.Log("Delete model run ", runRow.RunId, " ", runRow.Name, " ", runRow.RunDigest)
+	omppLog.Log("Delete model run:", runRow.RunId, runRow.Name, runRow.RunDigest)
 
 	err = db.DeleteRun(srcDb, runRow.RunId)
 	if err != nil {
-		return errors.New("failed to delete model run, id: " + strconv.Itoa(runRow.RunId) + ": " + runRow.Name + " " + runRow.RunDigest + ": " + err.Error())
+		return helper.ErrorNew("failed to delete model run", runRow.RunId, ":", runRow.Name, runRow.RunDigest, ":", err)
 	}
 	return nil
 }
@@ -115,16 +114,16 @@ func dbDeleteWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	// conflicting options: use set id if positive else use set name
 	if runOpts.IsExist(setNameArgKey) && runOpts.IsExist(setIdArgKey) {
 		if setId > 0 {
-			omppLog.Log("dbcopy options conflict. Using set id: ", setId, " ignore set name: ", setName)
+			omppLog.LogFmt("dbcopy options conflict. Using set id: %d, not a set name: %s", setId, setName)
 			setName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using set name: ", setName, " ignore set id: ", setId)
+			omppLog.LogFmt("dbcopy options conflict. Using set name: %s, not a set id: %d", setName, setId)
 			setId = 0
 		}
 	}
 
 	if setId < 0 || setId == 0 && setName == "" {
-		return errors.New("dbcopy invalid argument(s) for set id: " + runOpts.String(setIdArgKey) + " and/or set name: " + runOpts.String(setNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for set id: %s and/or set name: %s", runOpts.String(setIdArgKey), runOpts.String(setNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -146,7 +145,7 @@ func dbDeleteWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// get workset metadata by id or name
@@ -156,33 +155,33 @@ func dbDeleteWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found, set id: " + strconv.Itoa(setId))
+			return helper.ErrorNew("workset not found, set id:", setId)
 		}
 	} else {
 		if wsRow, err = db.GetWorksetByName(srcDb, modelId, setName); err != nil {
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found: " + setName)
+			return helper.ErrorNew("Workset not found:", setName)
 		}
 	}
 
 	// check is this workset belong to the model
 	if wsRow.ModelId != modelId {
-		return errors.New("workset " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("workset %d %s does not belong to model %s %s", wsRow.SetId, wsRow.Name, modelName, modelDigest)
 	}
 
 	// check: workset must be read-write in order to delete
 	if wsRow.IsReadonly {
-		return errors.New("workset is read-only: " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name)
+		return helper.ErrorNew("workset is read-only:", wsRow.SetId, wsRow.Name)
 	}
 
 	// delete workset metadata and workset parameter values from database
-	omppLog.Log("Delete workset ", wsRow.SetId, " ", wsRow.Name)
+	omppLog.Log("Delete workset:", wsRow.SetId, wsRow.Name)
 
 	err = db.DeleteWorkset(srcDb, wsRow.SetId)
 	if err != nil {
-		return errors.New("failed to delete workset " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " " + err.Error())
+		return helper.ErrorNew("failed to delete workset", wsRow.SetId, wsRow.Name, err)
 	}
 	return nil
 }
@@ -197,16 +196,16 @@ func dbDeleteTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// conflicting options: use task id if positive else use task name
 	if runOpts.IsExist(taskNameArgKey) && runOpts.IsExist(taskIdArgKey) {
 		if taskId > 0 {
-			omppLog.Log("dbcopy options conflict. Using task id: ", taskId, " ignore task name: ", taskName)
+			omppLog.LogFmt("dbcopy options conflict. Using task id: %d, not a task name: %s", taskId, taskName)
 			taskName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using task name: ", taskName, " ignore task id: ", taskId)
+			omppLog.LogFmt("dbcopy options conflict. Using task name: %s, not a task id: %d", taskName, taskId)
 			taskId = 0
 		}
 	}
 
 	if taskId < 0 || taskId == 0 && taskName == "" {
-		return errors.New("dbcopy invalid argument(s) for task id: " + runOpts.String(taskIdArgKey) + " and/or task name: " + runOpts.String(taskNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for task id: %s and/or task name: %s", runOpts.String(taskIdArgKey), runOpts.String(taskNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -228,7 +227,7 @@ func dbDeleteTask(modelName string, modelDigest string, runOpts *config.RunOptio
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// find modeling task by id or name
@@ -238,28 +237,28 @@ func dbDeleteTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found, task id: " + strconv.Itoa(taskId))
+			return helper.ErrorNew("modeling task not found, task id:", taskId)
 		}
 	} else {
 		if taskRow, err = db.GetTaskByName(srcDb, modelId, taskName); err != nil {
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found: " + taskName)
+			return helper.ErrorNew("modeling task not found:", taskName)
 		}
 	}
 
 	// check is this task belong to the model
 	if taskRow.ModelId != modelId {
-		return errors.New("modeling task " + strconv.Itoa(taskRow.TaskId) + " " + taskRow.Name + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("modeling task %d % s does not belong to model %s %s", taskRow.TaskId, taskRow.Name, modelName, modelDigest)
 	}
 
 	// delete modeling task and task run history from database
-	omppLog.Log("Delete task ", taskRow.TaskId, " ", taskRow.Name)
+	omppLog.Log("Delete task:", taskRow.TaskId, taskRow.Name)
 
 	err = db.DeleteTask(srcDb, taskRow.TaskId)
 	if err != nil {
-		return errors.New("failed to delete modeling task " + strconv.Itoa(taskRow.TaskId) + " " + taskRow.Name + " " + err.Error())
+		return helper.ErrorNew("failed to delete modeling task", taskRow.TaskId, taskRow.Name+" ", err)
 	}
 	return nil
 }

@@ -6,10 +6,10 @@ package main
 import (
 	"container/list"
 	"database/sql"
-	"errors"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // copy model from source database to destination database
@@ -20,7 +20,7 @@ func dbToDb(modelName string, modelDigest string, runOpts *config.RunOptions) er
 	csOut, dnOut := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), runOpts.String(toDbDriverArgKey))
 
 	if csInp == csOut && dnInp == dnOut {
-		return errors.New("source same as destination: cannot overwrite model in database")
+		return helper.ErrorNew("source same as destination: cannot overwrite model in database")
 	}
 
 	// open source database connection and check is it valid

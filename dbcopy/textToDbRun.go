@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,7 +22,7 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 
 	// validate parameters
 	if modelName == "" {
-		return errors.New("invalid (empty) model name")
+		return helper.ErrorNew("invalid (empty) model name")
 	}
 
 	// get model run id and/or digest and/or name
@@ -31,7 +30,7 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 	runDigest := runOpts.String(runDigestArgKey)
 	runName := runOpts.String(runNameArgKey)
 	if runId < 0 || runId == 0 && runDigest == "" && runName == "" {
-		return errors.New("dbcopy invalid argument(s) for model run: " + runOpts.String(runIdArgKey) + " " + runOpts.String(runNameArgKey) + " " + runOpts.String(runDigestArgKey))
+		return helper.ErrorNew("dbcopy invalid argument(s) for model run:", runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 
 	// root directory of run data is input directory or name of input.zip, result is one of:
@@ -53,7 +52,7 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 	// unzip if required and use unzipped directory as "root" input directory
 	if runOpts.Bool(zipArgKey) {
 		base := filepath.Base(inpDir)
-		omppLog.Log("Unpack ", base, ".zip")
+		omppLog.Log("Unpack", base+".zip")
 
 		outDir := runOpts.String(outputDirArgKey)
 		if outDir == "" {
@@ -93,20 +92,20 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 			return err
 		}
 		if len(fl) <= 0 {
-			return errors.New("no metadata json file found for model run: " + strconv.Itoa(runId) + " " + runName + " " + runDigest)
+			return helper.ErrorNew("no metadata json file found for model run:", runId, runName, runDigest)
 		}
 		metaPath = fl[0]
 		if len(fl) > 1 {
-			omppLog.Log("found multiple model run metadata json files, using: " + filepath.Base(metaPath))
+			omppLog.Log("found multiple model run metadata json files, using:", filepath.Base(metaPath))
 		}
 	}
 
 	// check results: metadata json file or csv directory must exist
 	if metaPath == "" {
-		return errors.New("no metadata json file found for model run: " + strconv.Itoa(runId) + " " + runName + " " + runDigest)
+		return helper.ErrorNew("no metadata json file found for model run:", runId, runName, runDigest)
 	}
 	if _, err := os.Stat(metaPath); err != nil {
-		return errors.New("no metadata json file found for model run: " + strconv.Itoa(runId) + " " + runName + " " + runDigest)
+		return helper.ErrorNew("no metadata json file found for model run:", runId, runName, runDigest)
 	}
 
 	// open source database connection and check is it valid
@@ -144,7 +143,7 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 		return err
 	}
 	if dstId <= 0 {
-		return errors.New("model run not found or empty: " + strconv.Itoa(runId) + " " + runName + " " + runDigest)
+		return helper.ErrorNew("model run not found or empty:", runId, runName, runDigest)
 	}
 
 	return nil
@@ -227,16 +226,16 @@ func fromRunTextToDb(
 
 	paramCsvDir := filepath.Join(d, pDir)
 	if _, err := os.Stat(paramCsvDir); err != nil {
-		return 0, errors.New("csv parameters directory not found: " + pDir)
+		return 0, helper.ErrorNew("csv parameters directory not found:" + pDir)
 	}
 	tableCsvDir := filepath.Join(d, tDir)
 	if _, err := os.Stat(tableCsvDir); err != nil {
-		return 0, errors.New("csv output tables directory not found: " + tDir)
+		return 0, helper.ErrorNew("csv output tables directory not found:" + tDir)
 	}
 	microCsvDir := filepath.Join(d, mDir)
 	if nMd > 0 {
 		if _, err := os.Stat(microCsvDir); err != nil {
-			return 0, errors.New("csv microdata directory not found: " + mDir)
+			return 0, helper.ErrorNew("csv microdata directory not found:" + mDir)
 		}
 	}
 
@@ -262,11 +261,11 @@ func fromRunTextToDb(
 	}
 	dstId := meta.Run.RunId
 	if isExist { // exit if model run already exist
-		omppLog.Log("Model run ", srcName, " already exists as ", dstId)
+		omppLog.LogFmt("Model run %s already exists as %d", srcName, dstId)
 		return dstId, nil
 	}
 
-	omppLog.Log("Model run from ", srcName, " into id: ", dstId)
+	omppLog.LogFmt("Model run from %s into id: %d", srcName, dstId)
 
 	// restore run parameters: all model parameters must be included in the run
 	nP := len(modelDef.Param)
@@ -297,13 +296,13 @@ func fromRunTextToDb(
 
 		err = writeParamFromCsvFile(dbConn, modelDef, paramLt, paramCsvDir, cvtParam)
 		if err != nil {
-			omppLog.Log("Error at: ", paramLt.Name, ": ", err.Error())
-			omppLog.Log("Cleanup on error: delete model run ", srcName, " ", dstId)
+			omppLog.Log("Error at:", paramLt.Name, ":", err)
+			omppLog.Log("Cleanup on error: delete model run", srcName, dstId)
 
 			// delete model run on error to rollback results of UpdateRun() call above
 			e := db.DeleteRun(dbConn, dstId)
 			if e != nil {
-				omppLog.Log("Failed to delete model run: ", srcName, " id: ", dstId, ": ", e.Error())
+				omppLog.LogFmt("Failed to delete model run %s id: %d: %v", srcName, dstId, e)
 			}
 			return 0, err // return original error
 		}
@@ -350,13 +349,13 @@ func fromRunTextToDb(
 		err := writeTableFromCsvFiles(dbConn, modelDef, tblLt, tableCsvDir, cvtExpr, cvtAcc)
 		if err != nil {
 			if err != nil {
-				omppLog.Log("Error at: ", tblLt.Name, ": ", err.Error())
-				omppLog.Log("Cleanup on error: delete model run ", srcName, " ", dstId)
+				omppLog.Log("Error at:", tblLt.Name, ":", err)
+				omppLog.Log("Cleanup on error: delete model run", srcName, dstId)
 
 				// delete model run on error to rollback results of UpdateRun() call above
 				e := db.DeleteRun(dbConn, dstId)
 				if e != nil {
-					omppLog.Log("Failed to delete model run: ", srcName, " id: ", dstId, ": ", e.Error())
+					omppLog.LogFmt("Failed to delete model run %s id: %d: %v", srcName, dstId, e)
 				}
 				return 0, err // return original error
 			}
@@ -400,13 +399,13 @@ func fromRunTextToDb(
 
 			err := writeMicroFromCsvFile(dbConn, dbFacet, modelDef, meta, microLt, microCsvDir, cvtMicro)
 			if err != nil {
-				omppLog.Log("Error at: ", pub.Entity[j].Name, ": ", err.Error())
-				omppLog.Log("Cleanup on error: delete model run ", srcName, " ", dstId)
+				omppLog.Log("Error at:", pub.Entity[j].Name, ":", err)
+				omppLog.Log("Cleanup on error: delete model run", srcName, dstId)
 
 				// delete model run on error to rollback results of UpdateRun() call above
 				e := db.DeleteRun(dbConn, dstId)
 				if e != nil {
-					omppLog.Log("Failed to delete model run: ", srcName, " id: ", dstId, ": ", e.Error())
+					omppLog.Log("Failed to delete model run %s id: %d: %v", srcName, dstId, e)
 				}
 				return 0, err // return original error
 			}

@@ -64,7 +64,7 @@ func findRun(srcDb *sql.DB, modelId int, rdsn string, runId int, isFirst, isLast
 		r, e := db.GetRun(srcDb, runId)
 
 		if e == nil && r != nil && r.ModelId != modelId {
-			return "", nil, helper.ErrorMsg("Error: model run not found by id:", runId)
+			return "", nil, helper.ErrorNew("Error: model run not found by id:", runId)
 		}
 		return strconv.Itoa(runId), r, e
 	}
@@ -88,29 +88,29 @@ func findWs(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) (*db.Workset
 
 		ws, err = db.GetWorksetByName(srcDb, modelId, wsName)
 		if err != nil {
-			return nil, helper.ErrorMsg("Error at get workset:", wsName, err)
+			return nil, helper.ErrorNew("Error at get workset:", wsName, err)
 		}
 		if ws == nil {
-			return nil, helper.ErrorMsg("Error: workset not found:", wsName)
+			return nil, helper.ErrorNew("Error: workset not found:", wsName)
 		}
 	} else {
 
 		nId := runOpts.Int(wsIdArgKey, -1)
 		if nId < 0 {
-			return nil, helper.ErrorMsg("Error: invalid (empty) input scenario name and id")
+			return nil, helper.ErrorNew("Error: invalid (empty) input scenario name and id")
 		}
 		ws, err = db.GetWorkset(srcDb, nId)
 		if err != nil {
-			return nil, helper.ErrorMsg("Error at get workset by id:", nId, err)
+			return nil, helper.ErrorNew("Error at get workset by id:", nId, err)
 		}
 		if ws == nil {
-			return nil, helper.ErrorMsg("Error: workset not found by id:", nId)
+			return nil, helper.ErrorNew("Error: workset not found by id:", nId)
 		}
 		wsName = ws.Name
 	}
 
 	if !ws.IsReadonly {
-		return nil, helper.ErrorMsg("Error: workset must be read-only:", wsName)
+		return nil, helper.ErrorNew("Error: workset must be read-only:", wsName)
 	}
 
 	return ws, nil

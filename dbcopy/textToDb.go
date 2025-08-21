@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"path/filepath"
 
 	"github.com/openmpp/go/ompp/config"
@@ -19,7 +18,7 @@ func textToDb(modelName string, runOpts *config.RunOptions) error {
 
 	// validate parameters
 	if modelName == "" {
-		return errors.New("invalid (empty) model name")
+		return helper.ErrorNew("invalid (empty) model name")
 	}
 
 	// open source database connection and check is it valid
@@ -45,7 +44,7 @@ func textToDb(modelName string, runOpts *config.RunOptions) error {
 	if !runOpts.Bool(zipArgKey) {
 		inpDir = filepath.Join(inpDir, modelName) // json and csv files located in modelName subdir
 	} else {
-		omppLog.Log("Unpack ", modelName, ".zip")
+		omppLog.Log("Unpack", modelName+".zip")
 
 		outDir := runOpts.String(outputDirArgKey)
 		if outDir == "" {
@@ -102,10 +101,10 @@ func fromModelJsonToDb(dbConn *sql.DB, dbFacet db.Facet, inpDir string, modelNam
 		return nil, err
 	}
 	if !isExist {
-		return nil, errors.New("model not found: " + modelName)
+		return nil, helper.ErrorNew("model not found:", modelName)
 	}
 	if modelDef.Model.Name != modelName {
-		return nil, errors.New("model name: " + modelName + " not found in .json file")
+		return nil, helper.ErrorFmt("model name: %s not found in .json file", modelName)
 	}
 
 	// insert model metadata into destination database if not exists

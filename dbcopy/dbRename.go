@@ -4,11 +4,9 @@
 package main
 
 import (
-	"errors"
-	"strconv"
-
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -18,7 +16,7 @@ func dbRenameRun(modelName string, modelDigest string, runOpts *config.RunOption
 	// new run name argument required and cannot be empty
 	newRunName := runOpts.String(runNewNameArgKey)
 	if newRunName == "" {
-		return errors.New("dbcopy invalid (empty or missing) argument of: " + runNewNameArgKey)
+		return helper.ErrorNew("dbcopy invalid (empty or missing) argument of:", runNewNameArgKey)
 	}
 
 	// open source database connection and check is it valid
@@ -40,41 +38,42 @@ func dbRenameRun(modelName string, modelDigest string, runOpts *config.RunOption
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// find model run metadata by id, run digest or name
 	runId, runDigest, runName, isFirst, isLast := runIdDigestNameFromOptions(runOpts)
 	if runId < 0 || runId == 0 && runName == "" && runDigest == "" && !isFirst && !isLast {
-		return errors.New("dbcopy invalid argument(s) run id: " + runOpts.String(runIdArgKey) + ", run name: " + runOpts.String(runNameArgKey) + ", run digest: " + runOpts.String(runDigestArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) run id: %s, run name: %s, run digest: %s",
+			runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 	runRow, e := findModelRunByIdDigestName(srcDb, modelId, runId, runDigest, runName, isFirst, isLast)
 	if e != nil {
 		return e
 	}
 	if runRow == nil {
-		return errors.New("model run not found: " + runOpts.String(runIdArgKey) + " " + runOpts.String(runNameArgKey) + " " + runOpts.String(runDigestArgKey))
+		return helper.ErrorNew("Model run not found:", runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 
 	// check is this run belong to the model
 	if runRow.ModelId != modelId {
-		return errors.New("model run " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("model run %d %s %s does not belong to model %s %s", runRow.RunId, runRow.Name, runRow.RunDigest, modelName, modelDigest)
 	}
 
 	// run must be completed: status success, error or exit
 	if !db.IsRunCompleted(runRow.Status) {
-		return errors.New("model run not completed: " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest)
+		return helper.ErrorNew("model run not completed:", runRow.RunId, runRow.Name, runRow.RunDigest)
 	}
 
 	// rename model run
-	omppLog.Log("Rename model run ", runRow.RunId, " ", runRow.Name, " into: ", newRunName)
+	omppLog.LogFmt("Rename model run %d % s into: %s", runRow.RunId, runRow.Name, newRunName)
 
 	isFound, err = db.RenameRun(srcDb, runRow.RunId, newRunName)
 	if err != nil {
-		return errors.New("failed to rename model run " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + ": " + err.Error())
+		helper.ErrorNew("failed to rename model run", runRow.RunId, runRow.Name, ":", err)
 	}
 	if !isFound {
-		return errors.New("model run not found: " + strconv.Itoa(runRow.RunId) + " " + runRow.Name)
+		return helper.ErrorNew("Model run not found:", runRow.RunId, runRow.Name)
 	}
 	return nil
 }
@@ -85,7 +84,7 @@ func dbRenameWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	// new workset name argument required and cannot be empty
 	newSetName := runOpts.String(setNewNameArgKey)
 	if newSetName == "" {
-		return errors.New("dbcopy invalid (empty or missing) argument of: " + setNewNameArgKey)
+		return helper.ErrorNew("dbcopy invalid (empty or missing) argument of:", setNewNameArgKey)
 	}
 
 	// get workset name and id
@@ -95,16 +94,16 @@ func dbRenameWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 	// conflicting options: use set id if positive else use set name
 	if runOpts.IsExist(setNameArgKey) && runOpts.IsExist(setIdArgKey) {
 		if setId > 0 {
-			omppLog.Log("dbcopy options conflict. Using set id: ", setId, " ignore set name: ", setName)
+			omppLog.LogFmt("dbcopy options conflict. Using set id: %d, not a set name: %s", setId, setName)
 			setName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using set name: ", setName, " ignore set id: ", setId)
+			omppLog.LogFmt("dbcopy options conflict. Using set name: %s, not a set id: %d", setName, setId)
 			setId = 0
 		}
 	}
 
 	if setId < 0 || setId == 0 && setName == "" {
-		return errors.New("dbcopy invalid argument(s) for set id: " + runOpts.String(setIdArgKey) + " and/or set name: " + runOpts.String(setNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for set id: %s and/or set name: %s", runOpts.String(setIdArgKey), runOpts.String(setNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -126,7 +125,7 @@ func dbRenameWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// get workset metadata by id or name
@@ -136,31 +135,31 @@ func dbRenameWorkset(modelName string, modelDigest string, runOpts *config.RunOp
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found, set id: " + strconv.Itoa(setId))
+			return helper.ErrorNew("workset not found, set id:", setId)
 		}
 	} else {
 		if wsRow, err = db.GetWorksetByName(srcDb, modelId, setName); err != nil {
 			return err
 		}
 		if wsRow == nil {
-			return errors.New("workset not found: " + setName)
+			return helper.ErrorNew("Workset not found:", setName)
 		}
 	}
 
 	// check is this workset belong to the model
 	if wsRow.ModelId != modelId {
-		return errors.New("workset " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("workset %d %s does not belong to model %s %s", wsRow.SetId, wsRow.Name, modelName, modelDigest)
 	}
 
 	// rename workset (even it is read-only)
-	omppLog.Log("Rename workset ", wsRow.SetId, " ", wsRow.Name, " into: ", newSetName)
+	omppLog.LogFmt("Rename workset %d %s into: %s", wsRow.SetId, wsRow.Name, newSetName)
 
 	isFound, err = db.RenameWorkset(srcDb, wsRow.SetId, newSetName, true)
 	if err != nil {
-		return errors.New("failed to rename workset " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name + " " + err.Error())
+		return helper.ErrorNew("failed to rename workset", wsRow.SetId, wsRow.Name, err)
 	}
 	if !isFound {
-		return errors.New("workset not found: " + strconv.Itoa(wsRow.SetId) + " " + wsRow.Name)
+		return helper.ErrorNew("Workset not found:", wsRow.SetId, wsRow.Name)
 	}
 
 	return nil
@@ -172,7 +171,7 @@ func dbRenameTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// new task name argument required and cannot be empty
 	newTaskName := runOpts.String(taskNewNameArgKey)
 	if newTaskName == "" {
-		return errors.New("dbcopy invalid (empty or missing) argument of: " + taskNewNameArgKey)
+		return helper.ErrorNew("dbcopy invalid (empty or missing) argument of:", taskNewNameArgKey)
 	}
 
 	// get task name and id
@@ -182,16 +181,16 @@ func dbRenameTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// conflicting options: use task id if positive else use task name
 	if runOpts.IsExist(taskNameArgKey) && runOpts.IsExist(taskIdArgKey) {
 		if taskId > 0 {
-			omppLog.Log("dbcopy options conflict. Using task id: ", taskId, " ignore task name: ", taskName)
+			omppLog.LogFmt("dbcopy options conflict. Using task id: %d, not a task name: %s", taskId, taskName)
 			taskName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using task name: ", taskName, " ignore task id: ", taskId)
+			omppLog.LogFmt("dbcopy options conflict. Using task name: %s, not a task id: %d", taskName, taskId)
 			taskId = 0
 		}
 	}
 
 	if taskId < 0 || taskId == 0 && taskName == "" {
-		return errors.New("dbcopy invalid argument(s) for task id: " + runOpts.String(taskIdArgKey) + " and/or task name: " + runOpts.String(taskNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for task id: %s and/or task name: %s", runOpts.String(taskIdArgKey), runOpts.String(taskNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -213,7 +212,7 @@ func dbRenameTask(modelName string, modelDigest string, runOpts *config.RunOptio
 		return err
 	}
 	if !isFound {
-		return errors.New("model " + modelName + " " + modelDigest + " not found")
+		return helper.ErrorFmt("model %s %s not found", modelName, modelDigest)
 	}
 
 	// find modeling task by id or name
@@ -223,31 +222,31 @@ func dbRenameTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found, task id: " + strconv.Itoa(taskId))
+			return helper.ErrorNew("modeling task not found, task id:", taskId)
 		}
 	} else {
 		if taskRow, err = db.GetTaskByName(srcDb, modelId, taskName); err != nil {
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found: " + taskName)
+			return helper.ErrorNew("modeling task not found:", taskName)
 		}
 	}
 
 	// check is this task belong to the model
 	if taskRow.ModelId != modelId {
-		return errors.New("modeling task " + strconv.Itoa(taskRow.TaskId) + " " + taskRow.Name + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("modeling task %d % s does not belong to model %s %s", taskRow.TaskId, taskRow.Name, modelName, modelDigest)
 	}
 
 	// rename modeling task
-	omppLog.Log("Rename task ", taskRow.TaskId, " ", taskRow.Name, " into: ", newTaskName)
+	omppLog.LogFmt("Rename task %d %s into: %s", taskRow.TaskId, taskRow.Name, newTaskName)
 
 	isFound, err = db.RenameTask(srcDb, taskRow.TaskId, newTaskName)
 	if err != nil {
-		return errors.New("failed to rename modeling task " + strconv.Itoa(taskRow.TaskId) + " " + taskRow.Name + " " + err.Error())
+		return helper.ErrorNew("failed to rename modeling task", taskRow.TaskId, taskRow.Name, err)
 	}
 	if !isFound {
-		return errors.New("modeling task not found: " + strconv.Itoa(taskRow.TaskId) + " " + taskRow.Name)
+		return helper.ErrorNew("modeling task not found:", taskRow.TaskId, taskRow.Name)
 	}
 	return nil
 }

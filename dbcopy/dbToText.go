@@ -6,7 +6,6 @@ package main
 import (
 	"database/sql"
 	"encoding/csv"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +44,7 @@ func dbToText(modelName string, modelDigest string, runOpts *config.RunOptions) 
 
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(outDir); !ok {
-			return errors.New("Error: unable to delete: " + outDir)
+			return helper.ErrorNew("Error: unable to delete:", outDir)
 		}
 	}
 	if err = os.MkdirAll(outDir, 0750); err != nil {
@@ -92,7 +91,7 @@ func dbToText(modelName string, modelDigest string, runOpts *config.RunOptions) 
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Packed ", zipPath)
+		omppLog.Log("Packed", zipPath)
 	}
 
 	return nil
@@ -255,7 +254,7 @@ func toCellCsvFile(
 	case db.ReadMicroLayout:
 		_, err = db.ReadMicrodataTo(dbConn, modelDef, &lt, cvtWr)
 	default:
-		err = errors.New("fail to write from database into CSV: layout type is unknown")
+		err = helper.ErrorNew("fail to write from database into CSV: layout type is unknown")
 	}
 	if err != nil {
 		return err

@@ -5,10 +5,10 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // toLanguageCsv writes list of languages into csv files.
@@ -40,7 +40,7 @@ func toLanguageCsv(dbConn *sql.DB, outDir string) error {
 			return true, row, nil // end of language rows
 		})
 	if err != nil {
-		return errors.New("failed to write languages into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "lang_lst.csv", err)
 	}
 
 	// convert language words map to array of (id,key,value) rows
@@ -74,7 +74,7 @@ func toLanguageCsv(dbConn *sql.DB, outDir string) error {
 			return true, row, nil // end of language word rows
 		})
 	if err != nil {
-		return errors.New("failed to write language words into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "lang_word.csv", err)
 	}
 
 	return nil
@@ -127,7 +127,7 @@ func toModelWordCsv(dbConn *sql.DB, modelId int, outDir string) error {
 			return true, row, nil // end of model word rows
 		})
 	if err != nil {
-		return errors.New("failed to write model words into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "model_word.csv", err)
 	}
 
 	return nil
@@ -170,7 +170,7 @@ func toModelProfileCsv(dbConn *sql.DB, modelName string, outDir string) error {
 			return true, row, nil // end of profile rows
 		})
 	if err != nil {
-		return errors.New("failed to write model profile into csv " + err.Error())
+		return helper.ErrorNew("failed to write into", "profile_option.csv", err)
 	}
 
 	return nil

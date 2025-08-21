@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,24 +44,25 @@ func dbToTextRun(modelName string, modelDigest string, runOpts *config.RunOption
 	// find model run metadata by id, run digest or name
 	runId, runDigest, runName, isFirst, isLast := runIdDigestNameFromOptions(runOpts)
 	if runId < 0 || runId == 0 && runName == "" && runDigest == "" && !isFirst && !isLast {
-		return errors.New("dbcopy invalid argument(s) run id: " + runOpts.String(runIdArgKey) + ", run name: " + runOpts.String(runNameArgKey) + ", run digest: " + runOpts.String(runDigestArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) run id: %s, run name: %s, run digest: %s",
+			runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 	runRow, e := findModelRunByIdDigestName(srcDb, modelDef.Model.ModelId, runId, runDigest, runName, isFirst, isLast)
 	if e != nil {
 		return e
 	}
 	if runRow == nil {
-		return errors.New("model run not found: " + runOpts.String(runIdArgKey) + " " + runOpts.String(runNameArgKey) + " " + runOpts.String(runDigestArgKey))
+		return helper.ErrorNew("Model run not found:", runOpts.String(runIdArgKey), runOpts.String(runNameArgKey), runOpts.String(runDigestArgKey))
 	}
 
 	// check is this run belong to the model
 	if runRow.ModelId != modelDef.Model.ModelId {
-		return errors.New("model run " + strconv.Itoa(runRow.RunId) + " " + runRow.Name + " " + runRow.RunDigest + " does not belong to model " + modelName + " " + modelDigest)
+		return helper.ErrorFmt("model run %d %s %s does not belong to model %s %s", runRow.RunId, runRow.Name, runRow.RunDigest, modelName, modelDigest)
 	}
 
 	// run must be completed: status success, error or exit
 	if !db.IsRunCompleted(runRow.Status) {
-		return errors.New("model run not completed: " + strconv.Itoa(runRow.RunId) + " " + runRow.Name)
+		return helper.ErrorNew("model run not completed:", runRow.RunId, runRow.Name, runRow.RunDigest)
 	}
 
 	// get full model run metadata
@@ -99,7 +99,7 @@ func dbToTextRun(modelName string, modelDigest string, runOpts *config.RunOption
 
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(outDir); !ok {
-			return errors.New("Error: unable to delete: " + outDir)
+			return helper.ErrorNew("Error: unable to delete:" + outDir)
 		}
 	}
 	if err = os.MkdirAll(outDir, 0750); err != nil {
@@ -118,7 +118,7 @@ func dbToTextRun(modelName string, modelDigest string, runOpts *config.RunOption
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Packed ", zipPath)
+		omppLog.Log("Packed", zipPath)
 	}
 
 	return nil
@@ -184,7 +184,7 @@ func toRunText(
 
 	// convert db rows into "public" format
 	runId := meta.Run.RunId
-	omppLog.Log("Model run ", runId, " ", meta.Run.Name)
+	omppLog.Log("Model run", runId, meta.Run.Name)
 
 	pub, err := meta.ToPublic(modelDef)
 	if err != nil {
@@ -324,7 +324,7 @@ func toRunText(
 			eId := meta.EntityGen[j].EntityId
 			eIdx, isFound := modelDef.EntityByKey(eId)
 			if !isFound {
-				return errors.New("error: entity not found by Id: " + strconv.Itoa(eId) + " " + meta.EntityGen[j].GenDigest)
+				return helper.ErrorNew("error: entity not found by Id:", eId, meta.EntityGen[j].GenDigest)
 			}
 
 			cvtMicro := &db.CellMicroConverter{CellEntityConverter: db.CellEntityConverter{
@@ -374,44 +374,40 @@ func runIdDigestNameFromOptions(runOpts *config.RunOptions) (int, string, string
 	if runOpts.IsExist(runIdArgKey) && (runOpts.IsExist(runNameArgKey) || runOpts.IsExist(runDigestArgKey)) {
 		if runId > 0 {
 			if runName != "" {
-				omppLog.Log("dbcopy options conflict. Using run id: ", runId, " ignore run name: ", runName)
+				omppLog.LogFmt("dbcopy options conflict. Using run id: %d, not a run name: %s", runId, runName)
 			}
 			if runDigest != "" {
-				omppLog.Log("dbcopy options conflict. Using run id: ", runId, " ignore run digest: ", runDigest)
+				omppLog.LogFmt("dbcopy options conflict. Using run id: %d, not a run digest: %s", runId, runDigest)
 			}
 			runName = ""
 			runDigest = ""
 		} else {
 			if runDigest != "" {
-				omppLog.Log("dbcopy options conflict. Using run digest: ", runDigest, " ignore run id: ", runId)
+				omppLog.LogFmt("dbcopy options conflict. Using run digest: %s, not a run id: %d", runDigest, runId)
 				if runName != "" {
-					omppLog.Log("dbcopy options conflict. Using run digest: ", runDigest, " ignore run name: ", runName)
+					omppLog.LogFmt("dbcopy options conflict. Using run digest: %s, not a run name: %s", runDigest, runName)
 					runName = ""
 				}
 			} else {
-				omppLog.Log("dbcopy options conflict. Using run name: ", runName, " ignore run id: ", runId)
+				omppLog.LogFmt("dbcopy options conflict. Using run name: %s, not a run id: %d", runName, runId)
 			}
 			runId = 0
 		}
 	}
 	if runName != "" && runDigest != "" {
-		omppLog.Log("dbcopy options conflict. Using run digest: ", runDigest, " ignore run name: ", runName)
+		omppLog.LogFmt("dbcopy options conflict. Using run digest: %s, not a run name: %s", runDigest, runName)
 		runName = ""
 	}
 	if isFirst && isLast {
-		omppLog.Log("dbcopy options conflict: '-", runFirstArgKey, "' flag should not be combined with '-", runLastArgKey)
+		omppLog.LogFmt("dbcopy options conflict: %s, should not be combined with %s", runFirstArgKey, runLastArgKey)
 		isFirst = false
 	}
 	if isFirst && (runId > 0 || runDigest != "") {
-		omppLog.Log("dbcopy options conflict: '-", runFirstArgKey, "' flag should not be combined with '-", runIdArgKey, "' or '-", runDigestArgKey, "'")
+		omppLog.LogFmt("dbcopy options conflict: %s should not be combined with %s or %s", runFirstArgKey, runIdArgKey, runDigestArgKey)
 		isFirst = false
 	}
 	if isLast && (runId > 0 || runDigest != "") {
-		omppLog.Log("dbcopy options conflict: '-", runLastArgKey, "' flag should not be combined with '-", runIdArgKey, "' or '-", runDigestArgKey, "'")
-		isLast = false
-	}
-	if isLast && (runId > 0 || runDigest != "") {
-		omppLog.Log("dbcopy options conflict: '-", runLastArgKey, "' flag should not be combined with '-", runIdArgKey, "' or '-", runDigestArgKey, "'")
+		omppLog.LogFmt("dbcopy options conflict: %s should not be combined with %s or %s", runLastArgKey, runIdArgKey, runDigestArgKey)
 		isLast = false
 	}
 

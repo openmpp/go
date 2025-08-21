@@ -22,7 +22,7 @@ func setValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// find workset, it must be readonly
@@ -57,7 +57,7 @@ func setValueOut(srcDb *sql.DB, meta *db.ModelMeta, wsRow *db.WorksetRow, paramC
 	// get workset parameters list
 	hIds, _, _, err := db.GetWorksetParamList(srcDb, wsRow.SetId)
 	if err != nil {
-		return helper.ErrorMsg("Error: unable to get workset parameters list:", wsRow.Name, ":", err)
+		return helper.ErrorNew("Error: unable to get workset parameters list:", wsRow.Name, ":", err)
 	}
 
 	// write all parameters into csv file
@@ -94,12 +94,12 @@ func setAllValue(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata and list of readonly worksets
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	wsLst, err := db.GetWorksetList(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get workset list by model id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get workset list by model id:", modelId, ":", err)
 	}
 	wsLst = slices.DeleteFunc(wsLst, func(w db.WorksetRow) bool { return !w.IsReadonly })
 
@@ -157,7 +157,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 	// get model metadata
 	meta, err := db.GetModelById(srcDb, modelId)
 	if err != nil {
-		return helper.ErrorMsg("Error at get model metadata by id:", modelId, ":", err)
+		return helper.ErrorNew("Error at get model metadata by id:", modelId, ":", err)
 	}
 
 	// get model run list and run_txt if user language defined
@@ -170,7 +170,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 		wl, err = db.GetWorksetList(srcDb, modelId)
 	}
 	if err != nil {
-		return helper.ErrorMsg("Error at get model workset list:", err)
+		return helper.ErrorNew("Error at get model workset list:", err)
 	}
 
 	if len(wl) <= 0 {
@@ -203,7 +203,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			p, err = (&db.WorksetMeta{Set: wl[ni]}).ToPublic(srcDb, meta)
 		}
 		if err != nil {
-			return helper.ErrorMsg("Error at workset conversion:", err)
+			return helper.ErrorNew("Error at workset conversion:", err)
 		}
 		if p != nil {
 			wpl[ni] = *p
@@ -267,7 +267,7 @@ func setList(srcDb *sql.DB, modelId int, runOpts *config.RunOptions) error {
 			return true, row, nil // end of run_lst rows
 		})
 	if err != nil {
-		return helper.ErrorMsg("failed to write workset list into csv", err)
+		return helper.ErrorNew("failed to write workset list into csv", err)
 	}
 
 	return nil

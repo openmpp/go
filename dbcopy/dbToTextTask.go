@@ -5,7 +5,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,16 +25,16 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// conflicting options: use task id if positive else use task name
 	if runOpts.IsExist(taskNameArgKey) && runOpts.IsExist(taskIdArgKey) {
 		if taskId > 0 {
-			omppLog.Log("dbcopy options conflict. Using task id: ", taskId, " ignore task name: ", taskName)
+			omppLog.LogFmt("dbcopy options conflict. Using task id: %d, not a task name: %s", taskId, taskName)
 			taskName = ""
 		} else {
-			omppLog.Log("dbcopy options conflict. Using task name: ", taskName, " ignore task id: ", taskId)
+			omppLog.LogFmt("dbcopy options conflict. Using task name: %s, not a task id: %d", taskName, taskId)
 			taskId = 0
 		}
 	}
 
 	if taskId < 0 || taskId == 0 && taskName == "" {
-		return errors.New("dbcopy invalid argument(s) for task id: " + runOpts.String(taskIdArgKey) + " and/or task name: " + runOpts.String(taskNameArgKey))
+		return helper.ErrorFmt("dbcopy invalid argument(s) for task id: %s and/or task name: %s", runOpts.String(taskIdArgKey), runOpts.String(taskNameArgKey))
 	}
 
 	// open source database connection and check is it valid
@@ -66,7 +65,7 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found, task id: " + strconv.Itoa(taskId))
+			return helper.ErrorNew("modeling task not found, task id:", taskId)
 		}
 		outDir = filepath.Join(runOpts.String(outputDirArgKey), modelName+".task."+strconv.Itoa(taskId))
 	} else {
@@ -74,7 +73,7 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 			return err
 		}
 		if taskRow == nil {
-			return errors.New("modeling task not found: " + taskName)
+			return helper.ErrorNew("modeling task not found:", taskName)
 		}
 		outDir = filepath.Join(runOpts.String(outputDirArgKey), modelName+".task."+taskName)
 	}
@@ -139,7 +138,7 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// create new output directory for task metadata
 	if !theCfg.isKeepOutputDir {
 		if ok := dirDeleteAndLog(outDir); !ok {
-			return errors.New("Error: unable to delete: " + outDir)
+			return helper.ErrorNew("Error: unable to delete:", outDir)
 		}
 	}
 	if err = os.MkdirAll(outDir, 0750); err != nil {
@@ -256,16 +255,16 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 	// display warnings if any worksets not found or not readonly
 	// display warnings if any model runs not exists or not completed
 	if isSetNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " workset(s) not found, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not found, copy of task incomplete", meta.Task.Name)
 	}
 	if isSetNotReadOnly {
-		omppLog.Log("Warning: task ", meta.Task.Name, " workset(s) not readonly, copy of task incomplete")
+		omppLog.LogFmt("Warning: task %s workset(s) not readonly, copy of task incomplete", meta.Task.Name)
 	}
 	if isRunNotFound {
-		omppLog.Log("Warning: task ", meta.Task.Name, " model run(s) not found, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not found, copy of task run history incomplete", meta.Task.Name)
 	}
 	if isRunNotCompleted {
-		omppLog.Log("Warning: task ", meta.Task.Name, " model run(s) not completed, copy of task run history incomplete")
+		omppLog.LogFmt("Warning: task %s model run(s) not completed, copy of task run history incomplete", meta.Task.Name)
 	}
 
 	// pack worksets metadata json and csv files into zip
@@ -274,7 +273,7 @@ func dbToTextTask(modelName string, modelDigest string, runOpts *config.RunOptio
 		if err != nil {
 			return err
 		}
-		omppLog.Log("Packed ", zipPath)
+		omppLog.Log("Packed", zipPath)
 	}
 	return nil
 }
@@ -301,7 +300,7 @@ func toTaskListJson(dbConn *sql.DB, modelDef *db.ModelMeta, outDir string, isUse
 func toTaskJson(dbConn *sql.DB, modelDef *db.ModelMeta, meta *db.TaskMeta, outDir string, isUseIdNames bool) error {
 
 	// convert db rows into "public" format
-	omppLog.Log("Modeling task ", meta.Task.TaskId, " ", meta.Task.Name)
+	omppLog.Log("Modeling task", meta.Task.TaskId, meta.Task.Name)
 
 	pub, err := meta.ToPublic(dbConn, modelDef)
 	if err != nil {
