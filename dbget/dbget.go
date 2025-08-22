@@ -753,15 +753,6 @@ func mainBody(args []string) error {
 	}
 	omppLog.New(logOpts) // adjust log options according to command line arguments or ini-values
 
-	// save dbget process id into file
-	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
-		pid := os.Getpid()
-		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			omppLog.Log("Error writing PID to file:", err)
-			return err
-		}
-	}
-
 	// path to bin directory where dbget.exe is located
 	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
@@ -798,6 +789,15 @@ func mainBody(args []string) error {
 	}
 	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, mLang, theCfg.encodingName); err != nil {
 		omppLog.Log("Error at loading dbget.message.ini or go-common.message.ini:", err)
+	}
+
+	// save dbget process id into file
+	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
+		pid := os.Getpid()
+		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
+			omppLog.Log("Error writing PID to file:", err)
+			return err
+		}
 	}
 
 	// validate language options: user specified language cannot be combined with NoLanguage or IdCsv option

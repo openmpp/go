@@ -162,6 +162,7 @@ import (
 	"strings"
 
 	"github.com/husobee/vestigo"
+	"github.com/jeandeaual/go-locale"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/text/language"
 
@@ -319,6 +320,7 @@ func mainBody(args []string) error {
 	}
 
 	// set UI languages to find model text in browser language
+	// check if oms.Languages option specified
 	ll := helper.ParseCsvLine(runOpts.String(uiLangsArgKey), ',')
 	var lt []language.Tag
 	for _, ls := range ll {
@@ -326,8 +328,17 @@ func mainBody(args []string) error {
 			lt = append(lt, language.Make(ls))
 		}
 	}
+	// use OS default language, it may be not user prefered language if oms running on the server
 	if len(lt) <= 0 {
-		lt = append(lt, language.English)
+		if osl, e := locale.GetLocale(); e == nil {
+			ost := language.Make(osl)
+			if ost != language.Und {
+				lt = []language.Tag{ost}
+			}
+		}
+	}
+	if len(lt) <= 0 {
+		lt = []language.Tag{language.English} // use English if no other options
 	}
 	uiLangMatcher = language.NewMatcher(lt)
 

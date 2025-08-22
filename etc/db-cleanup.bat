@@ -19,8 +19,9 @@ REM                 OM_ROOT\sql\insert_default.sql
 REM                 OM_ROOT\sql\sqlite\optional_meta_views_sqlite.sql
 REM Arguments:
 REM        %1 - path to model database
-REM        %2 - (optional) model name, default: database file name
-REM        %3 - (optional) model digest
+REM        %2 - (optional) model name   (or: no-name), default: database file name
+REM        %3 - (optional) model digest (or: no-digest)
+REM        %4 - (optional) dbcopy log language (or: und), e.g.: fr-CA
 
 setlocal enabledelayedexpansion
 
@@ -31,6 +32,9 @@ IF not [%2] == [] (
 )
 IF not [%3] == [] (
   IF not "%3" == "" set m_digest=%3
+)
+IF not [%4] == [] (
+  IF not "%4" == "" set msg_lang=%4
 )
 
 IF "%OM_ROOT%" == "" (
@@ -60,12 +64,14 @@ IF "%db_dir%" == "" (
   EXIT 1
 )
 
-REM if model name not supplied as argument then use db file stem: file name without extension
+REM if model name not supplied as argument or if it is "no-name"
+REM then use db file stem: file name without extension
 
 IF NOT DEFINED m_name (
   set m_name=%db_stem%
 ) ELSE (
   IF [%m_name%] == [""] set m_name=%db_stem%
+  IF "%m_name%" == "no-name" set m_name=%db_stem%
 )
 IF "%m_name%" == "" (
   @echo "ERROR: invalid model name: %db_stem%"
@@ -74,16 +80,31 @@ IF "%m_name%" == "" (
 
 @echo Model    : %m_name%
 
-REM model digest is optional
+REM model digest is optional or it can be "no-digest"
 
 set m_arg=-m %m_name%
 
 IF DEFINED m_digest (
   IF not [%m_digest%] == [""] (
-    set m_arg=-dbcopy.ModelDigest %m_digest%
-    @echo Digest   : %m_digest%
+    IF not "%m_digest%" == "no-digest" (
+      set m_arg=-dbcopy.ModelDigest %m_digest%
+      @echo Digest   : %m_digest%
+    )
   )
 )
+
+REM log messages language is optional or it can be "und"
+
+IF DEFINED msg_lang (
+  IF not [%msg_lang%] == [""] (
+    IF not "%msg_lang%" == "und" (
+      set lang_arg=-OpenM.MessageLanguage %msg_lang%
+      @echo Language : %msg_lang%
+    )
+  )
+)
+
+
 
 REM check OM_ROOT, following must exist:
 REM   OM_ROOT/bin/dbcopy.exe
@@ -184,10 +205,10 @@ if ERRORLEVEL 1 (
 
 REM copy model into new database
 
-"%dbcopy_exe%" %m_arg% -dbcopy.To db2db -dbcopy.ToSqlite "%new_db%" -dbcopy.FromSqlite "%src_path%"
+"%dbcopy_exe%" %m_arg% -dbcopy.To db2db %lang_arg% -dbcopy.ToSqlite "%new_db%" -dbcopy.FromSqlite "%src_path%"
 
 if ERRORLEVEL 1 (
-  @echo "ERROR at: %dbcopy_exe% %m_arg% -dbcopy.To db2db -dbcopy.ToSqlite %new_db% -dbcopy.FromSqlite %src_path%"
+  @echo "ERROR at: %dbcopy_exe% %m_arg% -dbcopy.To db2db %lang_arg% -dbcopy.ToSqlite %new_db% -dbcopy.FromSqlite %src_path%"
   EXIT
 )
 

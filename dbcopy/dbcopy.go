@@ -238,6 +238,8 @@ To specify output database connection string and driver:
 	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadWrite;"
 	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadWrite;" -dbcopy.ToDatabaseDriver SQLite
 
+	dbcopy -m modelOne -dbcopy.To db2db -dbcopy.FromSqlite src.sqlite -dbcopy.ToSqlite dst.sqlite
+
 Other supported database drivers are "sqlite3" and "odbc":
 
 	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabaseDriver odbc -dbcopy.ToDatabase "DSN=bigSql"
@@ -249,11 +251,10 @@ If dbcopy used for massive database copy it may be convenient to control it from
 
 	dbcopy -dbcopy.PidSaveTo some/dir/dbcopy.pid.txt
 
-By default dbcopy log messages are in user OS language matched to dbcopy.message.ini file.
-User can override message language:
+By default dbcopy log messages are in user OS language, user can override message language:
 
-	dbcopy -m modelOne -dbcopy.Language FR
-	dbcopy -m modelOne -dbcopy.Language fr-CA
+	dbcopy -m modelOne -OpenM.MessageLanguage FR
+	dbcopy -m modelOne -OpenM.MessageLanguage fr-CA
 
 Also dbcopy support OpenM++ standard log settings (described in openM++ wiki):
 
@@ -327,7 +328,7 @@ const (
 	doubleFormatArgKey  = "dbcopy.DoubleFormat"      // convert to string format for float and double
 	encodingArgKey      = "dbcopy.CodePage"          // code page for converting source files, e.g. windows-1252
 	useUtf8CsvArgKey    = "dbcopy.Utf8BomIntoCsv"    // if true then write utf-8 BOM into csv file
-	langArgKey          = "dbcopy.Language"          // output messages language: fr-CA
+	langArgKey          = "OpenM.MessageLanguage"    // output messages language, e.g. fr-CA
 	pidFileArgKey       = "dbcopy.PidSaveTo"         // file path to save dbcopy processs ID
 )
 
@@ -432,15 +433,6 @@ func mainBody(args []string) error {
 
 	omppLog.New(logOpts) // adjust log options according to command line arguments or ini-values
 
-	// save dbcopy process id into file
-	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
-		pid := os.Getpid()
-		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			omppLog.Log("Error writing PID to file:", pidFile)
-			return err
-		}
-	}
-
 	// path to bin directory where dbcopy.exe is located
 	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
@@ -462,6 +454,15 @@ func mainBody(args []string) error {
 	// load translated strings from dbcopy.message.ini
 	if _, err = omppLog.LoadMessageIni("dbcopy", binDir, mLang, theCfg.encodingName); err != nil {
 		omppLog.Log("Error at loading dbcopy.message.ini or go-common.message.ini:", err)
+	}
+
+	// save dbcopy process id into file
+	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
+		pid := os.Getpid()
+		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
+			omppLog.Log("Error writing PID to file:", pidFile)
+			return err
+		}
 	}
 
 	// model name or model digest is required

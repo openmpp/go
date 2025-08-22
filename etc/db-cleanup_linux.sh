@@ -21,8 +21,9 @@
 #                 $OM_ROOT/sql/sqlite/optional_meta_views_sqlite.sql
 # Arguments:
 #        $1 - path to model database
-#        $2 - (optional) model name, default: database file name
-#        $3 - (optional) model digest
+#        $2 - (optional) model name   (or: no-name), default: database file name
+#        $3 - (optional) model digest (or: no-digest)
+#        $4 - (optional) dbcopy log language (or: und), e.g.: fr-CA
 #
 
 set -e
@@ -32,6 +33,7 @@ self_dir=$(dirname "$0")
 db_path="$1"
 m_name="$2"
 m_digest="$3"
+msg_lang="$4"
 
 # check if database file exist
 
@@ -58,9 +60,11 @@ then
   exit 1
 fi
 
-# if model name not supplied as argument then use db file stem: file name without extension
+# if model name not supplied as argument or if it is "no-name"
+# then use db file stem: file name without extension
 
-[ -z "${m_name}" ] && m_name="${db_stem}"
+[ -z "${m_name}" ]             && m_name="${db_stem}"
+[ -z "${m_name}" = "no-name" ] && m_name="${db_stem}"
 
 if [ -z "${m_name}" ] ;
 then
@@ -70,16 +74,27 @@ fi
 
 echo "Model    : ${m_name}"
 
-# model digest is optional
+# model digest is optional or it can be "no-digest"
 
 m_arg="-m ${m_name}"
 
-if [ -n "${m_digest}" ] ;
+if [ -n "${m_digest}" ] && [ "${m_digest}" != "no-digest" ] ;
 then
   m_arg="-dbcopy.ModelDigest ${m_digest}"
 
   echo "Digest   : ${m_digest}"
 fi
+
+# log messages language is optional or it can be "und"
+
+lang_arg=
+
+if [ -n "${msg_lang}" ] && [ "${msg_lang}" != "und" ] ;
+then
+  lang_arg="-OpenM.MessageLanguage ${msg_lang}"
+  echo "Language : ${msg_lang}"
+fi
+
 
 # check OM_ROOT, following must exist:
 #   $OM_ROOT/bin/dbcopy
@@ -172,7 +187,7 @@ do_sql_cmd "${src_path}" "SELECT COUNT(*) FROM workset_lst;"
 
 # copy model into new database
 
-do_cmd "${dbcopy_exe}" ${m_arg} -dbcopy.To db2db -dbcopy.ToSqlite "${new_db}"  -dbcopy.FromSqlite "${src_path}"
+do_cmd "${dbcopy_exe}" ${m_arg} -dbcopy.To db2db ${lang_arg} -dbcopy.ToSqlite "${new_db}"  -dbcopy.FromSqlite "${src_path}"
 
 # report copy results
 

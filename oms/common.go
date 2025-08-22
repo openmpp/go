@@ -34,13 +34,6 @@ func logRequest(next http.HandlerFunc) http.HandlerFunc {
 	return next
 }
 
-// match request language with UI supported languages and return canonic language name
-func matchRequestToUiLang(r *http.Request) string {
-	rqLangTags, _, _ := language.ParseAcceptLanguage(r.Header.Get("Accept-Language"))
-	tag, _, _ := uiLangMatcher.Match(rqLangTags...)
-	return tag.String()
-}
-
 // get value of url parameter ?name or router parameter /:name
 func getRequestParam(r *http.Request, name string) string {
 
@@ -99,14 +92,25 @@ func getInt64RequestParam(r *http.Request, name string, defaultVal int64) (int64
 	return defaultVal, false // value is not integer
 }
 
-// get languages accepted by browser and by optional language request parameter, for example: ..../lang:EN
+// match request language with UI supported languages and return prefered language name
+// get languages accepted by browser and by optional preferred language request parameter, for example: ..../lang/EN
+func preferedRequestLang(r *http.Request, name string) string {
+	rqLangTags := getRequestLang(r, name)
+	tag, _, _ := uiLangMatcher.Match(rqLangTags...)
+	if tag != language.Und {
+		return tag.String()
+	}
+	return ""
+}
+
+// get languages accepted by browser and by optional language request parameter, for example: ..../lang/EN
 // if language parameter specified then return it as a first element of result (it a preferred language)
 func getRequestLang(r *http.Request, name string) []language.Tag {
 
 	// browser languages
 	rqLangTags, _, _ := language.ParseAcceptLanguage(r.Header.Get("Accept-Language"))
 
-	// if optional url parameter ?lang or router parameter /:lang specified
+	// if optional url parameter ?lang=LN or router parameter /lang/:lang specified
 	ln := r.URL.Query().Get(name)
 	if ln == "" {
 		ln = vestigo.Param(r, name)

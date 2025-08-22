@@ -216,6 +216,7 @@ func doJobsPause(filePath, msgPath string, w http.ResponseWriter, r *http.Reques
 //	POST /api/admin/db-cleanup/:path
 //	POST /api/admin/db-cleanup/:path/name/:name
 //	POST /api/admin/db-cleanup/:path/name/:name/digest/:digest
+//	POST /api/admin/db-cleanup/:path/lang/:lang
 //
 // Relative path to model database file is required, slash / in the path must be replaced with * star.
 // Model name and digest are optional parameters.
@@ -233,6 +234,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	dbPath := getRequestParam(r, "path")
 	name := getRequestParam(r, "name")
 	digest := getRequestParam(r, "digest")
+	lang := preferedRequestLang(r, "lang") // get prefered language
 
 	if dbPath == "" {
 		omppLog.Log("Error: invalid (empty) path to model database file")
@@ -281,13 +283,22 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	ln, lp := dbCleanupLogNamePath(ln, ld)
 
 	// start database cleanup
-	go func(cmdPath, mDbPath, mName, mDigest, logPath string) {
+	go func(cmdPath, mDbPath, mName, mDigest, msgLang string, logPath string) {
 
 		// make db cleanup command
+		if mName == "" && (mDigest != "" || msgLang != "") {
+			mName = "no-name"
+		}
+		if mDigest == "" && msgLang != "" {
+			mDigest = "no-digest"
+		}
 		cArgs := []string{
 			mDbPath,
 			mName,
 			mDigest,
+		}
+		if msgLang != "" {
+			cArgs = append(cArgs, msgLang)
 		}
 		cmd := exec.Command(cmdPath, cArgs...)
 
@@ -368,7 +379,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 		// refresh disk usage
 		refreshDiskScanC <- true
 
-	}(diskUse.dbCleanupCmd, srcPath, name, digest, lp)
+	}(diskUse.dbCleanupCmd, srcPath, name, digest, lang, lp)
 
 	// db cleanup is starting now: return path to log file
 	jsonResponse(w, r, struct{ LogFileName string }{LogFileName: ln})

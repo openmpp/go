@@ -851,13 +851,17 @@ func apiAdminRoutes(isAdminAll bool, router *vestigo.Router) {
 	// POST /api/admin/db-cleanup/:path
 	// POST /api/admin/db-cleanup/:path/name/:name
 	// POST /api/admin/db-cleanup/:path/name/:name/digest/:digest
+	// POST /api/admin/db-cleanup/:path/lang/:lang
 	router.Post("/api/admin/db-cleanup/:path", modelDbCleanupHandler, logRequest)
 	router.Post("/api/admin/db-cleanup/:path/name/:name", modelDbCleanupHandler, logRequest)
 	router.Post("/api/admin/db-cleanup/:path/name/:name/digest/:digest", modelDbCleanupHandler, logRequest)
+	router.Post("/api/admin/db-cleanup/:path/lang/:lang", modelDbCleanupHandler, logRequest)
+	// POST /api/admin/db-cleanup?path=dir/model.sqlite&lang=FR
+	router.Post("/api/admin/db-cleanup", modelDbCleanupHandler, logRequest)
+
 	router.Post("/api/admin/db-cleanup/:path/name/", http.NotFound)
 	router.Post("/api/admin/db-cleanup/:path/name/:name/digest/", http.NotFound)
-	// POST /api/admin/db-cleanup?path=dir/model.sqlite
-	router.Post("/api/admin/db-cleanup", modelDbCleanupHandler, logRequest)
+	router.Post("/api/admin/db-cleanup/:path/lang/", http.NotFound)
 
 	// GET /api/admin/db-cleanup/log-all
 	// GET /api/admin/db-cleanup/log/:name
