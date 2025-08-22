@@ -63,8 +63,8 @@ fi
 # if model name not supplied as argument or if it is "no-name"
 # then use db file stem: file name without extension
 
-[ -z "${m_name}" ]             && m_name="${db_stem}"
-[ -z "${m_name}" = "no-name" ] && m_name="${db_stem}"
+[ -z "${m_name}" ]          && m_name="${db_stem}"
+[ "${m_name}" = "no-name" ] && m_name="${db_stem}"
 
 if [ -z "${m_name}" ] ;
 then
