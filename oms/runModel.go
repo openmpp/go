@@ -269,6 +269,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs []string, req RunRequest, procCount int, hfPath string) (*exec.Cmd, error) {
 
 	// check is it MPI model run, to run MPI model template is required
+	// if template not specified then try to use default template
 	if req.IsMpi && req.Template == "" {
 
 		// search for model-specific MPI template
@@ -279,106 +280,27 @@ func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs [
 				req.Template = mtn
 			}
 		}
-		// if model-specific MPI template not found then use default MPI template to run the model
-		if req.Template == "" {
+
+		// if model-specific MPI template not found then try to use use default MPI template to run the model
+		if req.Template == "" && helper.IsFileExist(defaultMpiTemplate) {
 			req.Template = defaultMpiTemplate
 		}
 	}
 	isTmpl := req.Template != ""
 
-	// if this is regular non-MPI model.exe run and no template:
+	// if there is no template then
+	//  set work directory
+	// 	append request environment variables to model environment
+	//  make command line:
 	//	 ./modelExe -OpenM.LogToFile true ...etc...
-	var cmd *exec.Cmd
 
-	if !isTmpl && !req.IsMpi {
+	if !isTmpl {
 		if binDir == "" || binDir == "." || binDir == "./" {
 			mExe = "./" + mExe
 		} else {
 			mExe = filepath.Join(binDir, mExe)
 		}
-		cmd = exec.Command(mExe, mArgs...)
-	}
-
-	// if template specified then process template to get exe name and arguments
-	if isTmpl {
-
-		// parse template
-		tmpl, err := template.ParseFiles(filepath.Join(rsc.etcDir, req.Template))
-		if err != nil {
-			return nil, err
-		}
-
-		// set template parameters
-		wd, err := filepath.Abs(workDir)
-		if err != nil {
-			return nil, err
-		}
-		np := procCount
-		if req.IsMpi && req.Mpi.IsNotOnRoot {
-			np++
-		}
-
-		d := struct {
-			ModelName string            // model name
-			ExeStem   string            // base part of model exe name, usually modelName
-			Dir       string            // work directory to run the model
-			BinDir    string            // bin directory where model.exe is located
-			DbPath    string            // path to sqlite database file: models/bin/model.sqlite
-			MpiNp     int               // number of MPI processes
-			HostFile  string            // if not empty then absolute path to hostfile
-			Args      []string          // model command line arguments
-			Env       map[string]string // environment variables to run the model
-		}{
-			ModelName: req.ModelName,
-			ExeStem:   mExe,
-			Dir:       wd,
-			BinDir:    binDir,
-			DbPath:    dbPath,
-			MpiNp:     np,
-			HostFile:  hfPath,
-			Args:      mArgs,
-			Env:       req.Env,
-		}
-
-		// execute template and convert results in array of text lines
-		var b strings.Builder
-
-		err = tmpl.Execute(&b, d)
-		if err != nil {
-			return nil, err
-		}
-		tLines := strings.Split(strings.ReplaceAll(b.String(), "\r", "\n"), "\n")
-
-		// from template processing results get:
-		//   exe name as first non-empty line
-		//   use all other non-empty lines as command line arguments
-		cExe := ""
-		cArgs := []string{}
-
-		for k := range tLines {
-
-			cl := strings.TrimSpace(tLines[k])
-			if cl == "" {
-				continue
-			}
-			if cExe == "" {
-				cExe = cl
-			} else {
-				cArgs = append(cArgs, cl)
-			}
-		}
-		if cExe == "" {
-			return nil, errors.New("Error: empty template processing results, cannot run the model: " + req.ModelName)
-		}
-
-		// make command
-		cmd = exec.Command(cExe, cArgs...)
-	}
-
-	// if this is not MPI run then:
-	// 	set work directory
-	// 	append request environment variables to model environment
-	if !req.IsMpi {
+		cmd := exec.Command(mExe, mArgs...)
 
 		cmd.Dir = workDir
 
@@ -391,12 +313,86 @@ func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs [
 			}
 			cmd.Env = env
 		}
+		return cmd, nil
+	}
+	// else
+	// process template to get exe name and arguments
+
+	// parse template
+	tmpl, err := template.ParseFiles(filepath.Join(rsc.etcDir, req.Template))
+	if err != nil {
+		return nil, err
 	}
 
+	// set template parameters
+	wd, err := filepath.Abs(workDir)
+	if err != nil {
+		return nil, err
+	}
+	np := procCount
+	if req.IsMpi && req.Mpi.IsNotOnRoot {
+		np++
+	}
+
+	d := struct {
+		ModelName string            // model name
+		ExeStem   string            // base part of model exe name, usually modelName
+		Dir       string            // work directory to run the model
+		BinDir    string            // bin directory where model.exe is located
+		DbPath    string            // path to sqlite database file: models/bin/model.sqlite
+		MpiNp     int               // number of MPI processes
+		HostFile  string            // if not empty then absolute path to hostfile
+		Args      []string          // model command line arguments
+		Env       map[string]string // environment variables to run the model
+	}{
+		ModelName: req.ModelName,
+		ExeStem:   mExe,
+		Dir:       wd,
+		BinDir:    binDir,
+		DbPath:    dbPath,
+		MpiNp:     np,
+		HostFile:  hfPath,
+		Args:      mArgs,
+		Env:       req.Env,
+	}
+
+	// execute template and convert results in array of text lines
+	var b strings.Builder
+
+	err = tmpl.Execute(&b, d)
+	if err != nil {
+		return nil, err
+	}
+	tLines := strings.Split(strings.ReplaceAll(b.String(), "\r", "\n"), "\n")
+
+	// from template processing results get:
+	//   exe name as first non-empty line
+	//   use all other non-empty lines as command line arguments
+	cExe := ""
+	cArgs := []string{}
+
+	for k := range tLines {
+
+		cl := strings.TrimSpace(tLines[k])
+		if cl == "" {
+			continue
+		}
+		if cExe == "" {
+			cExe = cl
+		} else {
+			cArgs = append(cArgs, cl)
+		}
+	}
+	if cExe == "" {
+		return nil, errors.New("Error: empty template processing results, cannot run the model: " + req.ModelName)
+	}
+
+	// make command
+	cmd := exec.Command(cExe, cArgs...)
 	return cmd, nil
 }
 
-// RtopModelRun kill model run by run stamp
+// StopModelRun kill model run by run stamp
 // or remove run request from the queue by submit stamp or by run stamp.
 // Return submission stamp, job file path and two flags: if model run found and if model is runniing now
 func (rsc *RunCatalog) stopModelRun(modelDigest string, stamp string) (bool, string, string, bool) {
