@@ -158,6 +158,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -319,16 +320,35 @@ func mainBody(args []string) error {
 		}
 	}
 
+	// change to root directory
+	selfPath, err := filepath.Abs(args[0])
+	if err != nil {
+		return errors.New("Error: unable to make absolute path to oms: " + err.Error())
+	}
+	theCfg.omsBinDir = filepath.Dir(selfPath)
+
 	// set UI languages to find model text in browser language
 	// check if oms.Languages option specified
-	ll := helper.ParseCsvLine(runOpts.String(uiLangsArgKey), ',')
-	var lt []language.Tag
-	for _, ls := range ll {
-		if ls != "" {
-			lt = append(lt, language.Make(ls))
+	lNames := helper.ParseCsvLine(runOpts.String(uiLangsArgKey), ',')
+
+	// add languages from go-common.message.ini to the list of UI languages
+	if cmIni, e := config.ReadSharedMessageIni("go-common", theCfg.omsBinDir, theCfg.encodingName); e == nil {
+		scLst := helper.IniSectionList(cmIni)
+
+		for _, sl := range scLst {
+			if slices.IndexFunc(lNames, func(ln string) bool { return strings.EqualFold(ln, sl) }) < 0 {
+				lNames = append(lNames, scLst...)
+			}
 		}
 	}
-	// use OS default language, it may be not user prefered language if oms running on the server
+
+	var lt []language.Tag
+	for _, ln := range lNames {
+		if ln != "" {
+			lt = append(lt, language.Make(ln))
+		}
+	}
+	// use OS default language, it may be not UI prefered language if oms running on the server
 	if len(lt) <= 0 {
 		if osl, e := locale.GetLocale(); e == nil {
 			ost := language.Make(osl)
@@ -342,14 +362,8 @@ func mainBody(args []string) error {
 	}
 	uiLangMatcher = language.NewMatcher(lt)
 
-	// change to root directory
-	selfPath, err := filepath.Abs(args[0])
-	if err != nil {
-		return errors.New("Error: unable to make absolute path to oms: " + err.Error())
-	}
-	theCfg.omsBinDir = filepath.Dir(selfPath)
-
-	theCfg.rootDir = filepath.Clean(runOpts.String(rootDirArgKey)) // server root directory
+	// change to OM_ROOT directory
+	theCfg.rootDir = filepath.Clean(runOpts.String(rootDirArgKey)) // OM_ROOT directory
 
 	if theCfg.rootDir != "" && theCfg.rootDir != "." {
 		if err := os.Chdir(theCfg.rootDir); err != nil {

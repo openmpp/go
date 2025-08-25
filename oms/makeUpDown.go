@@ -46,7 +46,7 @@ type PathItem struct {
 }
 
 // make dbcopy command to prepare full model download
-func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoMd bool, isCsvBom bool, isIdCsv bool) (*exec.Cmd, string) {
+func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoMd bool, isCsvBom bool, isIdCsv bool, msgLang string) (*exec.Cmd, string) {
 
 	// make dbcopy message for user log
 	cmdMsg := "dbcopy -m " + mb.model.Name + " -dbcopy.Zip -dbcopy.OutputDir " + theCfg.downloadDir
@@ -61,6 +61,9 @@ func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoM
 	}
 	if isIdCsv {
 		cmdMsg += " -dbcopy.IdCsv"
+	}
+	if msgLang != "" {
+		cmdMsg += " -OpenM.MessageLanguage " + msgLang
 	}
 
 	// make relative path arguments to dbcopy work directory: to a model bin directory
@@ -84,6 +87,10 @@ func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoM
 	if isIdCsv {
 		cArgs = append(cArgs, "-dbcopy.IdCsv")
 	}
+	if msgLang != "" {
+		cArgs = append(cArgs, "-OpenM.MessageLanguage")
+		cArgs = append(cArgs, msgLang)
+	}
 
 	cmd := exec.Command(theCfg.dbcopyPath, cArgs...)
 	cmd.Dir = mb.binDir // dbcopy work directory is a model bin directory
@@ -92,7 +99,7 @@ func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoM
 }
 
 // make dbcopy command to prepare model run download
-func makeRunDownloadCommand(mb modelBasic, runId int, logPath string, isNoAcc bool, isNoMd bool, isCsvBom bool, isIdCsv bool) (*exec.Cmd, string) {
+func makeRunDownloadCommand(mb modelBasic, runId int, logPath string, isNoAcc bool, isNoMd bool, isCsvBom bool, isIdCsv bool, msgLang string) (*exec.Cmd, string) {
 
 	// make dbcopy message for user log
 	cmdMsg := "dbcopy -m " + mb.model.Name +
@@ -111,6 +118,9 @@ func makeRunDownloadCommand(mb modelBasic, runId int, logPath string, isNoAcc bo
 	}
 	if isIdCsv {
 		cmdMsg += " -dbcopy.IdCsv"
+	}
+	if msgLang != "" {
+		cmdMsg += " -OpenM.MessageLanguage " + msgLang
 	}
 
 	// make relative path arguments to dbcopy work directory: to a model bin directory
@@ -141,6 +151,10 @@ func makeRunDownloadCommand(mb modelBasic, runId int, logPath string, isNoAcc bo
 	if isIdCsv {
 		cArgs = append(cArgs, "-dbcopy.IdCsv")
 	}
+	if msgLang != "" {
+		cArgs = append(cArgs, "-OpenM.MessageLanguage")
+		cArgs = append(cArgs, msgLang)
+	}
 
 	cmd := exec.Command(theCfg.dbcopyPath, cArgs...)
 	cmd.Dir = mb.binDir // dbcopy work directory is a model bin directory
@@ -149,7 +163,7 @@ func makeRunDownloadCommand(mb modelBasic, runId int, logPath string, isNoAcc bo
 }
 
 // make dbcopy command to prepare model workset download
-func makeWorksetDownloadCommand(mb modelBasic, setName string, logPath string, isCsvBom bool, isIdCsv bool) (*exec.Cmd, string) {
+func makeWorksetDownloadCommand(mb modelBasic, setName string, logPath string, isCsvBom bool, isIdCsv bool, msgLang string) (*exec.Cmd, string) {
 
 	// make dbcopy message for user log
 	cmdMsg := "dbcopy -m " + mb.model.Name +
@@ -162,6 +176,9 @@ func makeWorksetDownloadCommand(mb modelBasic, setName string, logPath string, i
 	}
 	if isIdCsv {
 		cmdMsg += " -dbcopy.IdCsv"
+	}
+	if msgLang != "" {
+		cmdMsg += " -OpenM.MessageLanguage " + msgLang
 	}
 
 	// make relative path arguments to dbcopy work directory: to a model bin directory
@@ -186,6 +203,10 @@ func makeWorksetDownloadCommand(mb modelBasic, setName string, logPath string, i
 	if isIdCsv {
 		cArgs = append(cArgs, "-dbcopy.IdCsv")
 	}
+	if msgLang != "" {
+		cArgs = append(cArgs, "-OpenM.MessageLanguage")
+		cArgs = append(cArgs, msgLang)
+	}
 
 	cmd := exec.Command(theCfg.dbcopyPath, cArgs...)
 	cmd.Dir = mb.binDir // dbcopy work directory is a model bin directory
@@ -194,7 +215,7 @@ func makeWorksetDownloadCommand(mb modelBasic, setName string, logPath string, i
 }
 
 // make dbcopy command to prepare model run import into database after upload
-func makeRunUploadCommand(mb modelBasic, runName string, logPath string) (*exec.Cmd, string) {
+func makeRunUploadCommand(mb modelBasic, runName string, logPath string, msgLang string) (*exec.Cmd, string) {
 
 	// make dbcopy message for user log
 	cmdMsg := "dbcopy -m " + mb.model.Name +
@@ -203,6 +224,9 @@ func makeRunUploadCommand(mb modelBasic, runName string, logPath string) (*exec.
 		" -dbcopy.To db" +
 		" -dbcopy.Zip" +
 		" -dbcopy.InputDir " + theCfg.uploadDir
+	if msgLang != "" {
+		cmdMsg += " -OpenM.MessageLanguage " + msgLang
+	}
 
 	// make relative path arguments to dbcopy work directory: to a model bin directory
 	upDir, dbPathRel, err := makeRelDbCopyArgs(mb.binDir, theCfg.uploadDir, mb.dbPath)
@@ -221,6 +245,10 @@ func makeRunUploadCommand(mb modelBasic, runName string, logPath string) (*exec.
 		"-dbcopy.InputDir", upDir,
 		"-dbcopy.ToSqlite", dbPathRel,
 	}
+	if msgLang != "" {
+		cArgs = append(cArgs, "-OpenM.MessageLanguage")
+		cArgs = append(cArgs, msgLang)
+	}
 
 	cmd := exec.Command(theCfg.dbcopyPath, cArgs...)
 	cmd.Dir = mb.binDir // dbcopy work directory is a model bin directory
@@ -229,7 +257,7 @@ func makeRunUploadCommand(mb modelBasic, runName string, logPath string) (*exec.
 }
 
 // make dbcopy command to prepare model workset import into database after upload
-func makeWorksetUploadCommand(mb modelBasic, setName string, logPath string, isNoDigestCheck bool) (*exec.Cmd, string) {
+func makeWorksetUploadCommand(mb modelBasic, setName string, logPath string, isNoDigestCheck bool, msgLang string) (*exec.Cmd, string) {
 
 	// make dbcopy message for user log
 	cmdMsg := "dbcopy -m " + mb.model.Name +
@@ -240,6 +268,9 @@ func makeWorksetUploadCommand(mb modelBasic, setName string, logPath string, isN
 		" -dbcopy.InputDir " + theCfg.uploadDir
 	if isNoDigestCheck {
 		cmdMsg += " -dbcopy.NoDigestCheck"
+	}
+	if msgLang != "" {
+		cmdMsg += " -OpenM.MessageLanguage " + msgLang
 	}
 
 	// make relative path arguments to dbcopy work directory: to a model bin directory
@@ -261,6 +292,10 @@ func makeWorksetUploadCommand(mb modelBasic, setName string, logPath string, isN
 	}
 	if isNoDigestCheck {
 		cArgs = append(cArgs, "-dbcopy.NoDigestCheck")
+	}
+	if msgLang != "" {
+		cArgs = append(cArgs, "-OpenM.MessageLanguage")
+		cArgs = append(cArgs, msgLang)
 	}
 
 	cmd := exec.Command(theCfg.dbcopyPath, cArgs...)
@@ -403,9 +438,9 @@ func runUpDownDbcopy(upDown string, upDownDir string, baseName string, cmd *exec
 	// wait for dbcopy to be completed
 	e := cmd.Wait()
 	if e != nil {
-		omppLog.Log("Error at: ", cmd.Args)
+		omppLog.Log("Error at:", cmd.Args)
 		writeToCmdLog(logPath, true, e.Error())
-		renameToUpDownErrorLog(upDown, logPath, "Error at: "+cmdMsg, e)
+		renameToUpDownErrorLog(upDown, logPath, helper.LT("Error at:")+cmdMsg, e)
 		return
 	}
 	// else: completed OK
@@ -417,23 +452,11 @@ func runUpDownDbcopy(upDown string, upDownDir string, baseName string, cmd *exec
 	os.Rename(logPath, strings.TrimSuffix(logPath, ".progress."+upDown+".log")+".ready."+upDown+".log")
 }
 
-// remove download file and append log message
-// on error do rename log file into model......error.download.log and return false
-func removeDownloadFile(path string, logPath string, fileName string) bool {
-	return removeUpDownFile("download", path, logPath, fileName)
-}
-
-// remove upload file and append log message
-// on error do rename log file into model......error.upload.log and return false
-func removeUploadFile(path string, logPath string, fileName string) bool {
-	return removeUpDownFile("upload", path, logPath, fileName)
-}
-
 // remove download or upload file and append log message
 // on error do rename log file into model......error.up-or-down.log and return false
 func removeUpDownFile(upDown string, path string, logPath string, fileName string) bool {
 
-	if !writeToCmdLog(logPath, true, "delete: "+fileName) {
+	if !writeToCmdLog(logPath, true, helper.LT("delete:")+" "+fileName) {
 		renameToUpDownErrorLog(upDown, logPath, "", nil)
 		return false
 	}
@@ -444,23 +467,11 @@ func removeUpDownFile(upDown string, path string, logPath string, fileName strin
 	return true
 }
 
-// remove download directory and append log message
-// on error do rename log file into model......error.download.log and return false
-func removeDownloadDir(path string, logPath string, dirName string) bool {
-	return removeUpDownDir("download", path, logPath, dirName)
-}
-
-// remove upload directory and append log message
-// on error do rename log file into model......error.upload.log and return false
-func removeUploadDir(path string, logPath string, dirName string) bool {
-	return removeUpDownDir("upload", path, logPath, dirName)
-}
-
 // remove upload or download directory and append log message
 // on error do rename log file into model......error.up-or-down.log and return false
 func removeUpDownDir(upDown string, path string, logPath string, dirName string) bool {
 
-	if !writeToCmdLog(logPath, true, "delete: "+dirName) {
+	if !writeToCmdLog(logPath, true, helper.LT("delete:")+" "+dirName) {
 		renameToUpDownErrorLog(upDown, logPath, "", nil)
 		return false
 	}

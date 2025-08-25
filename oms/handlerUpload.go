@@ -17,15 +17,17 @@ import (
 
 // post of model run zip archive in home/io/upload folder.
 //
-//	POST /api/upload/model/:model/run
-//	POST /api/upload/model/:model/run/:run
+// POST /api/upload/model/:model/run
+// POST /api/upload/model/:model/run/:run
+// POST /api/upload/model/:model/run/lang/:lang
 //
 // Zip archive is the same as created by dbcopy command line utilty.
 // Dimension(s) and enum-based parameters returned as enum codes, not enum id's.
 func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// url or query parameters
-	dn := getRequestParam(r, "model")  // model digest-or-name
-	rName := getRequestParam(r, "run") // run name
+	dn := getRequestParam(r, "model")      // model digest-or-name
+	rName := getRequestParam(r, "run")     // run name
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	// block upload if disk space usage exceed the limits
 	if isOver, _ := theRunCatalog.getDiskUseStatus(); isOver {
@@ -133,7 +135,7 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create model run upload files on separate thread
-	cmd, cmdMsg := makeRunUploadCommand(mb, runName, logPath)
+	cmd, cmdMsg := makeRunUploadCommand(mb, runName, logPath, lang)
 
 	go makeUpload(baseName, cmd, cmdMsg, logPath)
 
@@ -143,8 +145,9 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 // post of model workset zip archive in home/io/upload folder.
 //
-//	POST /api/upload/model/:model/workset
-//	POST /api/upload/model/:model/workset/:set
+// POST /api/upload/model/:model/workset
+// POST /api/upload/model/:model/workset/:set
+// POST /api/upload/model/:model/workset/lang/:lang
 //
 // Zip archive is the same as created by dbcopy command line utilty.
 // Dimension(s) and enum-based parameters returned as enum codes, not enum id's.
@@ -153,8 +156,9 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 // model digest in source zip is ignored, only model name is used and that allows to upload worksets into different model version.
 func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	wsn := getRequestParam(r, "set")  // workset name
+	dn := getRequestParam(r, "model")      // model digest-or-name
+	wsn := getRequestParam(r, "set")       // workset name
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	// block upload if disk space usage exceed the limits
 	if isOver, _ := theRunCatalog.getDiskUseStatus(); isOver {
@@ -290,7 +294,7 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create model scenario upload files on separate thread
-	cmd, cmdMsg := makeWorksetUploadCommand(mb, setName, logPath, isNoDigestCheck)
+	cmd, cmdMsg := makeWorksetUploadCommand(mb, setName, logPath, isNoDigestCheck, lang)
 
 	go makeUpload(baseName, cmd, cmdMsg, logPath)
 

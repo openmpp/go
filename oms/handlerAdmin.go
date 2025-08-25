@@ -234,7 +234,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	dbPath := getRequestParam(r, "path")
 	name := getRequestParam(r, "name")
 	digest := getRequestParam(r, "digest")
-	lang := preferedRequestLang(r, "lang") // get prefered language
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	if dbPath == "" {
 		omppLog.Log("Error: invalid (empty) path to model database file")

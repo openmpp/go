@@ -649,18 +649,27 @@ func apiDownloadRoutes(router *vestigo.Router) {
 	router.Get("/api/download/file-tree/", http.NotFound)
 
 	// POST /api/download/model/:model
+	// POST /api/download/model/:model/lang/:lang
 	router.Post("/api/download/model/:model", modelDownloadPostHandler, logRequest)
+	router.Post("/api/download/model/:model/lang/:lang", modelDownloadPostHandler, logRequest)
 	router.Post("/api/download/model/", http.NotFound)
+	router.Post("/api/download/model/:model/lang/", http.NotFound)
 
 	// POST /api/download/model/:model/run/:run
+	// POST /api/download/model/:model/run/:run/lang/:lang
 	router.Post("/api/download/model/:model/run/:run", runDownloadPostHandler, logRequest)
-	router.Post("/api/download/model/:model/run/", http.NotFound)
+	router.Post("/api/download/model/:model/run/:run/lang/:lang", runDownloadPostHandler, logRequest)
 	router.Post("/api/download/model/run/", http.NotFound)
+	router.Post("/api/download/model/:model/run/", http.NotFound)
+	router.Post("/api/download/model/:model/run/:run/lang/", http.NotFound)
 
 	// POST /api/download/model/:model/workset/:set
+	// POST /api/download/model/:model/workset/:set/lang/:lang
 	router.Post("/api/download/model/:model/workset/:set", worksetDownloadPostHandler, logRequest)
-	router.Post("/api/download/model/:model/workset/", http.NotFound)
+	router.Post("/api/download/model/:model/workset/:set/lang/:lang", worksetDownloadPostHandler, logRequest)
 	router.Post("/api/download/model/workset/", http.NotFound)
+	router.Post("/api/download/model/:model/workset/", http.NotFound)
+	router.Post("/api/download/model/:model/workset/:set/lang/", http.NotFound)
 
 	// DELETE /api/download/delete/:folder
 	router.Delete("/api/download/delete/:folder", downloadDeleteHandler, logRequest)
@@ -699,16 +708,24 @@ func apiUploadRoutes(router *vestigo.Router) {
 
 	// POST /api/upload/model/:model/workset
 	// POST /api/upload/model/:model/workset/:set
+	// POST /api/upload/model/:model/workset/lang/:lang
 	router.Post("/api/upload/model/:model/workset", worksetUploadPostHandler, logRequest)
 	router.Post("/api/upload/model/:model/workset/:set", worksetUploadPostHandler, logRequest)
+	router.Post("/api/upload/model/:model/workset/lang/:lang", worksetUploadPostHandler, logRequest)
+
 	router.Post("/api/upload/model/:model/workset/", http.NotFound)
+	router.Post("/api/upload/model/:model/workset/lang/", http.NotFound)
 
 	// POST /api/upload/model/:model/run
 	// POST /api/upload/model/:model/run/:run
+	// POST /api/upload/model/:model/run/lang/:lang
 	router.Post("/api/upload/model/:model/run", runUploadPostHandler, logRequest)
 	router.Post("/api/upload/model/:model/run/:run", runUploadPostHandler, logRequest)
-	router.Post("/api/upload/model/:model/run/", http.NotFound)
+	router.Post("/api/upload/model/:model/run/lang/:lang", runUploadPostHandler, logRequest)
 	router.Post("/api/upload/model/", http.NotFound)
+
+	router.Post("/api/upload/model/:model/run/", http.NotFound)
+	router.Post("/api/upload/model/:model/run/lang/", http.NotFound)
 
 	// DELETE /api/upload/delete/:folder
 	router.Delete("/api/upload/delete/:folder", uploadDeleteHandler, logRequest)

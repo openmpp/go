@@ -15,6 +15,7 @@ import (
 
 // modelDownloadPostHandler initate creation of model zip archive in home/io/download folder.
 // POST /api/download/model/:model
+// POST /api/download/model/:model/lang/:lang
 // Zip archive is the same as created by dbcopy command line utilty.
 // Dimension(s) and enum-based parameters returned as enum codes, not enum id's.
 // Json is posted to specify download options.
@@ -26,7 +27,8 @@ import (
 func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
+	dn := getRequestParam(r, "model")      // model digest-or-name
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	// decode json download options
 	opts := struct {
@@ -95,7 +97,7 @@ func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create model download files on separate thread
-	cmd, cmdMsg := makeModelDownloadCommand(mb, logPath, opts.NoAccumulatorsCsv, opts.NoMicrodata, opts.Utf8BomIntoCsv, opts.IdCsv)
+	cmd, cmdMsg := makeModelDownloadCommand(mb, logPath, opts.NoAccumulatorsCsv, opts.NoMicrodata, opts.Utf8BomIntoCsv, opts.IdCsv, lang)
 
 	go makeDownload(baseName, cmd, cmdMsg, logPath)
 
@@ -105,6 +107,7 @@ func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 // runDownloadPostHandler initate creation of model run zip archive in home/io/download folder.
 // POST /api/download/model/:model/run/:run
+// POST /api/download/model/:model/run/:run/lang/:lang
 // Zip archive is the same as created by dbcopy command line utilty.
 // Dimension(s) and enum-based parameters returned as enum codes, not enum id's.
 // Json is posted to specify download options.
@@ -116,8 +119,9 @@ func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")      // model digest-or-name
+	rdsn := getRequestParam(r, "run")      // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	// decode json download options
 	opts := struct {
@@ -205,7 +209,7 @@ func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create model run download files on separate thread
-	cmd, cmdMsg := makeRunDownloadCommand(mb, r0.RunId, logPath, opts.NoAccumulatorsCsv, opts.NoMicrodata, opts.Utf8BomIntoCsv, opts.IdCsv)
+	cmd, cmdMsg := makeRunDownloadCommand(mb, r0.RunId, logPath, opts.NoAccumulatorsCsv, opts.NoMicrodata, opts.Utf8BomIntoCsv, opts.IdCsv, lang)
 
 	go makeDownload(baseName, cmd, cmdMsg, logPath)
 
@@ -215,6 +219,7 @@ func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 // worksetDownloadPostHandler initate creation of model workset zip archive in home/io/download folder.
 // POST /api/download/model/:model/workset/:set
+// POST /api/download/model/:model/workset/:set/lang/:lang
 // Zip archive is the same as created by dbcopy command line utilty.
 // Dimension(s) and enum-based parameters returned as enum codes, not enum id's.
 // Json is posted to specify download options.
@@ -222,8 +227,9 @@ func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 func worksetDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	wsn := getRequestParam(r, "set")  // workset name
+	dn := getRequestParam(r, "model")      // model digest-or-name
+	wsn := getRequestParam(r, "set")       // workset name
+	lang := preferedRequestLang(r, "lang") // get prefered language for dbcopy log messages
 
 	// decode json download options
 	opts := struct {
@@ -301,7 +307,7 @@ func worksetDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create model scenario download files on separate thread
-	cmd, cmdMsg := makeWorksetDownloadCommand(mb, ws.Name, logPath, opts.Utf8BomIntoCsv, opts.IdCsv)
+	cmd, cmdMsg := makeWorksetDownloadCommand(mb, ws.Name, logPath, opts.Utf8BomIntoCsv, opts.IdCsv, lang)
 
 	go makeDownload(baseName, cmd, cmdMsg, logPath)
 
