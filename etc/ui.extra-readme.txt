@@ -1,12 +1,18 @@
 etc/ui.extra.json
 
 It is used for UI customization.
-oms reads it on startup, after changing it you need to restart oms
+oms reads this file on startup, after changing it you need to restart oms
 
 MoreMenu:
+
   [array] of top right corner menu links.
 
+DefaultTitle:
+
+  Organization web-site URL and title. Title is used as default UI title if no model selected.
+
 ModelTreeDescending:
+
   if exists then must be true / false
 
 if ModelTreeDescending does not exists in ui.extra.json then default models tree sort order is undefined.

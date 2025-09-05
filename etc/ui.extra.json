@@ -1,5 +1,15 @@
 {
   "ModelTreeDescending": false,
+  "DefaultTitle": [{
+      "Link": "https://openmpp.org",
+      "LangCode": "en",
+      "Label": "OpenM++"
+    }, {
+      "Link": "https://openmpp.org",
+      "LangCode": "fr",
+      "Label": "OpenM++"
+    }
+  ],
   "MoreMenu": [{
       "Link": "https://github.com/openmpp/openmpp.github.io/wiki/Ompp-UI-User-Interface",
       "LangCode": "en",
