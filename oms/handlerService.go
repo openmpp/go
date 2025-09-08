@@ -222,10 +222,12 @@ func emptyRunJobState(submitStamp string) runJobState {
 //	GET /api/service/job/active/:job
 func jobActiveHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: submission stamp
 	submitStamp := getRequestParam(r, "job")
 	if submitStamp == "" {
-		http.Error(w, "Invalid (empty) submission stamp", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
 		return
 	}
 
@@ -252,10 +254,12 @@ func jobActiveHandler(w http.ResponseWriter, r *http.Request) {
 //	GET /api/service/job/queue/:job
 func jobQueueHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: submission stamp
 	submitStamp := getRequestParam(r, "job")
 	if submitStamp == "" {
-		http.Error(w, "Invalid (empty) submission stamp", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
 		return
 	}
 
@@ -282,10 +286,12 @@ func jobQueueHandler(w http.ResponseWriter, r *http.Request) {
 //	GET /api/service/job/history/:job
 func jobHistoryHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: submission stamp
 	submitStamp := getRequestParam(r, "job")
 	if submitStamp == "" {
-		http.Error(w, "Invalid (empty) submission stamp", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
 		return
 	}
 
@@ -318,7 +324,7 @@ func getJobState(filePath string) (bool, *runJobState) {
 	var jc RunJob
 	isOk, err := helper.FromJsonFile(filePath, &jc)
 	if err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 	}
 	if !isOk || err != nil {
 		return false, &st
@@ -376,17 +382,19 @@ func getJobState(filePath string) (bool, *runJobState) {
 // If position number exceeds queue length then job moved to the bottom of the queue.
 func jobMoveHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: position and submission stamp
 	sp := getRequestParam(r, "pos")
 	nPos, err := strconv.Atoi(sp)
 	if sp == "" || err != nil {
-		http.Error(w, "Invalid (or empty) job queue position", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (or empty) job queue position"), http.StatusBadRequest)
 		return
 	}
 
 	submitStamp := getRequestParam(r, "job")
 	if submitStamp == "" {
-		http.Error(w, "Invalid (empty) submission stamp", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
 		return
 	}
 
@@ -411,10 +419,12 @@ func jobMoveHandler(w http.ResponseWriter, r *http.Request) {
 //	DELETE /api/service/job/delete/history/:job
 func jobHistoryDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: submission stamp
 	submitStamp := getRequestParam(r, "job")
 	if submitStamp == "" {
-		http.Error(w, "Invalid (empty) submission stamp", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
 		return
 	}
 
@@ -424,7 +434,7 @@ func jobHistoryDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 		isOk = fileDeleteAndLog(true, hj.filePath)
 		if !isOk {
-			http.Error(w, "Unable to delete job file", http.StatusInternalServerError)
+			http.Error(w, helper.MsgL(lang, "Unable to delete job file"), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -438,19 +448,21 @@ func jobHistoryDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	DELETE /api/service/job/delete/history-all/:success
 func jobHistoryAllDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: successful or not boolean flag
 	sp := getRequestParam(r, "success")
 	isSuccess, err := strconv.ParseBool(sp)
 	if sp == "" || err != nil {
-		http.Error(w, "Invalid (or empty) history delete flag, expected true or false", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (or empty) history delete flag, expected true or false"), http.StatusBadRequest)
 		return
 	}
 
-	doJobHistoryAllDelete(isSuccess, w)
+	doJobHistoryAllDelete(isSuccess, w, lang)
 }
 
 // delete all successful or not successful jobs history json files, it does not delete model runs.
-func doJobHistoryAllDelete(isSuccess bool, w http.ResponseWriter) {
+func doJobHistoryAllDelete(isSuccess bool, w http.ResponseWriter, lang string) {
 
 	nDel := 0
 	if theCfg.isJobControl {
@@ -463,7 +475,7 @@ func doJobHistoryAllDelete(isSuccess bool, w http.ResponseWriter) {
 				continue
 			}
 			if isOk := fileDeleteAndLog(true, hJobs[k].filePath); !isOk {
-				http.Error(w, "Unable to delete job file "+hJobs[k].SubmitStamp, http.StatusInternalServerError)
+				http.Error(w, helper.MsgL(lang, "Unable to delete job file", hJobs[k].SubmitStamp), http.StatusInternalServerError)
 				return
 			}
 			nDel++

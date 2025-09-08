@@ -24,27 +24,29 @@ import (
 //	POST /api/admin/all-models/refresh
 func allModelsRefreshHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// model directory required to build list of model sqlite files
 	modelLogDir, _ := theCatalog.getModelLogDir()
 	modelDir, _ := theCatalog.getModelDir()
 	if modelDir == "" {
-		omppLog.Log("Failed to refersh models catalog: path to model directory cannot be empty")
-		http.Error(w, "Failed to refersh models catalog: path to model directory cannot be empty", http.StatusBadRequest)
+		omppLog.Log("Failed to refresh models catalog: path to model directory cannot be empty")
+		http.Error(w, helper.MsgL(lang, "Failed to refresh models catalog: path to model directory cannot be empty"), http.StatusBadRequest)
 		return
 	}
-	omppLog.Log("Model directory: ", modelDir)
+	omppLog.Log("Model directory:", modelDir)
 
 	// refresh models catalog
 	if err := theCatalog.refreshSqlite(modelDir, modelLogDir); err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to refersh models catalog: "+modelDir, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to refersh models catalog:", modelDir), http.StatusBadRequest)
 		return
 	}
 
 	// refresh run state catalog
 	if err := theRunCatalog.refreshCatalog(theCfg.etcDir, nil); err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to refersh model runs catalog", http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to refersh model runs catalog"), http.StatusBadRequest)
 		return
 	}
 
@@ -57,12 +59,14 @@ func allModelsRefreshHandler(w http.ResponseWriter, r *http.Request) {
 //	POST /api/admin/all-models/close
 func allModelsCloseHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// close models catalog
 	modelDir, _ := theCatalog.getModelDir()
 
 	if err := theCatalog.closeAll(); err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to close models catalog: "+modelDir, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to close models catalog:", modelDir), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Location", "/api/admin/all-models/close/"+filepath.ToSlash(modelDir))
@@ -78,17 +82,18 @@ func allModelsCloseHandler(w http.ResponseWriter, r *http.Request) {
 func modelCloseHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	if dn == "" {
 		omppLog.Log("Error: invalid (empty) model digest and name")
-		http.Error(w, "Invalid (empty) model digest and name", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) model digest and name"), http.StatusBadRequest)
 		return
 	}
 
 	// close model and remove from catalog
 	if _, _, err := theCatalog.closeModel(dn); err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to close model"+": "+dn, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to close model", ": ", dn), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Location", "/api/admin/model/"+dn+"/close")
@@ -104,17 +109,18 @@ func modelCloseHandler(w http.ResponseWriter, r *http.Request) {
 func modelDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	if dn == "" {
 		omppLog.Log("Error: invalid (empty) model digest and name")
-		http.Error(w, "Invalid (empty) model digest and name", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) model digest and name"), http.StatusBadRequest)
 		return
 	}
 
 	// close model and delete all model files from disk
 	if err := theCatalog.deleteModel(dn); err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to delete model"+": "+dn, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to delete model:", dn), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Location", "/api/admin/model/"+dn+"/delete")
@@ -131,10 +137,11 @@ func modelDeleteHandler(w http.ResponseWriter, r *http.Request) {
 func modelOpenDbFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	dbPath := getRequestParam(r, "path")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	if dbPath == "" {
 		omppLog.Log("Error: invalid (empty) path to model database file")
-		http.Error(w, "Invalid (empty) path to model database file", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model database file"), http.StatusBadRequest)
 		return
 	}
 	dbPath = strings.ReplaceAll(dbPath, "*", "/") // restore slashed / path
@@ -146,20 +153,20 @@ func modelOpenDbFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	mbs := theCatalog.allModels()
 	if slices.IndexFunc(mbs, func(mb modelBasic) bool { return mb.relPath == srcPath }) >= 0 {
-		http.Error(w, "Error: model database file already open"+" "+dbPath, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: model database file already open:", dbPath), http.StatusBadRequest)
 		return
 	}
 
 	// open db file and add models to catalog
 	n, err := theCatalog.loadModelDbFile(srcPath)
 	if err != nil {
-		omppLog.Log(err)
-		http.Error(w, "Failed to open model db file"+": "+dbPath, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Failed to open model db file:", dbPath), http.StatusBadRequest)
 		return
 	}
 	if n <= 0 {
-		omppLog.Log(err)
-		http.Error(w, "Error: invalid (empty) model db file"+": "+dbPath, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Error: invalid (empty) model db file:", dbPath), http.StatusBadRequest)
 		return
 	}
 
@@ -187,11 +194,13 @@ func jobsAllPauseHandler(w http.ResponseWriter, r *http.Request) {
 //	POST /api/admin-all/jobs-pause/:pause
 func doJobsPause(filePath, msgPath string, w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameters: pause or resume boolean flag
 	sp := getRequestParam(r, "pause")
 	isPause, err := strconv.ParseBool(sp)
 	if sp == "" || err != nil {
-		http.Error(w, "Invalid (or empty) jobs pause flag, expected true or false", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (or empty) jobs pause flag, expected true or false"), http.StatusBadRequest)
 		return
 	}
 
@@ -238,7 +247,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 
 	if dbPath == "" {
 		omppLog.Log("Error: invalid (empty) path to model database file")
-		http.Error(w, "Invalid (empty) path to model database file", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model database file"), http.StatusBadRequest)
 		return
 	}
 	dbPath = strings.ReplaceAll(dbPath, "*", "/") // restore slashed / path
@@ -249,12 +258,12 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 
 	if diskUse.dbCleanupCmd == "" {
 		omppLog.Log("Error: db cleanup script is not defined in disk.ini")
-		http.Error(w, "Error: db cleanup script is not defined in disk.ini", http.StatusInternalServerError)
+		http.Error(w, helper.MsgL(lang, "Error: db cleanup script is not defined in disk.ini"), http.StatusInternalServerError)
 		return
 	}
 	if i := slices.IndexFunc(
 		dbUse, func(du dbDiskUse) bool { return du.DbPath == dbPath }); i < 0 || i >= len(dbUse) {
-		http.Error(w, "Error: model database not found"+" "+name+" "+digest, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: model database not found", name, digest), http.StatusBadRequest)
 		return
 	}
 
@@ -262,7 +271,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	mbs := theCatalog.allModels()
 
 	if i := slices.IndexFunc(mbs, func(mb modelBasic) bool { return mb.relPath == dbPath }); i >= 0 && i < len(mbs) {
-		http.Error(w, "Error: model database must be closed"+" "+name+" "+digest, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: model database must be closed", name, digest), http.StatusBadRequest)
 		return
 	}
 
@@ -390,6 +399,8 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 //	GET /api/admin/db-cleanup/log-all
 func dbCleanupAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	type fi struct {
 		DbName      string // database file name
 		LogStamp    string // log file date-time stamp
@@ -407,7 +418,7 @@ func dbCleanupAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	pl, err := filepath.Glob(logDir + string(filepath.Separator) + "db-cleanup.*.txt")
 	if err != nil {
-		http.Error(w, "Error at db cleanup log files list", http.StatusInternalServerError)
+		http.Error(w, helper.MsgL(lang, "Error at db cleanup log files list"), http.StatusInternalServerError)
 		return
 	}
 	for _, p := range pl {
@@ -433,10 +444,11 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// check log file: it must be db cleanup log file
 	logName := getRequestParam(r, "name")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	ts, base, fn := parseDbCleanupLogPath(logName)
 	if ts == "" || base == "" || fn != logName {
-		http.Error(w, "Invalid db cleanup log file name", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid db cleanup log file name"), http.StatusBadRequest)
 		return
 	}
 
@@ -462,7 +474,7 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	fi, err := helper.FileStat(logPath)
 	if err != nil {
-		http.Error(w, "Error at db cleanup log file get: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at db cleanup log file get:", err), http.StatusBadRequest)
 		return
 	}
 

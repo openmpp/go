@@ -4,9 +4,7 @@
 package main
 
 import (
-	"errors"
 	"io"
-	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,7 +25,7 @@ import (
 func logRequest(next http.HandlerFunc) http.HandlerFunc {
 	if isLogRequest {
 		return func(w http.ResponseWriter, r *http.Request) {
-			omppLog.Log(r.Method, ": ", r.Host, r.URL)
+			omppLog.LogNoLT(r.Method, ":", r.Host, r.URL)
 			next(w, r)
 		}
 	} // else
@@ -110,7 +108,12 @@ func getRequestLang(r *http.Request, name string) []language.Tag {
 	// browser languages
 	rqLangTags, _, _ := language.ParseAcceptLanguage(r.Header.Get("Accept-Language"))
 
-	// if optional url parameter ?lang=LN or router parameter /lang/:lang specified
+	// check if optional url parameter ?lang=LN or router parameter /lang/:lang specified
+	if name == "" {
+		return rqLangTags
+	}
+
+	// get lang parameter
 	ln := r.URL.Query().Get(name)
 	if ln == "" {
 		ln = vestigo.Param(r, name)
@@ -156,37 +159,12 @@ func csvSetHeaders(w http.ResponseWriter, name string) {
 
 }
 
-// dirExist return error if directory does not exist or not accessible
-func dirExist(dirPath string) bool {
-	if dirPath == "" {
-		return false
-	}
-	_, err := dirStat(dirPath)
-	return err == nil
-}
-
-// return file Stat if this is a directory
-func dirStat(dirPath string) (fs.FileInfo, error) {
-
-	fi, err := os.Stat(dirPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fi, errors.New("Error: directory not exist: " + dirPath)
-		}
-		return fi, errors.New("Error: unable to access directory: " + dirPath + " : " + err.Error())
-	}
-	if !fi.IsDir() {
-		return fi, errors.New("Error: directory expected: " + dirPath)
-	}
-	return fi, nil
-}
-
 // return list of files by pattern, on error log error message
 func filesByPattern(ptrn string, msg string) []string {
 
 	fLst, err := filepath.Glob(ptrn)
 	if err != nil {
-		omppLog.Log(msg, ": ", ptrn)
+		omppLog.Log(msg, ":", ptrn)
 		return []string{}
 	}
 	return fLst
@@ -201,7 +179,7 @@ func fileDeleteAndLog(isLog bool, path string) bool {
 		omppLog.Log("Delete:", path)
 	}
 	if e := os.Remove(path); e != nil && !os.IsNotExist(e) {
-		omppLog.Log(e)
+		omppLog.LogNoLT(e)
 		return false
 	}
 	return true
@@ -213,10 +191,10 @@ func fileMoveAndLog(isLog bool, srcPath string, dstPath string) bool {
 		return false
 	}
 	if isLog {
-		omppLog.Log("Move: ", srcPath, " To: ", dstPath)
+		omppLog.LogFmt("Move: %s To: %s", srcPath, dstPath)
 	}
 	if e := os.Rename(srcPath, dstPath); e != nil && !os.IsNotExist(e) {
-		omppLog.Log(e)
+		omppLog.LogNoLT(e)
 		return false
 	}
 	return true
@@ -225,11 +203,11 @@ func fileMoveAndLog(isLog bool, srcPath string, dstPath string) bool {
 // Create or truncate existing file and log path if isLog is true, return false on create error.
 func fileCreateEmpty(isLog bool, fPath string) bool {
 	if isLog {
-		omppLog.Log("Create: ", fPath)
+		omppLog.Log("Create:", fPath)
 	}
 	f, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 		return false
 	}
 	defer f.Close()
@@ -243,17 +221,17 @@ func fileCopy(isLog bool, src, dst string) bool {
 		return false
 	}
 	if isLog {
-		omppLog.Log("Copy: ", src, " -> ", dst)
+		omppLog.LogFmt("Copy: %s To: %s", src, dst)
 	}
 
 	inp, err := os.Open(src)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if isLog {
-				omppLog.Log("File not found: ", src)
+				omppLog.Log("File not found:", src)
 			}
 		} else {
-			omppLog.Log(err)
+			omppLog.LogNoLT(err)
 		}
 		return false
 	}
@@ -261,13 +239,13 @@ func fileCopy(isLog bool, src, dst string) bool {
 
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 		return false
 	}
 	defer out.Close()
 
 	if _, err = io.Copy(out, inp); err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 		return false
 	}
 	return true

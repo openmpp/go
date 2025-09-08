@@ -47,34 +47,35 @@ func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// find model metadata by digest or name
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	m, ok := theCatalog.ModelDicByDigest(mb.model.Digest)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 
 	// base part of: output directory name, .zip file name and log file name
 	baseName := mb.model.Name
-	omppLog.Log("Download of: ", baseName)
+	omppLog.Log("Download of:", baseName)
 
 	// if download.progress.log file exist the retun error: download in progress
 	logPath := filepath.Join(theCfg.downloadDir, baseName+".progress.download.log")
 	if helper.IsFileExist(logPath) {
-		omppLog.Log("Error: download already in progress: ", logPath)
-		http.Error(w, "Model download already in progress: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Error: download already in progress:", logPath)
+		http.Error(w, helper.MsgL(lang, "Model download already in progress:", baseName), http.StatusBadRequest)
 		return
 	}
 
 	// create new download.progress.log file and write model decsription
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to create download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model download failed:", baseName), http.StatusBadRequest)
 		return
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"---------------",
 		"Model Name    : " + m.Name,
@@ -83,16 +84,16 @@ func modelDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Folder        : " + baseName,
 		"---------------",
 	}
-	if !writeToCmdLog(logPath, true, "Download of: "+baseName) {
+	if !writeToCmdLog(logPath, true, helper.MsgL(lang, "Download of:", baseName)) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 
@@ -140,50 +141,51 @@ func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// find model metadata by digest or name
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	m, ok := theCatalog.ModelDicByDigest(mb.model.Digest)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 
 	// find all model runs by run digest, run stamp or name, check run status: it must be success
 	rst, ok := theCatalog.RunRowList(mb.model.Digest, rdsn)
 	if !ok || len(rst) <= 0 {
-		http.Error(w, "Model run not found: "+mb.model.Name+" "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model run not found:", mb.model.Name, dn, rdsn), http.StatusBadRequest)
 		return // empty result: model run not found
 	}
 	if len(rst) > 1 {
-		omppLog.Log("Warning: multiple model runs found, using first one of: ", mb.model.Name+" "+dn+" "+rdsn)
+		omppLog.Log("Warning: multiple model runs found, using first one of:", mb.model.Name, dn, rdsn)
 	}
 	r0 := rst[0] // first run, if there are multiple with the same stamp or name
 
 	if r0.Status != db.DoneRunStatus {
-		http.Error(w, "Model run is not completed successfully: "+mb.model.Name+" "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model run is not completed successfully:", mb.model.Name, dn, rdsn), http.StatusBadRequest)
 		return // empty result: run status must be success
 	}
 
 	// base part of: output directory name, .zip file name and log file name
 	baseName := mb.model.Name + ".run." + helper.CleanFileName(r0.Name)
-	omppLog.Log("Download of: ", baseName)
+	omppLog.Log("Download of:", baseName)
 
 	// if download.progress.log file exist the retun error: download in progress
 	logPath := filepath.Join(theCfg.downloadDir, baseName+".progress.download.log")
 	if helper.IsFileExist(logPath) {
-		omppLog.Log("Error: download already in progress: ", logPath)
-		http.Error(w, "Model run download already in progress: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Error: download already in progress:", logPath)
+		http.Error(w, helper.MsgL(lang, "Model run download already in progress:", baseName), http.StatusBadRequest)
 		return
 	}
 
 	// create new download.progress.log file and write model run decsription
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model run download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to create download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model run download failed:", baseName), http.StatusBadRequest)
 		return
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"---------------",
 		"Model Name    : " + m.Name,
@@ -195,16 +197,16 @@ func runDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Folder        : " + baseName,
 		"---------------",
 	}
-	if !writeToCmdLog(logPath, true, "Download of: "+baseName) {
+	if !writeToCmdLog(logPath, true, "Download of:", baseName) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model run download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model run download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model run download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model run download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 
@@ -244,23 +246,23 @@ func worksetDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// find model metadata by digest or name
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	m, ok := theCatalog.ModelDicByDigest(mb.model.Digest)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 
 	// find workset by name and check status: it must be read-only
 	ws, ok := theCatalog.WorksetByName(dn, wsn)
 	if !ok {
-		http.Error(w, "Model scenario not found: "+mb.model.Name+" "+dn+" "+wsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model scenario not found:", mb.model.Name, dn, wsn), http.StatusBadRequest)
 		return // empty result: workset not found
 	}
 	if !ws.IsReadonly {
-		http.Error(w, "Model scenario must be read-only: "+mb.model.Name+" "+dn+" "+ws.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model scenario must be read-only:", mb.model.Name, dn, ws.Name), http.StatusBadRequest)
 		return // empty result: workset must be read-only
 	}
 
@@ -271,18 +273,19 @@ func worksetDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// if download.progress.log file exist the retun error: download in progress
 	logPath := filepath.Join(theCfg.downloadDir, baseName+".progress.download.log")
 	if helper.IsFileExist(logPath) {
-		omppLog.Log("Error: download already in progress: ", logPath)
-		http.Error(w, "Model scenario download already in progress: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Error: download already in progress:", logPath)
+		http.Error(w, helper.MsgL(lang, "Model scenario download already in progress:", baseName), http.StatusBadRequest)
 		return
 	}
 
 	// create new download.progress.log file and write model scenario decsription
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model scenario download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to create download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario download failed:", baseName), http.StatusBadRequest)
 		return
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"------------------",
 		"Model Name       : " + m.Name,
@@ -293,16 +296,16 @@ func worksetDownloadPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Folder           : " + baseName,
 		"------------------",
 	}
-	if !writeToCmdLog(logPath, true, "Download of: "+baseName) {
+	if !writeToCmdLog(logPath, true, helper.MsgL(lang, "Download of:", baseName)) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model scenario download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToDownloadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into download log file: " + baseName + ".progress.download.log")
-		http.Error(w, "Model scenario download failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into download log file:", baseName+".progress.download.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario download failed:", baseName), http.StatusBadRequest)
 		return
 	}
 

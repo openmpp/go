@@ -36,17 +36,22 @@ func runModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if log messages language not specified then use browser preferred language
-	if _, ok := req.Opts["OpenM.MessageLanguage"]; !ok {
+	lang, ok := req.Opts["OpenM.MessageLanguage"]
+
+	if !ok {
 		if rqLangTags, _, e := language.ParseAcceptLanguage(r.Header.Get("Accept-Language")); e == nil {
 			if len(rqLangTags) > 0 && rqLangTags[0] != language.Und {
-				req.Opts["OpenM.MessageLanguage"] = rqLangTags[0].String()
+				lang = rqLangTags[0].String()
 			}
 		}
+	}
+	if lang != "" {
+		req.Opts["OpenM.MessageLanguage"] = lang // model run log language
 	}
 
 	// block model run if disk space usage exceed the limits
 	if isOver, _ := theRunCatalog.getDiskUseStatus(); isOver {
-		http.Error(w, "Disk space usage exceeds quota, model run disabled", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Disk space usage exceeds quota, model run disabled"), http.StatusBadRequest)
 		return
 	}
 
@@ -57,7 +62,7 @@ func runModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	req.ModelDigest = m.Digest
@@ -90,7 +95,7 @@ func runModelHandler(w http.ResponseWriter, r *http.Request) {
 	// for backward compatibility: check if number of threads specified using run options
 	job.Res, job.Mpi.IsNotOnRoot, ok = resFromRequest(req)
 	if !ok {
-		http.Error(w, "Model start failed: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model start failed:", dn), http.StatusBadRequest)
 		return
 	}
 	job.Threads = job.Res.ThreadCount
@@ -100,8 +105,8 @@ func runModelHandler(w http.ResponseWriter, r *http.Request) {
 
 		rs, err := theRunCatalog.runModel(&job, "", hostIni{}, []computeUse{}) // no job control: use empty arguments
 		if err != nil {
-			omppLog.Log(err)
-			http.Error(w, "Model start failed: "+dn, http.StatusBadRequest)
+			omppLog.LogNoLT(err)
+			http.Error(w, helper.MsgL(lang, "Model start failed:", dn), http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Location", "/api/model/"+job.ModelDigest+"/run/"+rs.RunStamp)
@@ -112,7 +117,7 @@ func runModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := theRunCatalog.addJobToQueue(&job)
 	if err != nil {
-		http.Error(w, "Model run submission failed: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model run submission failed:", dn), http.StatusBadRequest)
 		return
 	}
 	rStamp := helper.CleanFileName(job.RunStamp)
@@ -145,7 +150,7 @@ func resFromRequest(req RunRequest) (RunRes, bool, bool) {
 
 			nTh, err = strconv.Atoi(val) // must be >= 1
 			if err != nil || nTh < 1 {
-				omppLog.Log(err)
+				omppLog.LogNoLT(err)
 				return RunRes{}, false, false
 			}
 		}
@@ -161,7 +166,7 @@ func resFromRequest(req RunRequest) (RunRes, bool, bool) {
 				}
 				isNotOnRoot, err = strconv.ParseBool(val)
 				if err != nil {
-					omppLog.Log(err)
+					omppLog.LogNoLT(err)
 					return RunRes{}, false, false
 				}
 			}
@@ -207,11 +212,12 @@ func stopModelHandler(w http.ResponseWriter, r *http.Request) {
 	// url or query parameters:  model digest-or-name, page offset and page size
 	dn := getRequestParam(r, "model")
 	stamp := getRequestParam(r, "stamp")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// find model metadata by digest or name
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	modelDigest := m.Digest
@@ -243,22 +249,23 @@ func runLogPageHandler(w http.ResponseWriter, r *http.Request) {
 	// url or query parameters: model digest-or-name, page offset and page size
 	dn := getRequestParam(r, "model")
 	stamp := getRequestParam(r, "stamp")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	start, ok := getIntRequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start log start line "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start log start line", dn), http.StatusBadRequest)
 		return
 	}
 	count, ok := getIntRequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of log line count "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of log line count", dn), http.StatusBadRequest)
 		return
 	}
 
 	// find model metadata by digest or name
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 	modelDigest := m.Digest
@@ -267,8 +274,8 @@ func runLogPageHandler(w http.ResponseWriter, r *http.Request) {
 	// get current run status and page of log lines
 	lrp, e := theRunCatalog.readModelRunLog(modelDigest, stamp, start, count)
 	if e != nil {
-		omppLog.Log(e)
-		http.Error(w, "Model run status read failed: "+modelName+": "+dn, http.StatusBadRequest)
+		omppLog.LogNoLT(e)
+		http.Error(w, helper.MsgL(lang, "Model run status read failed:", modelName, ":", dn), http.StatusBadRequest)
 		return
 	}
 

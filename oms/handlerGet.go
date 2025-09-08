@@ -9,6 +9,7 @@ import (
 
 	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -111,19 +112,20 @@ func modelMetaPackHandler(w http.ResponseWriter, r *http.Request) {
 func doModelMetaHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// if model digest-or-name is empty then return empty results
 	if dn == "" {
 		omppLog.Log("Error: invalid (empty) model digest and name")
-		http.Error(w, "Invalid (empty) model digest and name", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) model digest and name"), http.StatusBadRequest)
 		return
 	}
 
 	// find model metadata in catalog and write to output stream
 	m, err := theCatalog.ModelMetaByDigestOrName(dn)
 	if err != nil {
-		omppLog.Log("Error: model digest or name not found: ", dn)
-		http.Error(w, "Model digest or name not found"+": "+dn, http.StatusBadRequest)
+		omppLog.Log("Error: model digest or name not found:", dn)
+		http.Error(w, helper.MsgL(lang, "Model digest or name not found:", dn), http.StatusBadRequest)
 		return
 	}
 
@@ -151,7 +153,7 @@ func modelAllTextHandler(w http.ResponseWriter, r *http.Request) {
 	// find model metadata in catalog
 	m, err := theCatalog.ModelMetaByDigestOrName(dn)
 	if err != nil {
-		omppLog.Log("Error at model metadata search: ", dn, ": ", err.Error())
+		omppLog.Log("Error at model metadata search:", dn, ":", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -159,7 +161,7 @@ func modelAllTextHandler(w http.ResponseWriter, r *http.Request) {
 	// find model language-specific metadata by digest
 	t, err := theCatalog.ModelMetaAllTextByDigestOrName(m.Model.Digest)
 	if err != nil {
-		omppLog.Log("Error at model language-specific metadata search: ", dn, ": ", err.Error())
+		omppLog.Log("Error at model language-specific metadata search:", dn, ":", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -435,7 +437,7 @@ func worksetStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	ws, ok := theCatalog.WorksetByName(dn, wsn)
 	if !ok {
-		omppLog.Log("Warning workset status not found: ", dn, ": ", wsn)
+		omppLog.Log("Warning workset status not found:", dn, ":", wsn)
 	}
 
 	jsonResponse(w, r, ws) // return non-empty workset_lst row if no errors and workset exist

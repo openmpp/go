@@ -13,7 +13,7 @@ import (
 // Delete directory and log path, return false on delete error.
 func dirDeleteAndLog(path string) bool {
 
-	isExist, err := helper.IsDirExist(path)
+	isExist, err := helper.IsDir(path)
 	if err != nil {
 		return false // error: path not accessible or it is not a directory
 	}

@@ -26,12 +26,12 @@ func jobDirValid(jobDir string) (bool, bool, error) {
 	if jobDir == "" {
 		return false, false, nil // job control disabled
 	}
-	if !dirExist(jobDir) ||
-		!dirExist(filepath.Join(jobDir, "active")) || !dirExist(filepath.Join(jobDir, "state")) ||
-		!dirExist(filepath.Join(jobDir, "queue")) || !dirExist(filepath.Join(jobDir, "history")) {
+	if !helper.IsDirExist(jobDir) ||
+		!helper.IsDirExist(filepath.Join(jobDir, "active")) || !helper.IsDirExist(filepath.Join(jobDir, "state")) ||
+		!helper.IsDirExist(filepath.Join(jobDir, "queue")) || !helper.IsDirExist(filepath.Join(jobDir, "history")) {
 		return false, false, nil
 	}
-	isPast := dirExist(filepath.Join(jobDir, "past"))
+	isPast := helper.IsDirExist(filepath.Join(jobDir, "past"))
 
 	return true, isPast, nil
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -23,18 +24,19 @@ func worksetReadonlyUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
 	wsn := getRequestParam(r, "set")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// convert readonly flag
 	isReadonly, ok := getBoolRequestParam(r, "readonly")
 	if !ok {
-		http.Error(w, "Invalid value of workset read-only flag "+wsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of workset read-only flag", wsn), http.StatusBadRequest)
 		return
 	}
 
 	// update workset read-only status
 	digest, ws, ok, err := theCatalog.UpdateWorksetReadonly(dn, wsn, isReadonly)
 	if err != nil {
-		http.Error(w, "Error at updating workset read-only flag "+wsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at updating workset read-only flag", wsn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -60,6 +62,8 @@ func worksetReadonlyUpdateHandler(w http.ResponseWriter, r *http.Request) {
 // Dimension(s) and enum-based parameters expected to be enum codes, not enum id's.
 func worksetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// decode json workset "public" metadata
 	var wp db.WorksetCreatePub
 	if !jsonRequestDecode(w, r, true, &wp) {
@@ -80,13 +84,13 @@ func worksetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// return error if workset already exist or unable to get workset status
 	ws, ok := theCatalog.WorksetByName(dn, wsn)
 	if ok {
-		omppLog.Log("Error: workset already exist: " + wsn + " model: " + dn)
-		http.Error(w, "Error: workset already exist: "+wsn+" model: "+dn, http.StatusBadRequest)
+		omppLog.LogFmt("Error: workset already exist: %s model: %s", wsn, dn)
+		http.Error(w, helper.FmtL(lang, "Error: workset already exist: %s model: %s", wsn, dn), http.StatusBadRequest)
 		return
 	}
 	if !ok && ws == nil {
-		omppLog.Log("Failed to create workset: " + dn + " : " + wsn)
-		http.Error(w, "Failed to create workset: "+dn+" : "+wsn, http.StatusBadRequest)
+		omppLog.Log("Failed to create workset:", dn, ":", wsn)
+		http.Error(w, helper.MsgL(lang, "Failed to create workset:", dn, ":", wsn), http.StatusBadRequest)
 		return
 	}
 	// else workset not exist
@@ -107,11 +111,11 @@ func worksetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	ok, _, wsRow, err := theCatalog.UpdateWorkset(true, &newWp)
 	if err != nil {
-		http.Error(w, "Failed create workset metadata "+dn+" : "+wsn+" : "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create workset metadata", dn, ":", wsn, ":", err), http.StatusBadRequest)
 		return
 	}
 	if !ok {
-		http.Error(w, "Failed create workset metadata "+dn+" : "+wsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create workset metadata", dn, ":", wsn), http.StatusBadRequest)
 		return
 	}
 
@@ -120,24 +124,24 @@ func worksetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		switch wp.Param[k].Kind {
 		case "run":
 			if e := theCatalog.CopyParameterToWsFromRun(dn, wsn, wp.Param[k].Name, false, wp.Param[k].From); e != nil {
-				http.Error(w, "Failed to copy parameter from model run "+wsn+" : "+wp.Param[k].Name+": "+wp.Param[k].From+" : "+e.Error(), http.StatusBadRequest)
+				http.Error(w, helper.MsgL(lang, "Failed to copy parameter from model run", wsn, ":", wp.Param[k].Name, ":", wp.Param[k].From, ":", e), http.StatusBadRequest)
 				return
 			}
 			continue
 		case "set":
 			if e := theCatalog.CopyParameterBetweenWs(dn, wsn, wp.Param[k].Name, false, wp.Param[k].From); e != nil {
-				http.Error(w, "Failed to copy parameter from workset "+wsn+" : "+wp.Param[k].Name+": "+wp.Param[k].From+" : "+e.Error(), http.StatusBadRequest)
+				http.Error(w, helper.MsgL(lang, "Failed to copy parameter from workset", wsn, ":", wp.Param[k].Name, ":", wp.Param[k].From, ":", e), http.StatusBadRequest)
 				return
 			}
 			continue
 		}
 		// default case: source of parameter must be a "value" or empty
 		if wp.Param[k].Kind != "" && wp.Param[k].Kind != "value" || len(wp.Param[k].Value) <= 0 {
-			http.Error(w, "Invalid (or empty) workset parameter values "+wsn+" : "+wp.Param[k].Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Invalid (or empty) workset parameter values", wsn, ":", wp.Param[k].Name), http.StatusBadRequest)
 			return
 		}
 		if _, e := theCatalog.UpdateWorksetParameter(true, &newWp, &wp.Param[k].ParamRunSetPub, wp.Param[k].Value); e != nil {
-			http.Error(w, "Failed update workset parameter "+wsn+" : "+wp.Param[k].Name+" : "+e.Error(), http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Failed to update workset parameter", wsn, ":", wp.Param[k].Name, ":", e), http.StatusBadRequest)
 			return
 		}
 	}
@@ -196,10 +200,12 @@ func worksetMergeHandler(w http.ResponseWriter, r *http.Request) {
 // It is an error to add parameter metadata without parameter values.
 func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// parse multipart form: first part must be workset metadata
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Error at multipart form open ", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at multipart form open"), http.StatusBadRequest)
 		return
 	}
 
@@ -221,7 +227,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 	// get existing workset metadata
 	oldWp, _, err := theCatalog.WorksetTextFull(dn, newWp.Name, true, nil)
 	if err != nil {
-		http.Error(w, "Failed to get existing workset metadata "+dn+" : "+newWp.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to get existing workset metadata", dn, ":", newWp.Name), http.StatusBadRequest)
 		return
 	}
 
@@ -246,11 +252,11 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 
 	ok, _, wsRow, err := theCatalog.UpdateWorkset(isReplace, &newWp)
 	if err != nil {
-		http.Error(w, "Failed update workset metadata "+dn+" : "+newWp.Name+" : "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to update workset metadata", dn, ":", newWp.Name, ":", err), http.StatusBadRequest)
 		return
 	}
 	if !ok {
-		http.Error(w, "Failed update workset metadata "+dn+" : "+newWp.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to update workset metadata", dn, ":", newWp.Name), http.StatusBadRequest)
 		return
 	}
 
@@ -263,7 +269,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 			break // end of posted data
 		}
 		if err != nil {
-			http.Error(w, "Failed to get next part of multipart form "+dn+" : "+newWp.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Failed to get next part of multipart form", dn, ":", newWp.Name), http.StatusBadRequest)
 			return
 		}
 
@@ -277,7 +283,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 		ext := path.Ext(part.FileName())
 		if ext != ".csv" {
 			part.Close()
-			http.Error(w, "Error: parameter file must have .csv extension "+newWp.Name+" : "+part.FileName(), http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error: parameter file must have .csv extension", newWp.Name, ":", part.FileName()), http.StatusBadRequest)
 			return
 		}
 		name := strings.TrimSuffix(path.Base(part.FileName()), ext)
@@ -291,7 +297,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 		}
 		if np < 0 {
 			part.Close()
-			http.Error(w, "Error: parameter must be in workset parameters list: "+newWp.Name+" : "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error: parameter must be in workset parameters list:", newWp.Name+":", name), http.StatusBadRequest)
 			return
 		}
 
@@ -303,7 +309,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 		_, err = theCatalog.UpdateWorksetParameterCsv(isReplace, &newWp, &newParamLst[np], csvRd)
 		part.Close() // done with csv parameter data
 		if err != nil {
-			http.Error(w, "Failed update workset parameter "+newWp.Name+" : "+name+" : "+err.Error(), http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Failed to update workset parameter", newWp.Name, ":", name, ":", err), http.StatusBadRequest)
 			return
 		}
 		pim[np] = true // parameter metadata and csv values updated
@@ -319,7 +325,7 @@ func worksetUpdateHandler(isReplace bool, w http.ResponseWriter, r *http.Request
 		// update only parameter metadata
 		_, err = theCatalog.UpdateWorksetParameterCsv(isReplace, &newWp, &newParamLst[k], nil)
 		if err != nil {
-			http.Error(w, "Failed update workset parameter "+newWp.Name+" : "+newParamLst[k].Name+" : "+err.Error(), http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Failed to update workset parameter", newWp.Name, ":", newParamLst[k].Name, ":", err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -341,11 +347,12 @@ func worksetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
 	wsn := getRequestParam(r, "set")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// delete workset
 	ok, err := theCatalog.DeleteWorkset(dn, wsn)
 	if err != nil {
-		http.Error(w, "Workset delete failed "+dn+": "+wsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Workset delete failed", dn, ":", wsn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -363,6 +370,7 @@ func worksetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 func worksetListDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json array of workset names
 	var nameLst []string
@@ -382,21 +390,21 @@ func worksetListDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		// set read-write status
 		_, _, _, err := theCatalog.UpdateWorksetReadonly(dn, name, false)
 		if err != nil {
-			http.Error(w, "Error at clear workset read-only "+dn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at clear workset read-only", dn, ":", name), http.StatusBadRequest)
 			return
 		}
 
 		// delete workset
 		ok, err := theCatalog.DeleteWorkset(dn, name)
 		if err != nil {
-			http.Error(w, "Workset delete failed "+dn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Workset delete failed", dn, ":", name), http.StatusBadRequest)
 			return
 		}
 		if ok {
 			n++
 		}
 	}
-	omppLog.Log("Deleted multiple worksets: ", n, ": ", dn)
+	omppLog.Log("Deleted multiple worksets:", n, ":", dn)
 
 	w.Header().Set("Content-Location", "/api/model/"+dn+"/delete-worksets/"+strconv.Itoa(n))
 	w.Header().Set("Content-Type", "text/plain")
@@ -427,6 +435,7 @@ func doUpdateParameterPageHandler(w http.ResponseWriter, r *http.Request, isCode
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	wsn := getRequestParam(r, "set")   // workset name
 	name := getRequestParam(r, "name") // parameter name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	var from func() (interface{}, error) = nil
 
@@ -439,7 +448,7 @@ func doUpdateParameterPageHandler(w http.ResponseWriter, r *http.Request, isCode
 			return // error at json decode, response done with http error
 		}
 		if len(cArr) <= 0 {
-			http.Error(w, "Workset parameter update failed "+wsn+" parameter empty: "+name, http.StatusInternalServerError)
+			http.Error(w, helper.FmtL(lang, "Workset parameter update failed %s parameter empty: %s", wsn, name), http.StatusInternalServerError)
 			return
 		}
 
@@ -460,14 +469,14 @@ func doUpdateParameterPageHandler(w http.ResponseWriter, r *http.Request, isCode
 			return // error at json decode, response done with http error
 		}
 		if len(cArr) <= 0 {
-			http.Error(w, "Workset parameter update failed "+wsn+" parameter empty: "+name, http.StatusInternalServerError)
+			http.Error(w, helper.FmtL(lang, "Workset parameter update failed %s parameter empty: %s", wsn, name), http.StatusInternalServerError)
 			return
 		}
 
 		// convert from enum code cells to id cells
 		cvt, ok := theCatalog.ParameterCellConverter(true, dn, name)
 		if !ok {
-			http.Error(w, "Workset parameter update failed "+wsn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Workset parameter update failed", wsn, ":", name), http.StatusBadRequest)
 			return
 		}
 
@@ -490,8 +499,8 @@ func doUpdateParameterPageHandler(w http.ResponseWriter, r *http.Request, isCode
 	// update parameter values
 	err := theCatalog.UpdateWorksetParameterPage(dn, wsn, name, from)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Workset parameter update failed "+wsn+": "+name, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Workset parameter update failed", wsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -508,11 +517,12 @@ func worksetParameterDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	dn := getRequestParam(r, "model")
 	wsn := getRequestParam(r, "set")
 	name := getRequestParam(r, "name")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// delete workset parameter
 	ok, err := theCatalog.DeleteWorksetParameter(dn, wsn, name)
 	if err != nil {
-		http.Error(w, "Workset parameter delete failed "+wsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Workset parameter delete failed", wsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -551,12 +561,13 @@ func worksetParameterRunCopy(isReplace bool, w http.ResponseWriter, r *http.Requ
 	wsn := getRequestParam(r, "set")   // workset name
 	name := getRequestParam(r, "name") // parameter name
 	rdsn := getRequestParam(r, "run")  // source run digest or stamp or name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// copy workset parameter from model run
 	err := theCatalog.CopyParameterToWsFromRun(dn, wsn, name, isReplace, rdsn)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Workset parameter copy failed "+wsn+": "+name+" from run: "+rdsn, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.FmtL(lang, "Workset parameter copy failed %s: %s from run: %s", wsn, name, rdsn), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Location", "/api/model/"+dn+"/workset/"+wsn+"/parameter/"+name)
@@ -591,12 +602,13 @@ func worksetParameterCopyFromWs(isReplace bool, w http.ResponseWriter, r *http.R
 	dstWsName := getRequestParam(r, "set")      // workset name
 	name := getRequestParam(r, "name")          // parameter name
 	srcWsName := getRequestParam(r, "from-set") // source run digest or name
+	lang := preferedRequestLang(r, "")          // get prefered language for messages
 
 	// copy workset parameter from other workset
 	err := theCatalog.CopyParameterBetweenWs(dn, dstWsName, name, isReplace, srcWsName)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Workset parameter copy failed "+dstWsName+": "+name+" from run: "+srcWsName, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.FmtL(lang, "Workset parameter copy failed %s: %s from run: %s", dstWsName, name, srcWsName), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Location", "/api/model/"+dn+"/workset/"+dstWsName+"/parameter/"+name)
@@ -614,8 +626,9 @@ func worksetParameterCopyFromWs(isReplace bool, w http.ResponseWriter, r *http.R
 func worksetParameterTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	wsn := getRequestParam(r, "set")  // workset name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	wsn := getRequestParam(r, "set")   // workset name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json parameter value notes
 	var pvtLst []db.ParamRunSetTxtPub
@@ -626,8 +639,8 @@ func worksetParameterTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 	// update workset parameter value notes in model catalog
 	ok, err := theCatalog.UpdateWorksetParameterText(dn, wsn, pvtLst)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Workset parameter(s) value notes update failed "+dn+": "+wsn+": "+err.Error(), http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Workset parameter(s) value notes update failed", dn, ":", wsn, ":", err), http.StatusBadRequest)
 		return
 	}
 	if ok {

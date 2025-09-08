@@ -81,20 +81,48 @@ func FileStat(filePath string) (fs.FileInfo, error) {
 	return fi, nil
 }
 
-// return true if path exists and it is directory, return error if path is not a directory or not accessible
-func IsDirExist(dirPath string) (bool, error) {
+// return true if path exists and it is directory, return false if path is not a directory or not accessible
+func IsDirExist(dirPath string) bool {
 	if dirPath == "" {
-		return false, nil
+		return false
 	}
+	_, err := DirStat(dirPath)
+	return err == nil
+}
+
+// return true if path exists and it is directory, return false if path not exists, return error if path is not a directory or not accessible
+func IsDir(dirPath string) (bool, error) {
+
+	if dirPath == "" {
+		return false, nil // not exist
+	}
+
 	fi, err := os.Stat(dirPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false, nil
+			return false, nil // directory not exist
 		}
-		return false, errors.New("Error: unable to access directory: " + dirPath + " : " + err.Error())
+		return false, ErrorNew("Error: unable to access directory:", dirPath, ":", err)
 	}
 	if !fi.IsDir() {
-		return false, errors.New("Error: directory expected: " + dirPath)
+		return false, ErrorNew("Error: directory expected:", dirPath)
 	}
-	return true, nil
+
+	return true, nil // directory exist
+}
+
+// return file Stat if this is a directory
+func DirStat(dirPath string) (fs.FileInfo, error) {
+
+	fi, err := os.Stat(dirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fi, ErrorNew("Error: directory not exist:", dirPath)
+		}
+		return fi, ErrorNew("Error: unable to access directory:", dirPath, ":", err)
+	}
+	if !fi.IsDir() {
+		return fi, ErrorNew("Error: directory expected:", dirPath)
+	}
+	return fi, nil
 }

@@ -4,11 +4,10 @@
 package main
 
 import (
-	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 	"golang.org/x/text/language"
 )
@@ -30,7 +29,7 @@ func (mc *ModelCatalog) LangListByDigestOrName(dn string) ([]db.LangLstRow, bool
 
 	idx, ok := mc.indexByDigestOrName(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.LangLstRow{}, false
 	}
 
@@ -58,14 +57,14 @@ func (mc *ModelCatalog) ModelProfileByName(dn, profile string) (*db.ProfileMeta,
 	// get database connection
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.ProfileMeta{}, false
 	}
 
 	// read profile from database
 	p, err := db.GetProfile(dbConn, profile)
 	if err != nil {
-		omppLog.Log("Error at get profile: ", dn, ": ", profile, ": ", err.Error())
+		omppLog.Log("Error at get profile:", dn, ": ", profile, ": ", err)
 		return &db.ProfileMeta{}, false // return empty result: model not found or error
 	}
 
@@ -86,14 +85,14 @@ func (mc *ModelCatalog) ProfileNamesByDigestOrName(dn string) ([]string, bool) {
 	// get database connection
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []string{}, false // return empty result: model not found or error
 	}
 
 	// read profile names from database
 	nameLst, err := db.GetProfileList(dbConn)
 	if err != nil {
-		omppLog.Log("Error at get profile list from model database: ", dn, ": ", err.Error())
+		omppLog.Log("Error at get profile list from model database:", dn, ":", err)
 		return []string{}, false
 	}
 
@@ -115,7 +114,7 @@ func (mc *ModelCatalog) WordListByDigestOrName(dn string, preferredLang []langua
 	lc := mc.languageTagMatch(dn, preferredLang)
 	lcd, _, _ := mc.modelLangs(dn)
 	if lc == "" && lcd == "" {
-		omppLog.Log("Error: invalid (empty) model default language: ", dn)
+		omppLog.Log("Error: invalid (empty) model default language:", dn)
 		return &ModelWordLabel{}, false
 	}
 
@@ -214,14 +213,14 @@ func (mc *ModelCatalog) EntityGenByName(dn string, runId int, entityName string)
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Error: model digest or name not found: ", dn)
+		omppLog.Log("Error: model digest or name not found:", dn)
 		return nil, nil, false // return empty result: model not found or error
 	}
 
 	// find model entity by entity name
 	eIdx, ok := meta.EntityByName(entityName)
 	if !ok {
-		omppLog.Log("Error: model entity not found: ", entityName)
+		omppLog.Log("Error: model entity not found:", entityName)
 		return nil, nil, false
 	}
 	ent := &meta.Entity[eIdx]
@@ -229,7 +228,7 @@ func (mc *ModelCatalog) EntityGenByName(dn string, runId int, entityName string)
 	// get list of entity generations for that model run
 	egLst, err := db.GetEntityGenList(dbConn, runId)
 	if err != nil {
-		omppLog.Log("Error at get run entities: ", entityName, ": ", runId, ": ", err.Error())
+		omppLog.Log("Error at get run entities:", entityName, ": ", runId, ":", err)
 		return nil, nil, false
 	}
 
@@ -243,7 +242,7 @@ func (mc *ModelCatalog) EntityGenByName(dn string, runId int, entityName string)
 		}
 	}
 	if gIdx < 0 {
-		omppLog.Log("Error: model run entity generation not found: ", entityName, ": ", runId)
+		omppLog.Log("Error: model run entity generation not found:", entityName, ":", runId)
 		return nil, nil, false
 	}
 
@@ -255,12 +254,12 @@ func (mc *ModelCatalog) EntityGenAttrsRunList(dn string, runId int, entityName s
 
 	ent, entGen, ok := mc.EntityGenByName(dn, runId, entityName)
 	if !ok {
-		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, errors.New("Error: model run entity generation not found: " + dn + ": " + entityName + ": " + strconv.Itoa(runId))
+		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, helper.ErrorNew("Error: model run entity generation not found:", dn, ":", entityName+":", runId)
 	}
 
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, errors.New("Error: model digest or name not found: " + dn)
+		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, helper.ErrorNew("Error: model digest or name not found:", dn)
 	}
 
 	// collect generation attribues
@@ -270,7 +269,7 @@ func (mc *ModelCatalog) EntityGenAttrsRunList(dn string, runId int, entityName s
 
 		aIdx, ok := ent.AttrByKey(ga.AttrId)
 		if !ok {
-			return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, errors.New("entity attribute not found by id: " + strconv.Itoa(ga.AttrId) + " " + entityName)
+			return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, helper.ErrorNew("entity attribute not found by id:", ga.AttrId, entityName)
 		}
 		attrs[k] = ent.Attr[aIdx]
 	}
@@ -278,7 +277,7 @@ func (mc *ModelCatalog) EntityGenAttrsRunList(dn string, runId int, entityName s
 	// find all run_entity rows for that entity generation
 	runEnt, err := db.GetRunEntityGenByModel(dbConn, entGen.ModelId)
 	if err != nil {
-		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, errors.New("Error at get run entities by model id: " + strconv.Itoa(entGen.ModelId) + ": " + err.Error())
+		return nil, nil, []db.EntityAttrRow{}, []db.RunEntityRow{}, helper.ErrorNew("Error at get run entities by model id:", entGen.ModelId, ":", err)
 	}
 
 	n := 0

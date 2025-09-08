@@ -50,8 +50,9 @@ func runParameterIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func doReadParameterPageHandler(w http.ResponseWriter, r *http.Request, srcArg string, isSet, isCode bool) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	src := getRequestParam(r, srcArg) // workset name or run digest-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	src := getRequestParam(r, srcArg)  // workset name or run digest-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json request body
 	var layout db.ReadParamLayout
@@ -66,7 +67,7 @@ func doReadParameterPageHandler(w http.ResponseWriter, r *http.Request, srcArg s
 		ok := false
 		cvtCell, ok = theCatalog.ParameterCellConverter(false, dn, layout.Name)
 		if !ok {
-			http.Error(w, "Error at parameter read: "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at parameter read:", layout.Name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -82,7 +83,7 @@ func doReadParameterPageHandler(w http.ResponseWriter, r *http.Request, srcArg s
 	// read parameter page into json array response, convert enum id's to code if requested
 	lt, ok := theCatalog.ReadParameterTo(dn, src, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at parameter read "+src+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at parameter read:", src, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of data page array
@@ -123,8 +124,9 @@ func runTableIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func doReadTablePageHandler(w http.ResponseWriter, r *http.Request, isCode bool) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json request body
 	var layout db.ReadTableLayout
@@ -138,7 +140,7 @@ func doReadTablePageHandler(w http.ResponseWriter, r *http.Request, isCode bool)
 		ok := false
 		cvtCell, ok = theCatalog.TableToCodeCellConverter(dn, layout.Name, layout.IsAccum, layout.IsAllAccum)
 		if !ok {
-			http.Error(w, "Error at output table read: "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at output table read:", layout.Name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -154,7 +156,7 @@ func doReadTablePageHandler(w http.ResponseWriter, r *http.Request, isCode bool)
 	// read output table page into json array response, convert enum id's to code if requested
 	lt, ok := theCatalog.ReadOutTableTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of data page array
@@ -192,8 +194,9 @@ func runTableCalcIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func doReadTableCalcPageHandler(w http.ResponseWriter, r *http.Request, isCode bool) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json request body
 	var layout db.ReadCalculteTableLayout
@@ -208,7 +211,7 @@ func doReadTableCalcPageHandler(w http.ResponseWriter, r *http.Request, isCode b
 	if isCode {
 		cvtCell, _, runIds, ok = theCatalog.TableToCodeCalcCellConverter(dn, rdsn, layout.Name, layout.Calculation, nil)
 		if !ok {
-			http.Error(w, "Error at run output table calculate: "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at run output table calculate:", layout.Name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -226,7 +229,7 @@ func doReadTableCalcPageHandler(w http.ResponseWriter, r *http.Request, isCode b
 		dn, rdsn, &db.ReadTableLayout{ReadLayout: layout.ReadLayout}, layout.Calculation, runIds, cvtWr,
 	)
 	if !ok {
-		http.Error(w, "Error at run output table calculate "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table calculate:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 
@@ -265,8 +268,9 @@ func runTableCompareIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func doReadTableComparePageHandler(w http.ResponseWriter, r *http.Request, isCode bool) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // base run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // base run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json request body
 	var layout db.ReadCompareTableLayout
@@ -277,13 +281,13 @@ func doReadTableComparePageHandler(w http.ResponseWriter, r *http.Request, isCod
 	// check if base run compeleted successfully
 	rBase, ok := theCatalog.CompletedRunByDigestOrStampOrName(dn, rdsn)
 	if !ok {
-		omppLog.Log("Error at table compare: base run not found or not completed successfully: ", rdsn)
-		http.Error(w, "Error at run output table compare: "+layout.Name+": "+"base run must be completed successfully: "+rdsn, http.StatusBadRequest)
+		omppLog.Log("Error at table compare: base run not found or not completed successfully:", rdsn)
+		http.Error(w, helper.FmtL(lang, "Error at run output table compare: %s: base run must be completed successfully: %s", layout.Name, rdsn), http.StatusBadRequest)
 		return
 	}
 	if rBase.Status != db.DoneRunStatus {
-		omppLog.Log("Error at table compare: base run not completed successfully: ", rdsn, ": ", rBase.Status)
-		http.Error(w, "Error at run output table compare: "+layout.Name+": "+"base run must be completed successfully: "+rdsn, http.StatusBadRequest)
+		omppLog.Log("Error at table compare: base run not completed successfully:", rdsn, ":", rBase.Status)
+		http.Error(w, helper.FmtL(lang, "Error at run output table compare: %s: base run must be completed successfully: %s", layout.Name, rdsn), http.StatusBadRequest)
 		return
 	}
 	layout.FromId = rBase.RunId // set base run
@@ -296,19 +300,19 @@ func doReadTableComparePageHandler(w http.ResponseWriter, r *http.Request, isCod
 	if isCode {
 		cvtCell, _, runIds, ok = theCatalog.TableToCodeCalcCellConverter(dn, rdsn, layout.Name, layout.Calculation, layout.Runs)
 		if !ok {
-			http.Error(w, "Error at run output table compare: "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at run output table compare:", layout.Name), http.StatusBadRequest)
 			return
 		}
 	} else {
 		runIds, ok = isSuccessAllRuns(dn, layout.Runs)
 		if !ok {
-			omppLog.Log("Error at table compare: all runs must be completed successfully: ", dn, ": ", layout.Name)
-			http.Error(w, "Error at run output table compare: "+layout.Name+": "+"all runs must be completed successfully: "+rdsn, http.StatusBadRequest)
+			omppLog.Log("Error at table compare: all runs must be completed successfully:", dn, ":", layout.Name)
+			http.Error(w, helper.FmtL(lang, "Error at run output table compare: %s: all runs must be completed successfully: %s", layout.Name, rdsn), http.StatusBadRequest)
 			return
 		}
 	}
 	if len(runIds) <= 0 {
-		omppLog.Log("Warning at table compare: only base run found, no runs to comparte with: ", dn, ": ", layout.Name)
+		omppLog.Log("Warning at table compare: only base run found, no runs to comparte with:", dn, ":", layout.Name)
 	}
 
 	// write to response: page layout and page data
@@ -324,7 +328,7 @@ func doReadTableComparePageHandler(w http.ResponseWriter, r *http.Request, isCod
 		dn, rdsn, &db.ReadTableLayout{ReadLayout: layout.ReadLayout}, layout.Calculation, runIds, cvtWr,
 	)
 	if !ok {
-		http.Error(w, "Error at run output table compare "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table compare:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 
@@ -359,13 +363,13 @@ func isSuccessAllRuns(digest string, runLst []string) ([]int, bool) {
 				}
 				if rId > 0 {
 					if rLst[k].Status != db.DoneRunStatus {
-						omppLog.Log("Warning: model run not completed successfully: ", rLst[k].RunDigest, ": ", rLst[k].Status)
+						omppLog.Log("Warning: model run not completed successfully:", rLst[k].RunDigest, ":", rLst[k].Status)
 						return []int{}, false
 					}
 				}
 			}
 			if rId <= 0 {
-				omppLog.Log("Warning: model run not found: ", rn)
+				omppLog.Log("Warning: model run not found:", rn)
 				continue
 			}
 			// else: model run completed successfully, include run id into the list of additional runs
@@ -415,16 +419,17 @@ func doParameterGetPageHandler(w http.ResponseWriter, r *http.Request, srcArg st
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	src := getRequestParam(r, srcArg)  // workset name or run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // parameter name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// url or query parameters: page offset and page size
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
@@ -442,7 +447,7 @@ func doParameterGetPageHandler(w http.ResponseWriter, r *http.Request, srcArg st
 	if isCode {
 		cvtCell, ok = theCatalog.ParameterCellConverter(false, dn, name)
 		if !ok {
-			http.Error(w, "Error at parameter read: "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at parameter read:", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -458,7 +463,7 @@ func doParameterGetPageHandler(w http.ResponseWriter, r *http.Request, srcArg st
 	// read parameter page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadParameterTo(dn, src, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at parameter read "+src+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at parameter read:", src, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array
@@ -502,16 +507,17 @@ func doTableGetPageHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllA
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // output table name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// url or query parameters: page offset and page size
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
@@ -530,7 +536,7 @@ func doTableGetPageHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllA
 	if isCode {
 		cvtCell, ok = theCatalog.TableToCodeCellConverter(dn, layout.Name, layout.IsAccum, layout.IsAllAccum)
 		if !ok {
-			http.Error(w, "Error at run output table read: "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at run output table read:", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -546,7 +552,7 @@ func doTableGetPageHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllA
 	// read output table page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadOutTableTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array
@@ -573,20 +579,21 @@ func runTableCalcPageGetHandler(w http.ResponseWriter, r *http.Request) {
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // output table name
 	calc := getRequestParam(r, "calc") // calculation function name: sum avg count min max var sd se cv
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// validate parameters: page offset, page size and calculation expression
 	if calc == "" {
-		http.Error(w, "Invalid (empty) calculation expression "+calc, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) calculation expression", calc), http.StatusBadRequest)
 		return
 	}
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
@@ -600,14 +607,14 @@ func runTableCalcPageGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	calcLt, ok := theCatalog.TableAggrExprCalculateLayout(dn, name, calc)
 	if !ok {
-		http.Error(w, "Invalid calculation expression "+calc, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid calculation expression", calc), http.StatusBadRequest)
 		return
 	}
 
 	// get converter from id's cell into code cell
 	cvtCell, _, runIds, ok := theCatalog.TableToCodeCalcCellConverter(dn, rdsn, tableLt.Name, calcLt, nil)
 	if !ok {
-		http.Error(w, "Failed to create output table csv converter: "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create output table csv converter:", name), http.StatusBadRequest)
 		return
 	}
 
@@ -622,7 +629,7 @@ func runTableCalcPageGetHandler(w http.ResponseWriter, r *http.Request) {
 	// calculate output table measure and read measure page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadOutTableCalculateTo(dn, rdsn, &tableLt, calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array
@@ -652,25 +659,26 @@ func runTableComparePageGetHandler(w http.ResponseWriter, r *http.Request) {
 	name := getRequestParam(r, "name")       // output table name
 	compare := getRequestParam(r, "compare") // comparison function name: diff ratio percent
 	vr := getRequestParam(r, "variant")      // variant run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "")       // get prefered language for messages
 
 	// validate parameters: page offset, page size and calculation expression
 	if compare == "" {
-		http.Error(w, "Invalid (empty) comparison expression", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) comparison expression"), http.StatusBadRequest)
 		return
 	}
 	vRdsn := helper.ParseCsvLine(vr, 0)
 	if len(vRdsn) <= 0 {
-		http.Error(w, "Invalid or empty list runs to compare", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid or empty list of runs to compare"), http.StatusBadRequest)
 		return
 	}
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
@@ -684,14 +692,14 @@ func runTableComparePageGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	calcLt, ok := theCatalog.TableExprCompareLayout(dn, name, compare)
 	if !ok {
-		http.Error(w, "Invalid comparison expression "+compare, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid comparison expression", compare), http.StatusBadRequest)
 		return
 	}
 
 	// get converter from id's cell into code cell
 	cvtCell, _, runIds, ok := theCatalog.TableToCodeCalcCellConverter(dn, rdsn, tableLt.Name, calcLt, vRdsn)
 	if !ok {
-		http.Error(w, "Failed to create output table converter: "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create output table converter:", name), http.StatusBadRequest)
 		return
 	}
 
@@ -706,7 +714,7 @@ func runTableComparePageGetHandler(w http.ResponseWriter, r *http.Request) {
 	// calculate output table measure and read measure page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadOutTableCalculateTo(dn, rdsn, &tableLt, calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array
@@ -736,12 +744,13 @@ func runMicrodataIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func doReadMicrodataPageHandler(w http.ResponseWriter, r *http.Request, isCode bool) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
@@ -759,11 +768,11 @@ func doReadMicrodataPageHandler(w http.ResponseWriter, r *http.Request, isCode b
 		genDigest := ""
 		_, genDigest, cvtCell, ok = theCatalog.MicrodataCellConverter(false, dn, rdsn, layout.Name)
 		if !ok {
-			http.Error(w, "Error at run microdata read: "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at run microdata read:", layout.Name), http.StatusBadRequest)
 			return
 		}
 		if layout.GenDigest != "" && layout.GenDigest != genDigest {
-			http.Error(w, "Error at run microdata read, generation digest not found: "+layout.GenDigest+" expected: "+genDigest+": "+layout.Name, http.StatusBadRequest)
+			http.Error(w, helper.FmtL(lang, "Error at run microdata read, generation digest not found: %s expected: %s: %s", layout.GenDigest, genDigest, layout.Name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -779,7 +788,7 @@ func doReadMicrodataPageHandler(w http.ResponseWriter, r *http.Request, isCode b
 	// read microdata page into json array response, convert enum id's to code if requested
 	lt, ok := theCatalog.ReadMicrodataTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run microdata read "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run microdata read:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of data page array
@@ -813,22 +822,23 @@ func doMicrodataGetPageHandler(w http.ResponseWriter, r *http.Request, isCode bo
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // entity name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
 	// url or query parameters: page offset and page size
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
@@ -848,7 +858,7 @@ func doMicrodataGetPageHandler(w http.ResponseWriter, r *http.Request, isCode bo
 		genDigest := ""
 		_, genDigest, cvtCell, ok = theCatalog.MicrodataCellConverter(false, dn, rdsn, layout.Name)
 		if !ok {
-			http.Error(w, "Error at run microdata read: "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at run microdata read:", name), http.StatusBadRequest)
 			return
 		}
 		layout.GenDigest = genDigest
@@ -865,7 +875,7 @@ func doMicrodataGetPageHandler(w http.ResponseWriter, r *http.Request, isCode bo
 	// read microdata page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadMicrodataTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run microdata read "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run microdata read:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array
@@ -879,12 +889,13 @@ func doMicrodataGetPageHandler(w http.ResponseWriter, r *http.Request, isCode bo
 func runMicrodataCalcPageReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
@@ -905,12 +916,13 @@ func runMicrodataCalcPageReadHandler(w http.ResponseWriter, r *http.Request) {
 func runMicrodataCalcIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
@@ -932,25 +944,27 @@ func runMicrodataCalcIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 // Enum-based microdata attributes returned as enum codes or enum id's.
 func doReadMicrodataCalcPageHandler(w http.ResponseWriter, r *http.Request, dn string, rdsn string, layout *db.ReadCalculteMicroLayout, varLst []string, isCode bool) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 	if len(layout.GroupBy) <= 0 {
-		http.Error(w, "Invalid (empty) microdata group by attributes: "+dn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata group by attributes:", dn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	if len(layout.Calculation) <= 0 {
-		http.Error(w, "Invalid (empty) microdata calculation expression(s): "+dn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata calculation expression(s):", dn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 
 	// get base run id, run variants, entity generation digest and microdata cell converter
 	baseRunId, runIds, genDigest, cvtMicro, err := theCatalog.MicrodataCalcToCsvConverter(dn, isCode, rdsn, varLst, layout.Name, &layout.CalculateMicroLayout)
 	if err != nil {
-		omppLog.Log("Failed to create microdata csv converter: ", rdsn, ": ", layout.Name, ": ", err.Error())
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		omppLog.Log("Failed to create microdata csv converter:", rdsn, ":", layout.Name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	layout.FromId = baseRunId
@@ -961,8 +975,8 @@ func doReadMicrodataCalcPageHandler(w http.ResponseWriter, r *http.Request, dn s
 
 		cvtCell, err = cvtMicro.IdToCodeCell(cvtMicro.ModelDef, layout.Name)
 		if err != nil {
-			omppLog.Log("Failed to create microdata cell value converter: ", dn, ": ", layout.Name, ": ", err.Error())
-			http.Error(w, "Failed to create microdata cell value converter: "+rdsn+": "+layout.Name, http.StatusBadRequest)
+			omppLog.Log("Failed to create microdata cell value converter:", dn, ":", layout.Name, ":", err)
+			http.Error(w, helper.MsgL(lang, "Failed to create microdata cell value converter:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		}
 	}
 
@@ -983,7 +997,7 @@ func doReadMicrodataCalcPageHandler(w http.ResponseWriter, r *http.Request, dn s
 	// read microdata page into json array response, convert enum id's to code if requested
 	lt, ok := theCatalog.ReadMicrodataCalculateTo(dn, rdsn, &microLt, &layout.CalculateMicroLayout, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run microdata read "+rdsn+": "+layout.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run microdata read:", rdsn, ":", layout.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of data page array
@@ -1008,12 +1022,13 @@ func doReadMicrodataCalcPageHandler(w http.ResponseWriter, r *http.Request, dn s
 func runMicrodataComparePageReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
@@ -1036,12 +1051,13 @@ func runMicrodataComparePageReadHandler(w http.ResponseWriter, r *http.Request) 
 func runMicrodataCompareIdPageReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
@@ -1093,31 +1109,32 @@ func doMicrodataCalcGetPageHandler(w http.ResponseWriter, r *http.Request, isCod
 	name := getRequestParam(r, "name")                                // entity name
 	groupBy := helper.ParseCsvLine(getRequestParam(r, "group-by"), 0) // group by list of attributes, comma-separated
 	cLst := helper.ParseCsvLine(getRequestParam(r, calcKey), 0)       // list of aggregations of value attribute(s), comma-separated
+	lang := preferedRequestLang(r, "")                                // get prefered language for messages
 
 	// url or query parameters: page offset and page size
 	start, ok := getInt64RequestParam(r, "start", 0)
 	if !ok {
-		http.Error(w, "Invalid value of start row number to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of start row number to read", name), http.StatusBadRequest)
 		return
 	}
 	count, ok := getInt64RequestParam(r, "count", 0)
 	if !ok {
-		http.Error(w, "Invalid value of max row count to read "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid value of max row count to read", name), http.StatusBadRequest)
 		return
 	}
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
 	if len(groupBy) <= 0 {
-		http.Error(w, "Invalid (empty) microdata group by attributes "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata group by attributes", name), http.StatusBadRequest)
 		return
 	}
 	if len(cLst) <= 0 {
-		http.Error(w, "Invalid (empty) microdata aggregation(s) "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata aggregation(s)", name), http.StatusBadRequest)
 		return
 	}
 	varLst := []string{}
@@ -1145,8 +1162,8 @@ func doMicrodataCalcGetPageHandler(w http.ResponseWriter, r *http.Request, isCod
 	// get base run id, run variants, entity generation digest and microdata cell converter
 	baseRunId, runIds, genDigest, cvtMicro, err := theCatalog.MicrodataCalcToCsvConverter(dn, isCode, rdsn, varLst, name, &calcLt)
 	if err != nil {
-		omppLog.Log("Failed to create microdata csv converter: ", rdsn, ": ", name, ": ", err.Error())
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+name, http.StatusBadRequest)
+		omppLog.Log("Failed to create microdata csv converter:", rdsn, ":", name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -1166,8 +1183,8 @@ func doMicrodataCalcGetPageHandler(w http.ResponseWriter, r *http.Request, isCod
 
 		cvtCell, err = cvtMicro.IdToCodeCell(cvtMicro.ModelDef, name)
 		if err != nil {
-			omppLog.Log("Failed to create microdata cell value converter: ", dn, ": ", name, ": ", err.Error())
-			http.Error(w, "Failed to create microdata cell value converter: "+rdsn+": "+name, http.StatusBadRequest)
+			omppLog.Log("Failed to create microdata cell value converter:", dn, ":", name, ":", err)
+			http.Error(w, helper.MsgL(lang, "Failed to create microdata cell value converter:", rdsn, ":", name), http.StatusBadRequest)
 		}
 	}
 
@@ -1182,7 +1199,7 @@ func doMicrodataCalcGetPageHandler(w http.ResponseWriter, r *http.Request, isCod
 	// read microdata page into json array response, convert enum id's to code if requested
 	_, ok = theCatalog.ReadMicrodataCalculateTo(dn, rdsn, &microLt, &calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run microdata read "+rdsn+": "+microLt.Name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run microdata read:", rdsn, ":", microLt.Name), http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte{']'}) // end of json output array

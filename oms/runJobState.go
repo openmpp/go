@@ -408,7 +408,7 @@ func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map
 		var jc RunJob
 		isOk, err := helper.FromJsonFile(f, &jc)
 		if err != nil {
-			omppLog.Log(err)
+			omppLog.LogNoLT(err)
 			jobMap[stamp] = runJobFile{filePath: f, isError: true, oms: oms}
 		}
 		if !isOk || err != nil {
@@ -695,7 +695,7 @@ func updateQueueJobs(
 
 		isOk, err := helper.FromJsonFile(f, &jc)
 		if err != nil {
-			omppLog.Log(err)
+			omppLog.LogNoLT(err)
 			queueJobs[stamp] = queueJobFile{runJobFile: runJobFile{filePath: f, isError: true, oms: oms}}
 		}
 		if !isOk || err != nil {
@@ -752,7 +752,7 @@ func updateQueueJobs(
 
 		isOk, err := helper.FromJsonFile(fLst[f.fileIdx], &jc)
 		if err != nil {
-			omppLog.Log(err)
+			omppLog.LogNoLT(err)
 			queueJobs[f.stamp] = queueJobFile{runJobFile: runJobFile{filePath: fLst[f.fileIdx], isError: true, oms: f.oms}}
 		}
 		if !isOk || err != nil {
@@ -928,7 +928,7 @@ func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map
 
 	opts, err := config.FromIni(jobIniPath, theCfg.encodingName)
 	if err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 		return jsState, cfgRes
 	}
 	nowTs := updateTs.UnixMilli()
@@ -958,7 +958,7 @@ func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map
 		(jsState.hostFile.rootLine != "" || jsState.hostFile.hostLine != "")
 
 	if jsState.hostFile.isUse {
-		jsState.hostFile.isUse = dirExist(jsState.hostFile.dir)
+		jsState.hostFile.isUse = helper.IsDirExist(jsState.hostFile.dir)
 	}
 
 	// default settings for compute servers or clusters

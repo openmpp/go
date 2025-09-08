@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -18,6 +19,7 @@ import (
 func profileReplaceHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	var pm db.ProfileMeta
 	if !jsonRequestDecode(w, r, true, &pm) {
@@ -27,8 +29,8 @@ func profileReplaceHandler(w http.ResponseWriter, r *http.Request) {
 	// replace profile in model catalog
 	ok, err := theCatalog.ReplaceProfile(dn, &pm)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Profile update failed: "+pm.Name, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Profile update failed:", pm.Name), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -45,10 +47,11 @@ func profileDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
 	profile := getRequestParam(r, "profile")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	ok, err := theCatalog.DeleteProfile(dn, profile)
 	if err != nil {
-		http.Error(w, "Profile delete failed "+dn+": "+profile, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Profile delete failed", dn, ":", profile), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -67,10 +70,11 @@ func profileOptionReplaceHandler(w http.ResponseWriter, r *http.Request) {
 	profile := getRequestParam(r, "profile")
 	key := getRequestParam(r, "key")
 	val := getRequestParam(r, "value")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	ok, err := theCatalog.ReplaceProfileOption(dn, profile, key, val)
 	if err != nil {
-		http.Error(w, "Profile option update failed: "+profile+": "+key, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Profile option update failed:", profile, ":", key), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -88,10 +92,11 @@ func profileOptionDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	dn := getRequestParam(r, "model")
 	profile := getRequestParam(r, "profile")
 	key := getRequestParam(r, "key")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	ok, err := theCatalog.DeleteProfileOption(dn, profile, key)
 	if err != nil {
-		http.Error(w, "Profile option delete failed: "+profile+": "+key, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Profile option delete failed:", profile, ":", key), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -111,11 +116,12 @@ func runDeleteStartHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
 	rdsn := getRequestParam(r, "run")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// delete model run
 	ok, err := theCatalog.DeleteRunStart(dn, rdsn)
 	if err != nil {
-		http.Error(w, "Model run delete failed "+dn+": "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model run delete failed", dn, ":", rdsn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -135,6 +141,7 @@ func runDeleteStartHandler(w http.ResponseWriter, r *http.Request) {
 func runListDeleteStartHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json array of runs digest-or-stamp-or-name
 	var rLst []string
@@ -146,7 +153,7 @@ func runListDeleteStartHandler(w http.ResponseWriter, r *http.Request) {
 	// delete model runs
 	ok, err := theCatalog.DeleteRunListStart(dn, rLst)
 	if err != nil {
-		http.Error(w, "Multiple model runs delete failed "+sLen+": "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Multiple model runs delete failed", sLen, ":", dn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -165,6 +172,8 @@ func runListDeleteStartHandler(w http.ResponseWriter, r *http.Request) {
 // If no such model run exist in database then no error, empty operation.
 func runTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// decode json run "public" metadata
 	var rp db.RunPub
 	if !jsonRequestDecode(w, r, true, &rp) {
@@ -174,8 +183,8 @@ func runTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 	// update run text in model catalog
 	ok, dn, rdsn, err := theCatalog.UpdateRunText(&rp)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Model run update failed "+dn+": "+rdsn, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Model run update failed", dn, ":", rdsn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -195,8 +204,9 @@ func runTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 func runParameterTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// url or query parameters
-	dn := getRequestParam(r, "model") // model digest-or-name
-	rdsn := getRequestParam(r, "run") // run digest-or-stamp-or-name
+	dn := getRequestParam(r, "model")  // model digest-or-name
+	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// decode json parameter value notes
 	var pvtLst []db.ParamRunSetTxtPub
@@ -207,8 +217,8 @@ func runParameterTextMergeHandler(w http.ResponseWriter, r *http.Request) {
 	// update run parameter(s) value notes in model catalog
 	ok, err := theCatalog.UpdateRunParameterText(dn, rdsn, pvtLst)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Run parameter(s) value notes update failed "+dn+": "+rdsn+": "+err.Error(), http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Run parameter(s) value notes update failed", dn, ":", rdsn, ":", err), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -228,11 +238,12 @@ func taskDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	dn := getRequestParam(r, "model")
 	tn := getRequestParam(r, "task")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// delete modeling task
 	ok, err := theCatalog.DeleteTask(dn, tn)
 	if err != nil {
-		http.Error(w, "Task delete failed "+dn+": "+tn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Task delete failed", dn, ":", tn), http.StatusBadRequest)
 		return
 	}
 	if ok {
@@ -270,6 +281,8 @@ func taskDefMergeHandler(w http.ResponseWriter, r *http.Request) {
 // If task does not exist then new task created.
 func taskDefUpdateHandler(w http.ResponseWriter, r *http.Request, isReplace bool) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// decode json run "public" metadata
 	var tpd db.TaskDefPub
 	if !jsonRequestDecode(w, r, true, &tpd) {
@@ -285,8 +298,8 @@ func taskDefUpdateHandler(w http.ResponseWriter, r *http.Request, isReplace bool
 	// update task definition in model catalog
 	ok, dn, tn, err := theCatalog.UpdateTaskDef(isReplace, &tpd)
 	if err != nil {
-		omppLog.Log(err.Error())
-		http.Error(w, "Modeling task merge failed "+dn+": "+tn, http.StatusBadRequest)
+		omppLog.LogNoLT(err)
+		http.Error(w, helper.MsgL(lang, "Modeling task merge failed", dn, ":", tn), http.StatusBadRequest)
 		return
 	}
 	if ok {

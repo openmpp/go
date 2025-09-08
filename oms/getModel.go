@@ -85,7 +85,7 @@ func (mc *ModelCatalog) ModelTextByDigest(digest string, preferredLang []languag
 	// get model_dic row
 	mdRow, ok := mc.ModelDicByDigest(digest)
 	if !ok {
-		omppLog.Log("Warning: model digest not found: ", digest)
+		omppLog.Log("Warning: model digest not found:", digest)
 		return &db.ModelDicDescrNote{}, false // return empty result: model not found or error
 	}
 
@@ -99,7 +99,7 @@ func (mc *ModelCatalog) ModelTextByDigest(digest string, preferredLang []languag
 	lc := mc.languageTagMatch(digest, preferredLang)
 	lcd, _, _ := mc.modelLangs(digest)
 	if lc == "" && lcd == "" {
-		omppLog.Log("Error: invalid (empty) model default language: ", digest)
+		omppLog.Log("Error: invalid (empty) model default language:", digest)
 		return &db.ModelDicDescrNote{}, false
 	}
 
@@ -168,7 +168,7 @@ func (mc *ModelCatalog) loadModelText(dn string) bool {
 	// get model_dic row
 	mdRow, ok := mc.ModelDicByDigestOrName(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false // model not found or error
 	}
 
@@ -181,20 +181,20 @@ func (mc *ModelCatalog) loadModelText(dn string) bool {
 	// get database connection
 	_, dbConn, ok := mc.modelMeta(mdRow.Digest)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false // model not found or error
 	}
 
 	// read model text metadata from database and update catalog
 	txt, err := db.GetModelText(dbConn, mdRow.ModelId, "", true)
 	if err != nil {
-		omppLog.Log("Error at get model text metadata: ", dn, ": ", err.Error())
+		omppLog.Log("Error at get model text metadata:", dn, ":", err)
 		return false
 	}
 
 	ok = mc.setModelTextMeta(mdRow.Digest, true, txt)
 	if !ok {
-		omppLog.Log("Error: model digest not found: ", mdRow.Digest)
+		omppLog.Log("Error: model digest not found:", mdRow.Digest)
 		return false // model not found or error
 	}
 	return true

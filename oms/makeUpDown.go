@@ -520,7 +520,7 @@ func updateStatUpDownLog(logName string, uds *UpDownStatusLog, upDownDir string)
 	// check if download zip or download folder exist
 	if uds.Folder != "" {
 
-		fi, e := dirStat(filepath.Join(upDownDir, uds.Folder))
+		fi, e := helper.DirStat(filepath.Join(upDownDir, uds.Folder))
 		uds.IsFolder = e == nil
 		if uds.IsFolder {
 			uds.FolderModTime = fi.ModTime().UnixNano() / int64(time.Millisecond)

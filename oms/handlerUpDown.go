@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -41,10 +40,11 @@ func fileLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r 
 
 	// url or query parameters
 	fileName := getRequestParam(r, "name")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// validate name: it must be a file name only, it cannot be any directory
 	if fileName == "" || !strings.HasSuffix(fileName, "."+upDown+".log") || fileName != filepath.Base(helper.CleanFileName(fileName)) {
-		http.Error(w, "Log file name invalid (or empty): "+fileName, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Log file name invalid (or empty):", fileName), http.StatusBadRequest)
 		return
 	}
 
@@ -52,13 +52,13 @@ func fileLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r 
 	filePath := filepath.Join(upDownDir, fileName)
 
 	if !helper.IsFileExist(filePath) {
-		http.Error(w, "Log file not found: "+fileName, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Log file not found:", fileName), http.StatusBadRequest)
 		return
 	}
 
 	bt, err := os.ReadFile(filePath)
 	if err != nil {
-		http.Error(w, "Failed to read log file: "+fileName, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to read log file:", fileName), http.StatusBadRequest)
 		return
 	}
 	fc := string(bt)
@@ -92,10 +92,12 @@ func allLogUploadGetHandler(w http.ResponseWriter, r *http.Request) {
 // Status is one of: progress ready error or "" if unknown
 func allLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// find all .up-or-down.log files
 	fLst, err := os.ReadDir(upDownDir)
 	if err != nil {
-		http.Error(w, "Error at reading log directory", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at reading log directory"), http.StatusBadRequest)
 		return
 	}
 
@@ -131,6 +133,8 @@ func modelLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r
 	dn := getRequestParam(r, "model") // model digest-or-name
 	mName := dn
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// if this model digest then try to find model name in catalog
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if ok {
@@ -140,7 +144,7 @@ func modelLogUpDownGet(upDown string, upDownDir string, w http.ResponseWriter, r
 	// find all .download.log or .upload.log files
 	fLst, err := os.ReadDir(upDownDir)
 	if err != nil {
-		http.Error(w, "Error at reading log directory", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at reading log directory"), http.StatusBadRequest)
 		return
 	}
 
@@ -237,16 +241,18 @@ func uploadAllDeleteAsyncHandler(w http.ResponseWriter, r *http.Request) {
 // Delete all files and folders, on separate thread or blocking current thread
 func upDownAllDelete(upDown string, upDownDir string, isAsync bool, w http.ResponseWriter, r *http.Request) {
 
-	if !dirExist(upDownDir) {
-		http.Error(w, "Folder not found: "+upDownDir, http.StatusBadRequest)
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !helper.IsDirExist(upDownDir) {
+		http.Error(w, helper.MsgL(lang, "Folder not found:", upDownDir), http.StatusBadRequest)
 		return
 	}
 
 	// list of files and folders
 	pLst, err := filepath.Glob(filepath.Join(upDownDir, "*"))
 	if err != nil {
-		omppLog.Log("Error at get file list of: ", upDownDir, " : ", err.Error())
-		http.Error(w, "Error at folder scan: "+upDown, http.StatusBadRequest)
+		omppLog.Log("Error at get file list of:", upDownDir, ":", err)
+		http.Error(w, helper.MsgL(lang, "Error at folder scan:", upDown), http.StatusBadRequest)
 		return
 	}
 
@@ -262,7 +268,7 @@ func upDownAllDelete(upDown string, upDownDir string, isAsync bool, w http.Respo
 
 		isLog := fileCreateEmpty(false, logPath)
 		if !isLog {
-			omppLog.Log("Failed to create log file: " + logName)
+			omppLog.Log("Failed to create log file:", logName)
 			return
 		}
 		if isLog {
@@ -306,11 +312,11 @@ func upDownAllDelete(upDown string, upDownDir string, isAsync bool, w http.Respo
 		// last step: remove delete progress log file or rename it on errors
 		if nErr == 0 {
 			if e := os.Remove(logPath); e != nil && !os.IsNotExist(e) {
-				omppLog.Log(e)
+				omppLog.LogNoLT(e)
 			}
 		} else {
-			omppLog.Log("Failed to delete from ", upDown, ". Errors: ", nErr)
-			renameToUpDownErrorLog(upDown, logPath, "Errors: "+strconv.Itoa(nErr), nil)
+			omppLog.Log("Failed to delete from", upDown, ". Errors:", nErr)
+			renameToUpDownErrorLog(upDown, logPath, helper.Msg("Errors:", nErr), nil)
 		}
 
 		// if disk usage scan active then refersh disk use now
@@ -340,9 +346,10 @@ func upDownDelete(upDown string, upDownDir string, isAsync bool, w http.Response
 
 	// url or query parameters
 	folder := getRequestParam(r, "folder")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// delete files
-	err := doDeleteUpDown(upDown, upDownDir, isAsync, folder)
+	err := doDeleteUpDown(upDown, upDownDir, isAsync, folder, lang)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -354,10 +361,10 @@ func upDownDelete(upDown string, upDownDir string, isAsync bool, w http.Response
 
 // delete download or upload files by folder name.
 // if isAsync is true then start delete on separate thread
-func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder string) error {
+func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder, lang string) error {
 
 	if folder == "" || folder != filepath.Base(helper.CleanFileName(folder)) {
-		return errors.New("Folder name invalid (or empty): " + folder)
+		return helper.ErrorNewL(lang, "Folder name invalid (or empty):", folder)
 	}
 	omppLog.Log("Delete:", upDown, folder)
 
@@ -366,9 +373,10 @@ func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder string
 
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create log file: " + folder + ".progress." + upDown + ".log")
-		return errors.New("Delete failed: " + folder)
+		omppLog.Log("Failed to create log file:", folder+".progress."+upDown+".log")
+		return helper.ErrorNewL(lang, "Delete failed:", folder)
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"---------------",
 		"Delete        : " + folder,
@@ -377,13 +385,13 @@ func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder string
 	}
 	if !writeToCmdLog(logPath, true, "Start deleting: "+folder) {
 		renameToUpDownErrorLog(upDown, logPath, "", nil)
-		omppLog.Log("Failed to write into log file: " + folder + ".progress." + upDown + ".log")
-		return errors.New("Delete failed: " + folder)
+		omppLog.Log("Failed to write into log file:", folder+".progress."+upDown+".log")
+		return helper.ErrorNewL(lang, "Delete failed:", folder)
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToUpDownErrorLog(upDown, logPath, "", nil)
-		omppLog.Log("Failed to write into log file: " + folder + ".progress." + upDown + ".log")
-		return errors.New("Delete failed: " + folder)
+		omppLog.Log("Failed to write into log file:", folder+".progress."+upDown+".log")
+		return helper.ErrorNewL(lang, "Delete failed:", folder)
 	}
 
 	// delete files on separate thread
@@ -406,7 +414,7 @@ func doDeleteUpDown(upDown string, upDownDir string, isAsync bool, folder string
 		}
 		// last step: remove delete progress log file
 		if e := os.Remove(basePath + ".progress." + upDown + ".log"); e != nil && !os.IsNotExist(e) {
-			omppLog.Log(e)
+			omppLog.LogNoLT(e)
 		}
 	}
 

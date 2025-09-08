@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 )
 
 // model type metadata, "unpacked" during marshaled to json (range enums restored)
@@ -105,7 +106,7 @@ func (me *ModelMetaEncoder) IsInit() bool {
 // if isIndent is true then json output indented.
 func (me *ModelMetaEncoder) DoEncode(isPack bool, je *json.Encoder) error {
 	if !me.IsInit() {
-		return errors.New("Invalid (empty) model metadata")
+		return helper.ErrorNew("Invalid (empty) model metadata")
 	}
 
 	if isPack {

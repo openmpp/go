@@ -91,7 +91,7 @@ func scanOuterJobs(doneC <-chan bool) {
 			var jc RunJob
 			isOk, err := helper.FromJsonFile(fLst[k], &jc)
 			if err != nil {
-				omppLog.Log(err)
+				omppLog.LogNoLT(err)
 			}
 			if !isOk || err != nil {
 				moveActiveJobToHistory(fLst[k], "", false, stamp, mn, dgst, "no-model-run-time-stamp", 0, 0) // invalid file content: move to history with unknown status
@@ -130,7 +130,7 @@ func scanOuterJobs(doneC <-chan bool) {
 					rStat = db.ErrorRunStatus
 					_, e := theCatalog.UpdateRunStatus(jc.ModelDigest, jc.RunStamp, db.ErrorRunStatus)
 					if e != nil {
-						omppLog.Log(e)
+						omppLog.LogNoLT(e)
 					}
 				}
 			}
@@ -160,12 +160,12 @@ func scanRunJobs(doneC <-chan bool) {
 			if isFound {
 				_, e = theRunCatalog.runModel(job, qPath, hf, compHostUse)
 				if e != nil {
-					omppLog.Log(e)
+					omppLog.LogNoLT(e)
 				}
 			}
 		} else { // error at select job from queue: there is a problem with that job, remove it from the queue
 
-			omppLog.Log(e)
+			omppLog.LogNoLT(e)
 			if qPath != "" {
 				moveJobQueueToFailed(qPath, job.SubmitStamp, job.ModelName, job.ModelDigest, "", false) // can not run this job: remove from the queue
 			}
@@ -210,12 +210,12 @@ func scanRunJobs(doneC <-chan bool) {
 // start (or stop) computational server or cluster and create (or delete) ready state file
 func doStartStopCompute(name, state, exe string, args []string, maxTime int64) {
 
-	omppLog.Log(state, ": ", name)
+	omppLog.LogNoLT(state, ":", name)
 
 	// create server start or stop file to signal server state
 	sf := createCompStateFile(name, state)
 	if sf == "" {
-		omppLog.Log("FAILED to create state file: ", state, " ", name)
+		omppLog.Log("FAILED to create state file:", state, " ", name)
 		return
 	}
 
@@ -225,7 +225,7 @@ func doStartStopCompute(name, state, exe string, args []string, maxTime int64) {
 	// make a command, run it and return combined output
 	out, err := exec.CommandContext(ctx, exe, args...).CombinedOutput()
 	if len(out) > 0 {
-		omppLog.Log(string(out))
+		omppLog.LogNoLT(string(out))
 	}
 
 	// create or delete server ready file and delete state file
@@ -236,12 +236,12 @@ func doStartStopCompute(name, state, exe string, args []string, maxTime int64) {
 		if state == "start" {
 			isOk = fileCreateEmpty(false, readyPath)
 			if !isOk {
-				omppLog.Log("FAILED to create server ready file: ", readyPath)
+				omppLog.Log("FAILED to create server ready file:", readyPath)
 			}
 		} else {
 			isOk = fileDeleteAndLog(false, readyPath)
 			if !isOk {
-				omppLog.Log("FAILED to delete server ready file: ", readyPath)
+				omppLog.Log("FAILED to delete server ready file:", readyPath)
 			}
 		}
 
@@ -252,18 +252,18 @@ func doStartStopCompute(name, state, exe string, args []string, maxTime int64) {
 			isOk = okStart && okStop && okErr
 		}
 		if isOk {
-			omppLog.Log("Done: ", state, " ", name)
+			omppLog.Log("Done:", state, " ", name)
 		}
 
 	} else {
 		if createCompStateFile(name, "error") == "" {
-			omppLog.Log("FAILED to create error state file: ", name)
+			omppLog.Log("FAILED to create error state file:", name)
 		}
 		if ctx.Err() == context.DeadlineExceeded {
-			omppLog.Log("ERROR server timeout: ", state, " ", name)
+			omppLog.Log("ERROR server timeout:", state, " ", name)
 		}
-		omppLog.Log("Error: ", err)
-		omppLog.Log("FAILED: ", state, " ", name)
+		omppLog.Log("Error:", err)
+		omppLog.Log("FAILED:", state, " ", name)
 	}
 
 	// remove this server from startup or shutdown list
@@ -277,12 +277,12 @@ func doStartStopCompute(name, state, exe string, args []string, maxTime int64) {
 // start computational server, special case: if server always ready then only create ready state file
 func doStartOnceCompute(name string) {
 
-	omppLog.Log("Start: ", name)
+	omppLog.Log("Start:", name)
 
 	readyPath := compReadyPath(name)
 	isOk := fileCreateEmpty(false, readyPath)
 	if !isOk {
-		omppLog.Log("FAILED to create server ready file: ", readyPath)
+		omppLog.Log("FAILED to create server ready file:", readyPath)
 	}
 
 	if isOk {
@@ -292,7 +292,7 @@ func doStartOnceCompute(name string) {
 		isOk = okStart && okStop && okErr
 	}
 	if isOk {
-		omppLog.Log("Done start of: ", name)
+		omppLog.Log("Done start of:", name)
 	}
 }
 

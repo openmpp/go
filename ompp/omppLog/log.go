@@ -208,20 +208,22 @@ func writeToLogFile(msg string) bool {
 // Load translated messages from language sections of exeName.message.ini go-common.message.ini files.
 // It is a merge of exeName.message.ini and go.common.message.ini.
 // If exeName is empty or exeName.message.ini file not exist then do nothing
-func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string) (string, error) {
+func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string) (string, []string, error) {
 
 	// read message.ini file if exeName is not empty
 	if exeName == "" {
-		return userLang, nil
-	}
-	p := filepath.Join(exeDir, exeName+".message.ini")
-	if !helper.IsFileExist(p) {
-		return userLang, nil // message.ini not found
+		return userLang, []string{}, nil
 	}
 
-	msgIni, err := config.ReadMessageIni(exeName, exeDir, encodingName)
-	if err != nil {
-		return userLang, err // errror at reading or parsing existing message.ini
+	msgIni := []helper.IniEntry{}
+	var err error
+
+	// read exeName.message.ini
+	if helper.IsFileExist(filepath.Join(exeDir, exeName+".message.ini")) {
+		msgIni, err = config.ReadMessageIni(exeName, exeDir, encodingName)
+		if err != nil {
+			return userLang, []string{}, err // errror at reading or parsing existing message.ini
+		}
 	}
 
 	// read go-common.message.ini and merge with exe message.ini
@@ -231,10 +233,10 @@ func LoadMessageIni(exeName, exeDir string, userLang string, encodingName string
 		}
 	}
 	if len(msgIni) <= 0 {
-		return userLang, nil // message.ini is empty
+		return userLang, []string{}, nil // message.ini is empty
 	}
 
 	// update user language name and translation map
-	uLang := helper.SetMsg(userLang, msgIni)
-	return uLang, nil
+	uLang, langLst := helper.SetMsg(userLang, msgIni)
+	return uLang, langLst, nil
 }

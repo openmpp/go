@@ -9,6 +9,7 @@ import (
 
 	"github.com/openmpp/go/ompp"
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -36,6 +37,8 @@ func modelTextPackHandler(w http.ResponseWriter, r *http.Request) {
 // If optional lang specified then result in that language else in browser language or model default.
 func doModelTextHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// find model metadata in model catalog and get language-specific model metadata.
 	// It can be in default model language or empty if no model text db rows exist.
 	var me ompp.ModelMetaEncoder
@@ -47,7 +50,7 @@ func doModelTextHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 
 		imdl, ok := mc.indexByDigest(mdRow.Digest)
 		if !ok {
-			omppLog.Log("Warning: model digest or name not found: ", dn)
+			omppLog.Log("Warning: model digest or name not found:", dn)
 			return false // return empty result: model not found or error
 		}
 		if e := me.New(mc.modelLst[imdl].meta, mc.modelLst[imdl].txtMeta, lc, lcd); e != nil {
@@ -67,22 +70,22 @@ func doModelTextHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 	// if model digest-or-name is empty then return empty results
 	if dn == "" {
 		omppLog.Log("Error: invalid (empty) model digest and name")
-		http.Error(w, "Invalid (empty) model digest and name", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) model digest and name"), http.StatusBadRequest)
 		return
 	}
 
 	// find model in catalog
 	mdRow, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		omppLog.Log("Error: model digest or name not found: ", dn)
-		http.Error(w, "Model digest or name not found"+": "+dn, http.StatusBadRequest)
+		omppLog.Log("Error: model digest or name not found:", dn)
+		http.Error(w, helper.MsgL(lang, "Model digest or name not found:", dn), http.StatusBadRequest)
 		return
 	}
 
 	// if language-specific model metadata not loaded then read it from database
 	if ok := theCatalog.loadModelText(mdRow.Digest); !ok {
-		omppLog.Log("Error: Model text metadata not found: ", dn)
-		http.Error(w, "Model text metadata not found"+": "+dn, http.StatusBadRequest)
+		omppLog.Log("Error: Model text metadata not found:", dn)
+		http.Error(w, helper.MsgL(lang, "Model text metadata not found:", dn), http.StatusBadRequest)
 		return
 	}
 
@@ -90,14 +93,14 @@ func doModelTextHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 	lc := theCatalog.languageTagMatch(mdRow.Digest, rqLangTags)
 	lcd, _, _ := theCatalog.modelLangs(mdRow.Digest)
 	if lc == "" && lcd == "" {
-		omppLog.Log("Error: invalid (empty) model default language: ", dn)
-		http.Error(w, "Invalid (empty) model default language"+": "+dn, http.StatusBadRequest)
+		omppLog.Log("Error: invalid (empty) model default language:", dn)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) model default language:", dn), http.StatusBadRequest)
 		return
 	}
 
 	isOk := getText(&theCatalog, dn, &mdRow, lc, lcd)
 	if !isOk {
-		http.Error(w, "Model not found"+": "+mdRow.Name+" "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", mdRow.Name, dn), http.StatusBadRequest)
 		return
 	}
 

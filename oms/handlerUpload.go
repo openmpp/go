@@ -31,32 +31,32 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// block upload if disk space usage exceed the limits
 	if isOver, _ := theRunCatalog.getDiskUseStatus(); isOver {
-		http.Error(w, "Disk space usage exceeds quota, upload disabled", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Disk space usage exceeds quota, upload disabled"), http.StatusBadRequest)
 		return
 	}
 
 	// find model metadata by digest or name
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 
 	// parse multipart form: only single part expected with run.zip file attached
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Error at multipart form open ", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Error at multipart form open"), http.StatusBadRequest)
 		return
 	}
 
 	// open next part
 	part, err := mr.NextPart()
 	if err == io.EOF {
-		http.Error(w, "Invalid (empty) next part of multipart form", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Invalid (empty) next part of multipart form"), http.StatusBadRequest)
 		return
 	}
 	if err != nil {
-		http.Error(w, "Failed to get next part of multipart form: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to get next part of multipart form:", err), http.StatusBadRequest)
 		return
 	}
 	defer part.Close()
@@ -72,35 +72,36 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	if baseName == "" || baseName == "." || baseName == ".." ||
 		runName == "" || runName == "." || runName == ".." ||
 		fName != helper.CleanFileName(fName) {
-		http.Error(w, "Error: invalid (or empty) file name: "+fName, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: invalid (or empty) file name:", fName), http.StatusBadRequest)
 		return
 	}
 	if ext != ".zip" || !strings.HasPrefix(baseName, mpn) {
-		http.Error(w, "Error: file name must be: "+mpn+"Name.zip", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: file name must be:", mpn+"Name.zip"), http.StatusBadRequest)
 		return
 	}
 	if rName != "" && runName != rName {
-		http.Error(w, "Error: invalid file name, expected: "+mpn+rName+".zip", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: invalid file name, expected:", mpn+rName+".zip"), http.StatusBadRequest)
 		return
 	}
 
 	// if upload.progress.log file exist the retun error: upload in progress
-	omppLog.Log("Upload of: ", fName)
+	omppLog.Log("Upload of:", fName)
 
 	logPath := filepath.Join(theCfg.uploadDir, baseName+".progress.upload.log")
 	if helper.IsFileExist(logPath) {
-		omppLog.Log("Error: upload already in progress: ", logPath)
-		http.Error(w, "Model run upload already in progress: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Error: upload already in progress:", logPath)
+		http.Error(w, helper.MsgL(lang, "Model run upload already in progress:", baseName), http.StatusBadRequest)
 		return
 	}
 
 	// create new upload.progress.log file and write model run decsription
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model run upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to create upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model run upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"------------------",
 		"Upload           : " + fName,
@@ -111,16 +112,16 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Folder           : " + baseName,
 		"------------------",
 	}
-	if !writeToCmdLog(logPath, true, "Upload of: "+baseName) {
+	if !writeToCmdLog(logPath, true, helper.MsgL(lang, "Upload of:", baseName)) {
 		renameToUploadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model run upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model run upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToUploadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model run upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model run upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
 
@@ -129,8 +130,8 @@ func runUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = helper.SaveTo(saveToPath, part)
 	if err != nil {
-		omppLog.Log("Error: unable to write into ", saveToPath, err)
-		http.Error(w, "Error: unable to write into "+fName, http.StatusInternalServerError)
+		omppLog.Log("Error: unable to write into", saveToPath, err)
+		http.Error(w, helper.MsgL(lang, "Error: unable to write into", fName), http.StatusInternalServerError)
 		return
 	}
 
@@ -162,32 +163,32 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// block upload if disk space usage exceed the limits
 	if isOver, _ := theRunCatalog.getDiskUseStatus(); isOver {
-		http.Error(w, "Disk space usage exceeds quota, upload disabled", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Disk space usage exceeds quota, upload disabled"), http.StatusBadRequest)
 		return
 	}
 
 	// find model metadata by digest or name
 	mb, ok := theCatalog.modelBasicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Model not found: "+dn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Model not found:", dn), http.StatusBadRequest)
 		return // empty result: model digest not found
 	}
 
 	// parse multipart form: only single part expected with set.zip file attached
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Error at multipart form open ", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Error at multipart form open"), http.StatusBadRequest)
 		return
 	}
 
 	// open first part: it can be workset-upload-options part or workset.zip file
 	part, err := mr.NextPart()
 	if err == io.EOF {
-		http.Error(w, "Invalid (empty) next part of multipart form", http.StatusBadRequest)
+		http.Error(w, helper.LTL(lang, "Invalid (empty) next part of multipart form"), http.StatusBadRequest)
 		return
 	}
 	if err != nil {
-		http.Error(w, "Failed to get next part of multipart form: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to get next part of multipart form:", err), http.StatusBadRequest)
 		return
 	}
 
@@ -199,7 +200,7 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 		err = json.NewDecoder(part).Decode(&opts)
 		if err != nil && err != io.EOF {
-			http.Error(w, "Json decode error at 'workset-upload-options' part of multipart form", http.StatusBadRequest)
+			http.Error(w, helper.LTL(lang, "Json decode error at 'workset-upload-options' part of multipart form"), http.StatusBadRequest)
 			part.Close()
 			return
 		}
@@ -210,11 +211,11 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 		part, err = mr.NextPart()
 		if err == io.EOF {
-			http.Error(w, "Invalid (empty) next part of multipart form", http.StatusBadRequest)
+			http.Error(w, helper.LTL(lang, "Invalid (empty) next part of multipart form"), http.StatusBadRequest)
 			return
 		}
 		if err != nil {
-			http.Error(w, "Failed to get next part of multipart form: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Failed to get next part of multipart form:", err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -231,35 +232,36 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	if baseName == "" || baseName == "." || baseName == ".." ||
 		setName == "" || setName == "." || setName == ".." ||
 		fName != helper.CleanFileName(fName) {
-		http.Error(w, "Error: invalid (or empty) file name: "+fName, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: invalid (or empty) file name:", fName), http.StatusBadRequest)
 		return
 	}
 	if ext != ".zip" || !strings.HasPrefix(baseName, mpn) {
-		http.Error(w, "Error: file name must be: "+mpn+"Name.zip", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: file name must be:", mpn+"Name.zip"), http.StatusBadRequest)
 		return
 	}
 	if wsn != "" && setName != wsn {
-		http.Error(w, "Error: invalid file name, expected: "+mpn+wsn+".zip", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: invalid file name, expected:", mpn+wsn+".zip"), http.StatusBadRequest)
 		return
 	}
 
 	// if upload.progress.log file exist the retun error: upload in progress
-	omppLog.Log("Upload of: ", fName)
+	omppLog.Log("Upload of:", fName)
 
 	logPath := filepath.Join(theCfg.uploadDir, baseName+".progress.upload.log")
 	if helper.IsFileExist(logPath) {
-		omppLog.Log("Error: upload already in progress: ", logPath)
-		http.Error(w, "Model scenario upload already in progress: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Error: upload already in progress:", logPath)
+		http.Error(w, helper.MsgL(lang, "Model scenario upload already in progress:", baseName), http.StatusBadRequest)
 		return
 	}
 
 	// create new upload.progress.log file and write model scenario decsription
 	isLog := fileCreateEmpty(false, logPath)
 	if !isLog {
-		omppLog.Log("Failed to create upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model scenario upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to create upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
+	// do not translate hdrMsg strings below
 	hdrMsg := []string{
 		"------------------",
 		"Upload           : " + fName,
@@ -270,16 +272,16 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Folder           : " + baseName,
 		"------------------",
 	}
-	if !writeToCmdLog(logPath, true, "Upload of: "+baseName) {
+	if !writeToCmdLog(logPath, true, helper.MsgL(lang, "Upload of:", baseName)) {
 		renameToUploadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model scenario upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
 	if !writeToCmdLog(logPath, false, hdrMsg...) {
 		renameToUploadErrorLog(logPath, "", nil)
-		omppLog.Log("Failed to write into upload log file: " + baseName + ".progress.upload.log")
-		http.Error(w, "Model scenario upload failed: "+baseName, http.StatusBadRequest)
+		omppLog.Log("Failed to write into upload log file:", baseName+".progress.upload.log")
+		http.Error(w, helper.MsgL(lang, "Model scenario upload failed:", baseName), http.StatusBadRequest)
 		return
 	}
 
@@ -288,8 +290,8 @@ func worksetUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	helper.SaveTo(saveToPath, part)
 	if err != nil {
-		omppLog.Log("Error: unable to write into ", saveToPath, err)
-		http.Error(w, "Error: unable to write into "+fName, http.StatusInternalServerError)
+		omppLog.Log("Error: unable to write into", saveToPath, err)
+		http.Error(w, helper.MsgL(lang, "Error: unable to write into", fName), http.StatusInternalServerError)
 		return
 	}
 

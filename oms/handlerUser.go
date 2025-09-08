@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/openmpp/go/ompp/helper"
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
@@ -17,8 +18,10 @@ import (
 // If no model view file in user home directory then response is 200 OK with is empty {} json payload
 func userViewGetHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	if !theCfg.isHome {
-		http.Error(w, "Forbidden: model view reading disabled on the server", http.StatusForbidden)
+		http.Error(w, helper.MsgL(lang, "Forbidden: model view reading disabled on the server"), http.StatusForbidden)
 		return
 	}
 
@@ -27,7 +30,7 @@ func userViewGetHandler(w http.ResponseWriter, r *http.Request) {
 	// find model by digest or name
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Error: model not found "+dn, http.StatusNotFound)
+		http.Error(w, helper.MsgL(lang, "Error: model not found", dn), http.StatusNotFound)
 		return // not found error: model not found in model catalog
 	}
 
@@ -40,8 +43,8 @@ func userViewGetHandler(w http.ResponseWriter, r *http.Request) {
 			jsonResponseBytes(w, r, []byte{})
 			return // empty result: model view file not exist
 		}
-		omppLog.Log("Error: unable to read from ", fileName, err)
-		http.Error(w, "Error: unable to read from "+fileName, http.StatusInternalServerError)
+		omppLog.Log("Error: unable to read from", fileName, err)
+		http.Error(w, helper.MsgL(lang, "Error: unable to read from", fileName), http.StatusInternalServerError)
 		return // model view file read error
 	}
 
@@ -56,8 +59,10 @@ func userViewGetHandler(w http.ResponseWriter, r *http.Request) {
 // If file name already exist in home directory it is truncated.
 func userViewPutHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	if !theCfg.isHome {
-		http.Error(w, "Forbidden: model view saving disabled on the server", http.StatusForbidden)
+		http.Error(w, helper.MsgL(lang, "Forbidden: model view saving disabled on the server"), http.StatusForbidden)
 		return
 	}
 
@@ -66,7 +71,7 @@ func userViewPutHandler(w http.ResponseWriter, r *http.Request) {
 	// find model by digest or name
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Error: model not found "+dn, http.StatusNotFound)
+		http.Error(w, helper.MsgL(lang, "Error: model not found", dn), http.StatusNotFound)
 		return // not found error: model not found in model catalog
 	}
 
@@ -80,8 +85,10 @@ func userViewPutHandler(w http.ResponseWriter, r *http.Request) {
 // If multiple models with same name exist only one is used.
 func userViewDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	if !theCfg.isHome {
-		http.Error(w, "Forbidden: model view saving disabled on the server", http.StatusForbidden)
+		http.Error(w, helper.MsgL(lang, "Forbidden: model view saving disabled on the server"), http.StatusForbidden)
 		return
 	}
 
@@ -90,7 +97,7 @@ func userViewDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	// find model by digest or name
 	m, ok := theCatalog.ModelDicByDigestOrName(dn)
 	if !ok {
-		http.Error(w, "Error: model not found "+dn, http.StatusNotFound)
+		http.Error(w, helper.MsgL(lang, "Error: model not found", dn), http.StatusNotFound)
 		return // not found error: model not found in model catalog
 	}
 
@@ -99,8 +106,8 @@ func userViewDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	err := os.Remove(filepath.Join(theCfg.homeDir, fName))
 	if err != nil {
 		if !os.IsNotExist(err) {
-			omppLog.Log("Error: unable to delete file ", fName, err)
-			http.Error(w, "Error: unable to delete file "+fName, http.StatusInternalServerError)
+			omppLog.Log("Error: unable to delete file", fName, err)
+			http.Error(w, helper.MsgL(lang, "Error: unable to delete file", fName), http.StatusInternalServerError)
 			return // model view file read error
 		}
 	}

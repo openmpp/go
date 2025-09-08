@@ -25,6 +25,8 @@ import (
 //	POST /api/files/file?path=....
 func filesFileUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	p, src, err := getFilesPathParam(r, "path")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -35,32 +37,32 @@ func filesFileUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	saveToPath := filepath.Join(theCfg.filesDir, p)
 	dir, fName := filepath.Split(saveToPath)
 
-	ok, err := helper.IsDirExist(dir)
+	ok, err := helper.IsDir(dir)
 	if err != nil {
-		omppLog.Log("Error: invalid (or empty) directory: ", dir, " : ", src, " ", err.Error())
-		http.Error(w, "Invalid (or empty) file path: "+src, http.StatusBadRequest)
+		omppLog.Log("Error: invalid (or empty) directory:", dir, ":", src, err)
+		http.Error(w, helper.MsgL(lang, "Invalid (or empty) file path:", src), http.StatusBadRequest)
 		return
 	}
 	if !ok {
-		http.Error(w, "Invalid (or empty) folder path: "+src, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (or empty) folder path:", src), http.StatusBadRequest)
 		return
 	}
 
 	// parse multipart form: only single part expected with file.name file attached
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Error at multipart form open ", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at multipart form open"), http.StatusBadRequest)
 		return
 	}
 
 	// open next part
 	part, err := mr.NextPart()
 	if err == io.EOF {
-		http.Error(w, "Invalid (empty) next part of multipart form", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) next part of multipart form"), http.StatusBadRequest)
 		return
 	}
 	if err != nil {
-		http.Error(w, "Failed to get next part of multipart form: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to get next part of multipart form:", err), http.StatusBadRequest)
 		return
 	}
 	defer part.Close()
@@ -68,17 +70,17 @@ func filesFileUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// check file name: it should be the same as url parameter
 	fn := part.FileName()
 	if fn != fName {
-		http.Error(w, "Error: invalid (or empty) file name: "+fName+" ("+fn+")", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: invalid (or empty) file name:", fName, "("+fn+")"), http.StatusBadRequest)
 		return
 	}
 
 	// save file into user files
-	omppLog.Log("Upload of: ", fName)
+	omppLog.Log("Upload of:", fName)
 
 	err = helper.SaveTo(saveToPath, part)
 	if err != nil {
-		omppLog.Log("Error: unable to write into ", saveToPath, err)
-		http.Error(w, "Error: unable to write into "+fName, http.StatusInternalServerError)
+		omppLog.Log("Error: unable to write into", saveToPath, err)
+		http.Error(w, helper.MsgL(lang, "Error: unable to write into", fName), http.StatusInternalServerError)
 		return
 	}
 
@@ -87,8 +89,8 @@ func filesFileUploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.ToLower(ext) == ".zip" {
 
 		if err = helper.UnpackZip(saveToPath, false, strings.TrimSuffix(saveToPath, ext)); err != nil {
-			omppLog.Log("Error: unable to unzip ", saveToPath, err)
-			http.Error(w, "Error: unable to unzip "+src, http.StatusInternalServerError)
+			omppLog.Log("Error: unable to unzip", saveToPath, err)
+			http.Error(w, helper.MsgL(lang, "Error: unable to unzip", src), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -119,10 +121,12 @@ func filesTreeGetHandler(w http.ResponseWriter, r *http.Request) {
 // if isExt is true then request should have "ext" extnsion filter parameter
 func doFileTreeGet(rootDir string, isAllowEmptyPath bool, pathParam string, isExt bool, w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// optional url or query parameters: sub-folder path and files extension
 	src := getRequestParam(r, pathParam)
 	if pathParam == "" || src == "" && !isAllowEmptyPath || src == "." || src == ".." {
-		http.Error(w, "Folder name invalid (or empty): "+src, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Folder name invalid (or empty):", src), http.StatusBadRequest)
 		return
 	}
 	folder := src
@@ -131,14 +135,14 @@ func doFileTreeGet(rootDir string, isAllowEmptyPath bool, pathParam string, isEx
 	if isExt {
 		extCsv = getRequestParam(r, "ext")
 		if extCsv == "" || extCsv == "." || extCsv == ".." {
-			http.Error(w, "Files extension invalid (or empty): "+extCsv, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Files extension invalid (or empty):", extCsv), http.StatusBadRequest)
 			return
 		}
 		if extCsv == "_" || extCsv == "*" { // _ extension means * any extension
 			extCsv = ""
 		}
 		if strings.ContainsAny(extCsv, helper.InvalidFileNameChars) {
-			http.Error(w, "Files extension invalid (or empty): "+extCsv, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Files extension invalid (or empty):", extCsv), http.StatusBadRequest)
 			return
 		}
 	}
@@ -148,22 +152,22 @@ func doFileTreeGet(rootDir string, isAllowEmptyPath bool, pathParam string, isEx
 
 		folder = filepath.Clean(folder)
 		if folder == "." || folder == ".." || !filepath.IsLocal(folder) {
-			http.Error(w, "Folder name invalid (or empty): "+src, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Folder name invalid (or empty):", src), http.StatusBadRequest)
 			return
 		}
 
 		// folder path should not contain invalid characters
 		if strings.ContainsAny(folder, helper.InvalidFilePathChars) {
-			http.Error(w, "Folder name invalid (or empty): "+src, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Folder name invalid (or empty):", src), http.StatusBadRequest)
 			return
 		}
 	}
 
 	// get files tree
-	treeLst, err := filesWalk(rootDir, folder, extCsv, true)
+	treeLst, err := filesWalk(rootDir, folder, extCsv, true, lang)
 	if err != nil {
-		omppLog.Log("Error: ", err.Error())
-		http.Error(w, "Error at folder scan: "+folder, http.StatusBadRequest)
+		omppLog.Log("Error:", err)
+		http.Error(w, helper.MsgL(lang, "Error at folder scan:", folder), http.StatusBadRequest)
 		return
 	}
 
@@ -174,7 +178,7 @@ func doFileTreeGet(rootDir string, isAllowEmptyPath bool, pathParam string, isEx
 // rootDir top removed from the path results.
 // if extCsv is not empty then filtered by extensions in comma separated list.
 // if isTree is true then return files tree else files path list.
-func filesWalk(rootDir, folder string, extCsv string, isTree bool) ([]PathItem, error) {
+func filesWalk(rootDir, folder string, extCsv string, isTree bool, lang string) ([]PathItem, error) {
 
 	// parse comma separated list of extensions, if it is empty "" string then add all files, do not filter by extension
 	eLst := []string{}
@@ -199,7 +203,7 @@ func filesWalk(rootDir, folder string, extCsv string, isTree bool) ([]PathItem, 
 
 	// check if folder path exist under the root dir
 	folderPath := filepath.Join(rootDir, folder)
-	if !dirExist(folderPath) {
+	if !helper.IsDirExist(folderPath) {
 		return nil, errors.New("Folder not found: " + folder)
 	}
 	rDir := filepath.ToSlash(rootDir)
@@ -209,7 +213,7 @@ func filesWalk(rootDir, folder string, extCsv string, isTree bool) ([]PathItem, 
 	treeLst := []PathItem{}
 	err := filepath.Walk(folderPath, func(path string, fi fs.FileInfo, err error) error {
 		if err != nil {
-			omppLog.Log("Error at directory walk: ", path, " : ", err.Error())
+			omppLog.Log("Error at directory walk:", path, " :", err)
 			return err
 		}
 		p := filepath.ToSlash(path)
@@ -261,7 +265,7 @@ func filesWalk(rootDir, folder string, extCsv string, isTree bool) ([]PathItem, 
 				pm[d] = true
 
 				// get directory stat, ignoring error can potentially lead to incorrect tree
-				if fi, e := dirStat(filepath.Join(rootDir, filepath.FromSlash(d))); e == nil {
+				if fi, e := helper.DirStat(filepath.Join(rootDir, filepath.FromSlash(d))); e == nil {
 					addLst = append(addLst, PathItem{
 						Path:    d,
 						IsDir:   fi.IsDir(),
@@ -293,6 +297,8 @@ func filesWalk(rootDir, folder string, extCsv string, isTree bool) ([]PathItem, 
 //	PUT /api/files/folder/:path
 func filesFolderCreatePutHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	_, folder, err := getFilesPathParam(r, "path")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -303,8 +309,8 @@ func filesFolderCreatePutHandler(w http.ResponseWriter, r *http.Request) {
 	folderPath := filepath.Join(theCfg.filesDir, folder)
 
 	if err := os.MkdirAll(folderPath, 0750); err != nil {
-		omppLog.Log("Error at creating folder: ", folderPath, " ", err.Error())
-		http.Error(w, "Error at creating folder: "+folder, http.StatusInsufficientStorage)
+		omppLog.Log("Error at creating folder:", folderPath, err)
+		http.Error(w, helper.MsgL(lang, "Error at creating folder:", folder), http.StatusInsufficientStorage)
 		return
 	}
 
@@ -317,6 +323,8 @@ func filesFolderCreatePutHandler(w http.ResponseWriter, r *http.Request) {
 //	DELETE /api/files/delete/:path
 func filesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	_, folder, err := getFilesPathParam(r, "path")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -327,14 +335,14 @@ func filesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	folderPath := filepath.Join(theCfg.filesDir, folder)
 
 	if isReservedFilesPath(folderPath) {
-		omppLog.Log("Error: unable to delete: ", folderPath)
-		http.Error(w, "Error: unable to delete: "+folder, http.StatusBadRequest)
+		omppLog.Log("Error: unable to delete:", folderPath)
+		http.Error(w, helper.MsgL(lang, "Error: unable to delete:", folder), http.StatusBadRequest)
 		return
 	}
 	// remove folder(s)
 	if err := os.RemoveAll(folderPath); err != nil {
-		omppLog.Log("Error at deleting folder: ", folderPath, " ", err.Error())
-		http.Error(w, "Error at deleting folder: "+folder, http.StatusInsufficientStorage)
+		omppLog.Log("Error at deleting folder:", folderPath, err)
+		http.Error(w, helper.MsgL(lang, "Error at deleting folder:", folder), http.StatusInsufficientStorage)
 		return
 	}
 
@@ -347,11 +355,13 @@ func filesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	DELETE /api/files/delete-all
 func filesAllDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// get list of files under user files root
 	pLst, err := filepath.Glob(theCfg.filesDir + "/*")
 	if err != nil {
-		omppLog.Log("Error at user files directory scan: ", theCfg.filesDir+"/*", " ", err.Error())
-		http.Error(w, "Error at user files directory scan", http.StatusBadRequest)
+		omppLog.Log("Error at user files directory scan:", theCfg.filesDir+"/*", err)
+		http.Error(w, helper.MsgL(lang, "Error at user files directory scan"), http.StatusBadRequest)
 		return
 	}
 
@@ -362,8 +372,8 @@ func filesAllDeleteHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if err = os.RemoveAll(pLst[k]); err != nil {
-			omppLog.Log("Error: unable to delete: ", pLst[k])
-			http.Error(w, "Error: unable to delete: "+pLst[k], http.StatusBadRequest)
+			omppLog.Log("Error: unable to delete:", pLst[k])
+			http.Error(w, helper.MsgL(lang, "Error: unable to delete:", pLst[k]), http.StatusBadRequest)
 			return
 		}
 	}
@@ -382,19 +392,21 @@ func isReservedFilesPath(path string) bool {
 // get and validate path parameter from url or query parameter, return error if it is empty or . or .. or invalid
 func getFilesPathParam(r *http.Request, name string) (string, string, error) {
 
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
 	// url or query parameter folder required
 	src := getRequestParam(r, name)
 	if src == "" || src == "." || src == ".." {
-		return "", src, errors.New("Folder name invalid (or empty): " + src)
+		return "", src, helper.ErrorNewL(lang, "Folder name invalid (or empty):", src)
 	}
 
 	// folder path should be local, not absolute and shoud not contain invalid characters
 	folder := filepath.Clean(src)
 	if folder == "." || folder == ".." || !filepath.IsLocal(folder) {
-		return "", src, errors.New("Folder name invalid (or empty): " + src)
+		return "", src, helper.ErrorNewL(lang, "Folder name invalid (or empty):", src)
 	}
 	if strings.ContainsAny(folder, helper.InvalidFilePathChars) {
-		return "", src, errors.New("Folder name invalid (or empty): " + src)
+		return "", src, helper.ErrorNewL(lang, "Folder name invalid (or empty):", src)
 	}
 
 	return folder, src, nil

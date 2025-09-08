@@ -6,7 +6,6 @@ package helper
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 )
@@ -20,7 +19,7 @@ func FromJsonFile(jsonPath string, dst interface{}) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil // return: json file not exist
 		}
-		return false, errors.New("json file open error: " + err.Error())
+		return false, ErrorNew("json file open error:", err)
 	}
 	defer f.Close()
 
@@ -28,7 +27,7 @@ func FromJsonFile(jsonPath string, dst interface{}) (bool, error) {
 	// assume utf-8 as default encoding on any OS because json file must be unicode and cannot be "windows code page"
 	rd, err := Utf8Reader(f, "utf-8")
 	if err != nil {
-		return false, errors.New("json file read error: " + err.Error())
+		return false, ErrorNew("json file read error:", err)
 	}
 
 	// decode json
@@ -37,7 +36,7 @@ func FromJsonFile(jsonPath string, dst interface{}) (bool, error) {
 		if err == io.EOF {
 			return false, nil // return "not exist" if json file empty
 		}
-		return false, errors.New("json decode error: " + err.Error())
+		return false, ErrorNew("json decode error:", err)
 	}
 	return true, nil
 }
@@ -50,7 +49,7 @@ func FromJson(srcJson []byte, dst interface{}) (bool, error) {
 		if err == io.EOF {
 			return false, nil // return "not exist" if json empty
 		}
-		return false, errors.New("json decode error: " + err.Error())
+		return false, ErrorNew("json decode error:", err)
 	}
 	return true, nil
 }
@@ -60,13 +59,13 @@ func ToJsonFile(jsonPath string, src interface{}) error {
 
 	f, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		return errors.New("json file create error: " + err.Error())
+		return ErrorNew("json file create error:", err)
 	}
 	defer f.Close()
 
 	err = json.NewEncoder(f).Encode(src)
 	if err != nil {
-		return errors.New("json encode error: " + err.Error())
+		return ErrorNew("json encode error:", err)
 	}
 	return nil
 }
@@ -76,7 +75,7 @@ func ToJsonIndent(src interface{}) (string, error) {
 
 	srcJson, err := json.MarshalIndent(src, "", "  ")
 	if err != nil {
-		return "", errors.New("json marshal indent error: " + err.Error())
+		return "", ErrorNew("json marshal indent error:", err)
 	}
 	return string(srcJson), nil
 }
@@ -86,7 +85,7 @@ func ToJsonIndentFile(jsonPath string, src interface{}) error {
 
 	f, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		return errors.New("json file create error: " + err.Error())
+		return ErrorNew("json file create error:", err)
 	}
 	defer f.Close()
 
@@ -95,7 +94,7 @@ func ToJsonIndentFile(jsonPath string, src interface{}) error {
 
 	err = enc.Encode(src)
 	if err != nil {
-		return errors.New("json encode error: " + err.Error())
+		return ErrorNew("json encode error:", err)
 	}
 	return nil
 }

@@ -123,8 +123,12 @@ Following arguments supporetd by oms:
 
 -oms.Languages en
 
-	comma-separated list of supported languages, default: en.
+	comma-separated list of supported languages, default: current user OS language.
 	That list is matched with request language list and model language list in order to return proper text results.
+
+-OpenM.MessageLanguage fr-CA
+
+	prefered oms output messages language, default: current user OS language.
 
 -oms.DoubleFormat %.15g
 
@@ -174,31 +178,32 @@ import (
 
 // config keys to get values from ini-file or command line arguments.
 const (
-	listenArgKey       = "oms.Listen"         // address to listen, default: localhost:4040
-	listenShortKey     = "l"                  // address to listen (short form)
-	omsNameArgKey      = "oms.Name"           // oms instance name, if empty then derived from address to listen
-	urlFileArgKey      = "oms.UrlSaveTo"      // file path to save oms URL in form of: http://localhost:4040, if relative then must be relative to oms root directory
-	pidFileArgKey      = "oms.PidSaveTo"      // file path to save oms processs ID, if relative then must be relative to oms root directory
-	rootDirArgKey      = "oms.RootDir"        // oms root directory, expected to contain log subfolder
-	modelDirArgKey     = "oms.ModelDir"       // models executable and model.sqlite directory, if relative then must be relative to oms root directory
-	modelLogDirArgKey  = "oms.ModelLogDir"    // models log directory, if relative then must be relative to oms root directory
-	modelDocDirArgKey  = "oms.ModelDocDir"    // models documentation directory, if relative then must be relative to oms root directory
-	etcDirArgKey       = "oms.EtcDir"         // configuration files directory, if relative then must be relative to oms root directory
-	htmlDirArgKey      = "oms.HtmlDir"        // front-end UI directory, if relative then must be relative to oms root directory
-	jobDirArgKey       = "oms.JobDir"         // job control directory, if relative then must be relative to oms root directory
-	homeDirArgKey      = "oms.HomeDir"        // user personal home directory, if relative then must be relative to oms root directory
-	isDownloadArgKey   = "oms.AllowDownload"  // if true then allow download from user home sub-directory: home/io/download
-	isUploadArgKey     = "oms.AllowUpload"    // if true then allow upload to user home sub-directory: home/io/upload
-	filesDirArgKey     = "oms.FilesDir"       // user files directory, if relative then must be relative to oms root directory, if user home exists then: home/io
-	isMicrodataArgKey  = "oms.AllowMicrodata" // if true then allow model run microdata
-	logRequestArgKey   = "oms.LogRequest"     // if true then log http request
-	apiOnlyArgKey      = "oms.ApiOnly"        // if true then API only web-service, no web UI
-	adminAllArgKey     = "oms.AdminAll"       // if true then allow global administrative routes: /admin-all/
-	noAdminArgKey      = "oms.NoAdmin"        // if true then disable loca administrative routes: /admin/
-	noShutdownArgKey   = "oms.NoShutdown"     // if true then disable shutdown route: /shutdown/
-	uiLangsArgKey      = "oms.Languages"      // list of supported languages
-	encodingArgKey     = "oms.CodePage"       // code page for converting source files, e.g. windows-1252
-	doubleFormatArgKey = "oms.DoubleFormat"   // format to convert float or double value to string, e.g. %.15g
+	listenArgKey       = "oms.Listen"            // address to listen, default: localhost:4040
+	listenShortKey     = "l"                     // address to listen (short form)
+	omsNameArgKey      = "oms.Name"              // oms instance name, if empty then derived from address to listen
+	urlFileArgKey      = "oms.UrlSaveTo"         // file path to save oms URL in form of: http://localhost:4040, if relative then must be relative to oms root directory
+	pidFileArgKey      = "oms.PidSaveTo"         // file path to save oms processs ID, if relative then must be relative to oms root directory
+	rootDirArgKey      = "oms.RootDir"           // oms root directory, expected to contain log subfolder
+	modelDirArgKey     = "oms.ModelDir"          // models executable and model.sqlite directory, if relative then must be relative to oms root directory
+	modelLogDirArgKey  = "oms.ModelLogDir"       // models log directory, if relative then must be relative to oms root directory
+	modelDocDirArgKey  = "oms.ModelDocDir"       // models documentation directory, if relative then must be relative to oms root directory
+	etcDirArgKey       = "oms.EtcDir"            // configuration files directory, if relative then must be relative to oms root directory
+	htmlDirArgKey      = "oms.HtmlDir"           // front-end UI directory, if relative then must be relative to oms root directory
+	jobDirArgKey       = "oms.JobDir"            // job control directory, if relative then must be relative to oms root directory
+	homeDirArgKey      = "oms.HomeDir"           // user personal home directory, if relative then must be relative to oms root directory
+	isDownloadArgKey   = "oms.AllowDownload"     // if true then allow download from user home sub-directory: home/io/download
+	isUploadArgKey     = "oms.AllowUpload"       // if true then allow upload to user home sub-directory: home/io/upload
+	filesDirArgKey     = "oms.FilesDir"          // user files directory, if relative then must be relative to oms root directory, if user home exists then: home/io
+	isMicrodataArgKey  = "oms.AllowMicrodata"    // if true then allow model run microdata
+	logRequestArgKey   = "oms.LogRequest"        // if true then log http request
+	apiOnlyArgKey      = "oms.ApiOnly"           // if true then API only web-service, no web UI
+	adminAllArgKey     = "oms.AdminAll"          // if true then allow global administrative routes: /admin-all/
+	noAdminArgKey      = "oms.NoAdmin"           // if true then disable loca administrative routes: /admin/
+	noShutdownArgKey   = "oms.NoShutdown"        // if true then disable shutdown route: /shutdown/
+	uiLangsArgKey      = "oms.Languages"         // comma-separated list of supported languages
+	msgLangArgKey      = "OpenM.MessageLanguage" // oms prefered output messages language, e.g. fr-CA
+	encodingArgKey     = "oms.CodePage"          // code page for converting source files, e.g. windows-1252
+	doubleFormatArgKey = "oms.DoubleFormat"      // format to convert float or double value to string, e.g. %.15g
 )
 
 // server run configuration
@@ -255,7 +260,7 @@ func main() {
 
 	err := mainBody(os.Args)
 	if err != nil {
-		omppLog.Log(err.Error())
+		omppLog.LogNoLT(err)
 		os.Exit(1)
 	}
 	omppLog.Log("Done.") // compeleted OK
@@ -286,7 +291,8 @@ func mainBody(args []string) error {
 	_ = flag.Bool(adminAllArgKey, false, "if true then allow global administrative routes: /admin-all/")
 	_ = flag.Bool(noAdminArgKey, false, "if true then disable loca administrative routes: /admin/")
 	_ = flag.Bool(noShutdownArgKey, false, "if true then disable shutdown route: /shutdown/")
-	_ = flag.String(uiLangsArgKey, "en", "comma-separated list of supported languages")
+	_ = flag.String(uiLangsArgKey, "", "comma-separated list of supported languages")
+	_ = flag.String(msgLangArgKey, "", "oms output messages language, e.g.: fr-CA, default: current user OS language")
 	_ = flag.String(encodingArgKey, "", "code page to convert source file into utf-8, e.g.: windows-1252")
 	_ = flag.String(doubleFormatArgKey, theCfg.doubleFmt, "format to convert float or double value to string")
 	_ = flag.String(pidFileArgKey, "", "file path to save OMS process ID")
@@ -299,7 +305,7 @@ func mainBody(args []string) error {
 	// parse command line arguments and ini-file
 	runOpts, logOpts, err := config.New(encodingArgKey, false, optFs)
 	if err != nil {
-		return errors.New("Invalid arguments: " + err.Error())
+		return helper.ErrorNew("Invalid arguments:", err)
 	}
 	isLogRequest = runOpts.Bool(logRequestArgKey)
 	isApiOnly := runOpts.Bool(apiOnlyArgKey)
@@ -323,40 +329,50 @@ func mainBody(args []string) error {
 	// change to root directory
 	selfPath, err := filepath.Abs(args[0])
 	if err != nil {
-		return errors.New("Error: unable to make absolute path to oms: " + err.Error())
+		return helper.ErrorNew("Error: unable to make absolute path to oms:", err)
 	}
 	theCfg.omsBinDir = filepath.Dir(selfPath)
+
+	// get prefered oms language
+	mLang := runOpts.String(msgLangArgKey)
+
+	if mLang == "" { // get default user language
+
+		mLang, err = locale.GetLocale()
+		if err != nil {
+			omppLog.Log("Warning: unable to get user default language")
+		}
+	}
+
+	// load translated strings from oms.message.ini
+	_, iniLangs, err := omppLog.LoadMessageIni("oms", theCfg.omsBinDir, mLang, theCfg.encodingName)
+	if err != nil {
+		omppLog.LogNoLT("Error at loading oms.message.ini or go-common.message.ini:", err)
+	}
 
 	// set UI languages to find model text in browser language
 	// check if oms.Languages option specified
 	lNames := helper.ParseCsvLine(runOpts.String(uiLangsArgKey), ',')
 
-	// add languages from go-common.message.ini to the list of UI languages
-	if cmIni, e := config.ReadSharedMessageIni("go-common", theCfg.omsBinDir, theCfg.encodingName); e == nil {
-		scLst := helper.IniSectionList(cmIni)
-
-		for _, sl := range scLst {
-			if slices.IndexFunc(lNames, func(ln string) bool { return strings.EqualFold(ln, sl) }) < 0 {
-				lNames = append(lNames, scLst...)
-			}
+	for _, sl := range iniLangs {
+		if slices.IndexFunc(lNames, func(ln string) bool { return strings.EqualFold(ln, sl) }) < 0 {
+			lNames = append(lNames, sl)
 		}
 	}
-
 	var lt []language.Tag
 	for _, ln := range lNames {
 		if ln != "" {
 			lt = append(lt, language.Make(ln))
 		}
 	}
-	// use OS default language, it may be not UI prefered language if oms running on the server
-	if len(lt) <= 0 {
-		if osl, e := locale.GetLocale(); e == nil {
-			ost := language.Make(osl)
-			if ost != language.Und {
-				lt = []language.Tag{ost}
-			}
+	// add prefered language, it may OS language and not a user preferd language if oms running on the server
+	if len(lt) <= 0 && mLang != "" {
+		if pt := language.Make(mLang); pt != language.Und {
+			lt = []language.Tag{pt}
 		}
+
 	}
+
 	if len(lt) <= 0 {
 		lt = []language.Tag{language.English} // use English if no other options
 	}
@@ -367,7 +383,7 @@ func mainBody(args []string) error {
 
 	if theCfg.rootDir != "" && theCfg.rootDir != "." {
 		if err := os.Chdir(theCfg.rootDir); err != nil {
-			return errors.New("Error: unable to change directory: " + err.Error())
+			return helper.ErrorNew("Error: unable to change directory:", err)
 		}
 	}
 	omppLog.New(logOpts) // adjust log options, log path can be relative to root directory
@@ -380,13 +396,13 @@ func mainBody(args []string) error {
 	modelDir := filepath.Clean(runOpts.String(modelDirArgKey))
 	if modelDir == "" || modelDir == "." {
 		modelDir = ""
-		return errors.New("Error: model directory argument cannot be empty or . dot")
+		return helper.ErrorNew("Error: model directory argument cannot be empty or . dot")
 	}
 	omppLog.Log("Models directory:     ", modelDir)
 
 	modelLogDir := filepath.Clean(runOpts.String(modelLogDirArgKey))
 	modelLogDir = strings.TrimSuffix(modelLogDir, string(filepath.Separator))
-	if modelLogDir != "" && modelLogDir != "." && dirExist(modelLogDir) {
+	if modelLogDir != "" && modelLogDir != "." && helper.IsDirExist(modelLogDir) {
 		omppLog.Log("Models log directory: ", modelLogDir)
 	} else {
 		modelLogDir = "" // dot . log directory does not allowed
@@ -400,8 +416,8 @@ func mainBody(args []string) error {
 	theCfg.docDir = filepath.Clean(runOpts.String(modelDocDirArgKey))
 	theCfg.docDir = strings.TrimSuffix(theCfg.docDir, string(filepath.Separator))
 
-	if theCfg.docDir == "." || !dirExist(theCfg.docDir) {
-		omppLog.Log("Warning: model documentation directory not found or invalid: ", theCfg.docDir)
+	if theCfg.docDir == "." || !helper.IsDirExist(theCfg.docDir) {
+		omppLog.Log("Warning: model documentation directory not found or invalid:", theCfg.docDir)
 		theCfg.docDir = ""
 	} else {
 		omppLog.Log("Models documentation: ", theCfg.docDir)
@@ -413,8 +429,8 @@ func mainBody(args []string) error {
 		theCfg.homeDir = filepath.Clean(runOpts.String(homeDirArgKey))
 		theCfg.homeDir = strings.TrimSuffix(theCfg.homeDir, string(filepath.Separator))
 
-		if theCfg.homeDir == "." || !dirExist(theCfg.homeDir) {
-			omppLog.Log("Warning: user home directory not found or invalid: ", theCfg.homeDir)
+		if theCfg.homeDir == "." || !helper.IsDirExist(theCfg.homeDir) {
+			omppLog.Log("Warning: user home directory not found or invalid:", theCfg.homeDir)
 			theCfg.homeDir = ""
 		}
 		theCfg.isHome = theCfg.homeDir != ""
@@ -424,7 +440,7 @@ func mainBody(args []string) error {
 
 			theCfg.inOutDir = filepath.Join(theCfg.homeDir, "io") // download and upload directory for web-server, to serve static content
 
-			if theCfg.inOutDir == "." || !dirExist(theCfg.inOutDir) {
+			if theCfg.inOutDir == "." || !helper.IsDirExist(theCfg.inOutDir) {
 				theCfg.inOutDir = ""
 			}
 		}
@@ -442,7 +458,7 @@ func mainBody(args []string) error {
 
 			theCfg.downloadDir = filepath.Join(theCfg.inOutDir, "download") // download directory UI
 
-			if !dirExist(theCfg.downloadDir) {
+			if !helper.IsDirExist(theCfg.downloadDir) {
 				theCfg.downloadDir = ""
 			}
 		}
@@ -459,7 +475,7 @@ func mainBody(args []string) error {
 
 			theCfg.uploadDir = filepath.Join(theCfg.inOutDir, "upload") // upload directory UI
 
-			if !dirExist(theCfg.uploadDir) {
+			if !helper.IsDirExist(theCfg.uploadDir) {
 				theCfg.uploadDir = ""
 			}
 		}
@@ -478,8 +494,8 @@ func mainBody(args []string) error {
 		theCfg.filesDir = filepath.Clean(runOpts.String(filesDirArgKey))
 		theCfg.filesDir = strings.TrimSuffix(theCfg.filesDir, string(filepath.Separator))
 
-		if theCfg.filesDir == "." || !dirExist(theCfg.filesDir) {
-			omppLog.Log("Warning: user files directory not found or invalid: ", theCfg.filesDir)
+		if theCfg.filesDir == "." || !helper.IsDirExist(theCfg.filesDir) {
+			omppLog.Log("Warning: user files directory not found or invalid:", theCfg.filesDir)
 			theCfg.filesDir = ""
 		}
 	} else {
@@ -494,9 +510,9 @@ func mainBody(args []string) error {
 	// if UI required then server root directory must have html subdir
 	if !isApiOnly {
 		theCfg.htmlDir = runOpts.String(htmlDirArgKey)
-		if !dirExist(theCfg.htmlDir) {
+		if !helper.IsDirExist(theCfg.htmlDir) {
 			isApiOnly = true
-			omppLog.Log("Warning: serving API only because UI directory not found: ", theCfg.htmlDir)
+			omppLog.Log("Warning: serving API only because UI directory not found:", theCfg.htmlDir)
 		} else {
 			omppLog.Log("HTML UI directory:    ", theCfg.htmlDir)
 		}
@@ -504,8 +520,8 @@ func mainBody(args []string) error {
 
 	// etc subdirectory required to run MPI models
 	theCfg.etcDir = runOpts.String(etcDirArgKey)
-	if !dirExist(theCfg.etcDir) {
-		omppLog.Log("Warning: configuration files directory not found, it is required to run models on MPI cluster: ", filepath.Join(theCfg.etcDir))
+	if !helper.IsDirExist(theCfg.etcDir) {
+		omppLog.Log("Warning: configuration files directory not found, it is required to run models on MPI cluster:", filepath.Join(theCfg.etcDir))
 	} else {
 		omppLog.Log("Etc directory:        ", theCfg.etcDir)
 	}
@@ -526,10 +542,10 @@ func mainBody(args []string) error {
 	theCfg.jobDir = runOpts.String(jobDirArgKey)
 	theCfg.isJobControl, theCfg.isJobPast, err = jobDirValid(theCfg.jobDir)
 	if err != nil {
-		return errors.New("Error: invalid job control directory" + ": " + err.Error())
+		return helper.ErrorNew("Error: invalid job control directory:", err)
 	}
 	if !theCfg.isJobControl && theCfg.jobDir != "" {
-		return errors.New("Error: invalid job control directory" + ": " + theCfg.jobDir)
+		return helper.ErrorNew("Error: invalid job control directory:" + theCfg.jobDir)
 	}
 	if theCfg.isJobControl {
 		omppLog.Log("Jobs directory:       ", theCfg.jobDir)
@@ -649,19 +665,19 @@ func mainBody(args []string) error {
 	// start to listen at specified TCP address
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		omppLog.Log("Error at start of TCP listen: ", addr)
+		omppLog.Log("Error at start of TCP listen:", addr)
 		return err
 	}
 	ta, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
-		return errors.New("Error: unable to find TCP port of: " + addr)
+		return errors.New("Error: unable to find TCP port of:" + addr)
 	}
 	localUrl := "http://localhost:" + strconv.Itoa(ta.Port)
 
 	// if url file path specified then write oms url into that url file
 	if urlFile := runOpts.String(urlFileArgKey); urlFile != "" {
 		if err = os.WriteFile(urlFile, []byte(localUrl), 0644); err != nil {
-			omppLog.Log("Error at writing into: ", urlFile)
+			omppLog.Log("Error at writing into:", urlFile)
 			return err
 		}
 	}
@@ -670,7 +686,7 @@ func mainBody(args []string) error {
 	if pidFile := runOpts.String(pidFileArgKey); pidFile != "" {
 		pid := os.Getpid()
 		if err = os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
-			omppLog.Log("Error writing PID to file: ", pidFile)
+			omppLog.Log("Error writing PID to file:", pidFile)
 			return err
 		}
 	}
@@ -678,7 +694,7 @@ func mainBody(args []string) error {
 	// initialization completed, notify user and start the server
 	omppLog.Log("Listen at ", addr)
 	if !isApiOnly {
-		omppLog.Log("To start open in your browser: ", localUrl)
+		omppLog.Log("To start open in your browser:", localUrl)
 	}
 	omppLog.Log("To finish press Ctrl+C")
 
@@ -693,7 +709,7 @@ func mainBody(args []string) error {
 	// wait for shutdown or Ctrl+C interupt signal
 	<-ctx.Done()
 	if e := srv.Shutdown(context.Background()); e != nil && e != http.ErrServerClosed {
-		omppLog.Log("Shutdown error: ", e)
+		omppLog.LogNoLT("Shutdown error:", e)
 	} else {
 		// shutdown completed without error: clean main error code
 		if err == http.ErrServerClosed {
@@ -717,9 +733,9 @@ func exitOnPanic() {
 	}
 	switch e := r.(type) {
 	case error:
-		omppLog.Log(e.Error())
+		omppLog.LogNoLT(e)
 	case string:
-		omppLog.Log(e)
+		omppLog.LogNoLT(e)
 	default:
 		omppLog.Log("FAILED")
 	}

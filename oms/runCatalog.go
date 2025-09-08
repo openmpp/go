@@ -353,7 +353,7 @@ func (rsc *RunCatalog) refreshCatalog(etcDir string, jsc *jobControlState) error
 // read from etc directory model run template files and  run options preset files
 func (rsc *RunCatalog) updateEtcModelConfig(etcDir string) {
 
-	if !dirExist(etcDir) {
+	if !helper.IsDirExist(etcDir) {
 		return
 	}
 

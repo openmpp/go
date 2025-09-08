@@ -787,7 +787,7 @@ func mainBody(args []string) error {
 	if theCfg.isNoLang {
 		mLang = ""
 	}
-	if _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, mLang, theCfg.encodingName); err != nil {
+	if _, _, err = omppLog.LoadMessageIni("dbget", theCfg.binDir, mLang, theCfg.encodingName); err != nil {
 		omppLog.Log("Error at loading dbget.message.ini or go-common.message.ini:", err)
 	}
 

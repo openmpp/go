@@ -125,7 +125,7 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 
 		err := filepath.Walk(mDir, func(path string, fi fs.FileInfo, err error) error {
 			if err != nil {
-				omppLog.Log("Error at directory walk: ", path, " : ", err.Error())
+				omppLog.Log("Error at directory walk:", path, ":", err)
 				return err
 			}
 			if fi.IsDir() {
@@ -141,7 +141,7 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 			// it is a database file: get path, size and mod time
 			rp, e := filepath.Rel(mDir, path)
 			if e != nil {
-				omppLog.Log("Error at directory walk: ", path, " : ", e.Error())
+				omppLog.Log("Error at directory walk:", path, ":", e)
 				return e
 			}
 			nSize := fi.Size()
@@ -158,7 +158,7 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 			return nil
 		})
 		if err != nil {
-			// omppLog.Log("Error at directory walk: ", folderPath, " :", err.Error())
+			// omppLog.Log("Error at directory walk:", folderPath, " :", err)
 		}
 
 		// for currently open model.sqlite databases set model digest
@@ -180,7 +180,7 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 
 			err := filepath.Walk(folderPath, func(path string, fi fs.FileInfo, err error) error {
 				if err != nil {
-					omppLog.Log("Error at directory walk: ", path, " : ", err.Error())
+					omppLog.Log("Error at directory walk:", path, ":", err)
 					return err
 				}
 				if !fi.IsDir() {
@@ -189,7 +189,7 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 				return nil
 			})
 			if err != nil {
-				// omppLog.Log("Error at directory walk: ", folderPath, " :", err.Error())
+				// omppLog.Log("Error at directory walk:", folderPath, ":", err)
 			}
 			return nTotal
 		}
@@ -277,7 +277,7 @@ func initDiskState(diskIniPath string) (bool, diskUseConfig) {
 
 	opts, err := config.FromIni(diskIniPath, theCfg.encodingName)
 	if err != nil {
-		omppLog.Log(err)
+		omppLog.LogNoLT(err)
 		return false, cfg
 	}
 

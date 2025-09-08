@@ -328,7 +328,7 @@ const (
 	doubleFormatArgKey  = "dbcopy.DoubleFormat"      // convert to string format for float and double
 	encodingArgKey      = "dbcopy.CodePage"          // code page for converting source files, e.g. windows-1252
 	useUtf8CsvArgKey    = "dbcopy.Utf8BomIntoCsv"    // if true then write utf-8 BOM into csv file
-	langArgKey          = "OpenM.MessageLanguage"    // output messages language, e.g. fr-CA
+	msgLangArgKey       = "OpenM.MessageLanguage"    // output messages language, e.g. fr-CA
 	pidFileArgKey       = "dbcopy.PidSaveTo"         // file path to save dbcopy processs ID
 )
 
@@ -415,7 +415,7 @@ func mainBody(args []string) error {
 	_ = flag.String(doubleFormatArgKey, theCfg.doubleFmt, "convert to string format for float and double")
 	_ = flag.Bool(useUtf8CsvArgKey, theCfg.isWriteUtf8Bom, "if true then write utf-8 BOM into csv file")
 	_ = flag.String(encodingArgKey, theCfg.encodingName, "code page to convert source file into utf-8, e.g.: windows-1252")
-	_ = flag.String(langArgKey, "", "output messages language, e.g.: fr-CA")
+	_ = flag.String(msgLangArgKey, "", "output messages language, e.g.: fr-CA")
 	_ = flag.String(pidFileArgKey, "", "file path to save dbcopy process ID")
 
 	// pairs of full and short argument names to map short name to full name
@@ -441,7 +441,7 @@ func mainBody(args []string) error {
 	binDir := filepath.Dir(selfPath)
 
 	// get default user language
-	mLang := runOpts.String(langArgKey)
+	mLang := runOpts.String(msgLangArgKey)
 
 	if mLang == "" { // get default user language
 
@@ -452,7 +452,7 @@ func mainBody(args []string) error {
 	}
 
 	// load translated strings from dbcopy.message.ini
-	if _, err = omppLog.LoadMessageIni("dbcopy", binDir, mLang, theCfg.encodingName); err != nil {
+	if _, _, err = omppLog.LoadMessageIni("dbcopy", binDir, mLang, theCfg.encodingName); err != nil {
 		omppLog.Log("Error at loading dbcopy.message.ini or go-common.message.ini:", err)
 	}
 

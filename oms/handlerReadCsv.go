@@ -82,6 +82,7 @@ func doParameterGetCsvHandler(w http.ResponseWriter, r *http.Request, srcArg str
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	src := getRequestParam(r, srcArg)  // workset name or run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // parameter name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// read parameter values, page size =0: read all values
 	layout := db.ReadParamLayout{
@@ -91,7 +92,7 @@ func doParameterGetCsvHandler(w http.ResponseWriter, r *http.Request, srcArg str
 	// get converter from cell list to csv rows []string
 	hdr, cvtRow, ok := theCatalog.ParameterToCsvConverter(dn, isCode, name)
 	if !ok {
-		http.Error(w, "Failed to create parameter csv converter "+src+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create parameter csv converter", src, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -101,7 +102,7 @@ func doParameterGetCsvHandler(w http.ResponseWriter, r *http.Request, srcArg str
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			http.Error(w, "Error at csv write: "+src+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", src, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -109,7 +110,7 @@ func doParameterGetCsvHandler(w http.ResponseWriter, r *http.Request, srcArg str
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		http.Error(w, "Error at csv write: "+src+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", src, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -135,7 +136,7 @@ func doParameterGetCsvHandler(w http.ResponseWriter, r *http.Request, srcArg str
 
 	_, ok = theCatalog.ReadParameterTo(dn, src, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at parameter read "+src+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at parameter read:", src, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
@@ -245,6 +246,7 @@ func doTableGetCsvHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllAc
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // output table name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// read output table values, page size =0: read all values
 	layout := db.ReadTableLayout{
@@ -256,7 +258,7 @@ func doTableGetCsvHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllAc
 	// get converter from cell list to csv rows []string
 	hdr, cvtRow, ok := theCatalog.TableToCsvConverter(dn, isCode, name, layout.IsAccum, layout.IsAllAccum)
 	if !ok {
-		http.Error(w, "Failed to create output table csv converter: "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create output table csv converter:", name), http.StatusBadRequest)
 		return
 	}
 
@@ -274,7 +276,7 @@ func doTableGetCsvHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllAc
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -282,7 +284,7 @@ func doTableGetCsvHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllAc
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -308,7 +310,7 @@ func doTableGetCsvHandler(w http.ResponseWriter, r *http.Request, isAcc, isAllAc
 
 	_, ok = theCatalog.ReadOutTableTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
@@ -359,9 +361,10 @@ func doTableCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // output table name
 	calc := getRequestParam(r, "calc") // calculation function name: sum avg count min max var sd se cv
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	if calc == "" {
-		http.Error(w, "Invalid (empty) calculation expression "+calc, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) calculation expression", calc), http.StatusBadRequest)
 		return
 	}
 
@@ -373,14 +376,14 @@ func doTableCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 
 	calcLt, ok := theCatalog.TableAggrExprCalculateLayout(dn, name, calc)
 	if !ok {
-		http.Error(w, "Invalid calculation expression "+calc, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid calculation expression", calc), http.StatusBadRequest)
 		return
 	}
 
 	// get converter from cell list to csv rows []string
 	hdr, cvtRow, _, runIds, ok := theCatalog.TableToCalcCsvConverter(dn, rdsn, isCode, name, calcLt, nil)
 	if !ok {
-		http.Error(w, "Failed to create output table csv converter: "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create output table csv converter:", name), http.StatusBadRequest)
 		return
 	}
 
@@ -390,7 +393,7 @@ func doTableCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -398,7 +401,7 @@ func doTableCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -424,7 +427,7 @@ func doTableCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 
 	_, ok = theCatalog.ReadOutTableCalculateTo(dn, rdsn, &tableLt, calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
@@ -501,14 +504,15 @@ func doTableCompareGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode,
 	name := getRequestParam(r, "name")       // output table name
 	compare := getRequestParam(r, "compare") // comparison function name: diff ratio percent
 	vr := getRequestParam(r, "variant")      // comma separated list of variant runs digest-or-stamp-or-name
+	lang := preferedRequestLang(r, "")       // get prefered language for messages
 
 	if compare == "" {
-		http.Error(w, "Invalid (empty) comparison expression", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) comparison expression"), http.StatusBadRequest)
 		return
 	}
 	vRdsn := helper.ParseCsvLine(vr, 0)
 	if len(vRdsn) <= 0 {
-		http.Error(w, "Invalid or empty list runs to compare", http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid or empty list of runs to compare"), http.StatusBadRequest)
 		return
 	}
 
@@ -520,14 +524,14 @@ func doTableCompareGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode,
 
 	calcLt, ok := theCatalog.TableExprCompareLayout(dn, name, compare)
 	if !ok {
-		http.Error(w, "Invalid comparison expression "+compare, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid comparison expression", compare), http.StatusBadRequest)
 		return
 	}
 
 	// get converter from cell list to csv rows []string
 	hdr, cvtRow, _, runIds, ok := theCatalog.TableToCalcCsvConverter(dn, rdsn, isCode, name, calcLt, vRdsn)
 	if !ok {
-		http.Error(w, "Failed to create output table csv converter: "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create output table csv converter:", name), http.StatusBadRequest)
 		return
 	}
 
@@ -537,7 +541,7 @@ func doTableCompareGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode,
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -545,7 +549,7 @@ func doTableCompareGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode,
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -571,7 +575,7 @@ func doTableCompareGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode,
 
 	_, ok = theCatalog.ReadOutTableCalculateTo(dn, rdsn, &tableLt, calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at run output table read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at run output table read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
@@ -616,17 +620,18 @@ func doMicrodataGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	dn := getRequestParam(r, "model")  // model digest-or-name
 	rdsn := getRequestParam(r, "run")  // run digest-or-stamp-or-name
 	name := getRequestParam(r, "name") // entity name
+	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
 	// get converter from cell list to csv rows []string
 	runId, genDigest, hdr, cvtRow, ok := theCatalog.MicrodataToCsvConverter(dn, isCode, rdsn, name)
 	if !ok {
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -645,7 +650,7 @@ func doMicrodataGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -653,7 +658,7 @@ func doMicrodataGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -679,7 +684,7 @@ func doMicrodataGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode, is
 
 	_, ok = theCatalog.ReadMicrodataTo(dn, rdsn, &layout, cvtWr)
 	if !ok {
-		http.Error(w, "Error at microdata read: "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at microdata read:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
@@ -745,19 +750,20 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 	name := getRequestParam(r, "name")                                // entity name
 	groupBy := helper.ParseCsvLine(getRequestParam(r, "group-by"), 0) // group by list of attributes, comma-separated
 	cLst := helper.ParseCsvLine(getRequestParam(r, calcKey), 0)       // list of aggregations or comparisons, comma-separated
+	lang := preferedRequestLang(r, "")                                // get prefered language for messages
 
 	// return error if microdata disabled
 	if !theCfg.isMicrodata {
-		http.Error(w, "Error: microdata not allowed: "+dn+" "+rdsn, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error: microdata not allowed:", dn, rdsn), http.StatusBadRequest)
 		return
 	}
 
 	if len(groupBy) <= 0 {
-		http.Error(w, "Invalid (empty) microdata group by attributes "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata group by attributes", name), http.StatusBadRequest)
 		return
 	}
 	if len(cLst) <= 0 {
-		http.Error(w, "Invalid (empty) microdata aggregation(s) and comparison(s) "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) microdata aggregation(s) and comparison(s)", name), http.StatusBadRequest)
 		return
 	}
 
@@ -786,8 +792,8 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 	// get base run id, run variants, entity generation digest and microdata cell converter
 	baseRunId, runIds, genDigest, cvtMicro, err := theCatalog.MicrodataCalcToCsvConverter(dn, isCode, rdsn, varLst, name, &calcLt)
 	if err != nil {
-		omppLog.Log("Failed to create microdata csv converter: ", rdsn, ": ", name, ": ", err.Error())
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+name, http.StatusBadRequest)
+		omppLog.Log("Failed to create microdata csv converter: ", rdsn, ":", name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -803,8 +809,8 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 	// make csv header
 	hdr, err := cvtMicro.CsvHeader()
 	if err != nil {
-		omppLog.Log("Failed to make microdata csv header: ", dn, ": ", name, ": ", err.Error())
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+name, http.StatusBadRequest)
+		omppLog.Log("Failed to make microdata csv header: ", dn, ":", name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -817,8 +823,8 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 		cvtRow, err = cvtMicro.ToCsvIdRow()
 	}
 	if err != nil {
-		omppLog.Log("Failed to create microdata converter to csv: ", dn, ": ", name, ": ", err.Error())
-		http.Error(w, "Failed to create microdata csv converter: "+rdsn+": "+name, http.StatusBadRequest)
+		omppLog.Log("Failed to create microdata converter to csv: ", dn, ":", name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Failed to create microdata csv converter:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -828,8 +834,8 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 	// write csv body
 	if isBom {
 		if _, err := w.Write(helper.Utf8bom); err != nil {
-			omppLog.Log("Error at csv write: ", dn, ": ", name, ": ", err.Error())
-			http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+			omppLog.Log("Error at csv write: ", dn, ":", name, ":", err)
+			http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 			return
 		}
 	}
@@ -837,8 +843,8 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 	csvWr := csv.NewWriter(w)
 
 	if err := csvWr.Write(hdr); err != nil {
-		omppLog.Log("Error at csv write: ", dn, ": ", name, ": ", err.Error())
-		http.Error(w, "Error at csv write: "+rdsn+": "+name, http.StatusBadRequest)
+		omppLog.Log("Error at csv write: ", dn, ":", name, ":", err)
+		http.Error(w, helper.MsgL(lang, "Error at csv write:", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 
@@ -864,7 +870,7 @@ func doMicrodataCalcGetCsvHandler(w http.ResponseWriter, r *http.Request, isCode
 
 	_, ok := theCatalog.ReadMicrodataCalculateTo(dn, rdsn, &microLt, &calcLt, runIds, cvtWr)
 	if !ok {
-		http.Error(w, "Error at microdata aggregation read "+rdsn+": "+name, http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Error at microdata aggregation read", rdsn, ":", name), http.StatusBadRequest)
 		return
 	}
 	csvWr.Flush() // flush csv to response
