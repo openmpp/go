@@ -2,8 +2,6 @@ module github.com/openmpp/go
 
 go 1.24.0
 
-toolchain go1.24.3
-
 require (
 	github.com/alexbrainman/odbc v0.0.0-20250601004241-49e6b2bc0cf0
 	github.com/husobee/vestigo v1.1.1
