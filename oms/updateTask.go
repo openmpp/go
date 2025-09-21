@@ -39,7 +39,7 @@ func (mc *ModelCatalog) UpdateTaskDef(isReplace bool, tpd *db.TaskDefPub) (bool,
 
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, "", "", nil
 	}
 
@@ -103,7 +103,7 @@ func (mc *ModelCatalog) DeleteTask(dn, tn string) (bool, error) {
 
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 

@@ -26,7 +26,7 @@ func (mc *ModelCatalog) WorksetByName(dn string, wsn string) (*db.WorksetRow, bo
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false // return empty result: model not found or error
 	}
 
@@ -56,7 +56,7 @@ func (mc *ModelCatalog) WorksetDefaultStatus(dn string) (*db.WorksetRow, bool) {
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.WorksetRow{}, false
 	}
 
@@ -112,7 +112,7 @@ func (mc *ModelCatalog) WorksetPubList(dn string) ([]db.WorksetPub, bool) {
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.WorksetPub{}, false // return empty result: model not found or error
 	}
 
@@ -158,14 +158,14 @@ func (mc *ModelCatalog) WorksetListText(dn string, preferredLang []language.Tag)
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.WorksetPub{}, false // return empty result: model not found or error
 	}
 
 	// match request preferred language
 	lc := mc.languageTagMatch(dn, preferredLang)
 	if lc == "" {
-		omppLog.Log("Warning: invalid (empty) model default language or model not found: ", dn)
+		omppLog.Log("Warning: invalid (empty) model default language or model not found:", dn)
 		return []db.WorksetPub{}, false // return empty result: model default language cannot be empty
 	}
 
@@ -234,7 +234,7 @@ func (mc *ModelCatalog) WorksetTextFull(dn, wsn string, isAllLang bool, preferre
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.WorksetPub{}, false, nil // return empty result: model not found or error
 	}
 

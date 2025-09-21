@@ -22,7 +22,7 @@ func (mc *ModelCatalog) ReplaceProfile(dn string, pm *db.ProfileMeta) (bool, err
 	}
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -51,7 +51,7 @@ func (mc *ModelCatalog) DeleteProfile(dn, profile string) (bool, error) {
 	}
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -84,7 +84,7 @@ func (mc *ModelCatalog) ReplaceProfileOption(dn, profile, key, val string) (bool
 	}
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -117,7 +117,7 @@ func (mc *ModelCatalog) DeleteProfileOption(dn, profile, key string) (bool, erro
 	}
 	_, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 

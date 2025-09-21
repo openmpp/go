@@ -52,12 +52,12 @@ func (mc *ModelCatalog) ModelDicByDigestOrName(dn string) (db.ModelDicRow, bool)
 }
 
 // find model metadata by digest or name
-func (mc *ModelCatalog) ModelMetaByDigestOrName(dn string) (*db.ModelMeta, error) {
+func (mc *ModelCatalog) ModelMetaByDigestOrName(dn string) (*db.ModelMeta, bool) {
 
 	// if model digest-or-name is empty then return empty results
 	if dn == "" {
 		omppLog.Log("Warning: invalid (empty) model digest and name")
-		return &db.ModelMeta{}, nil
+		return &db.ModelMeta{}, false
 	}
 
 	// lock model catalog and return copy of model metadata
@@ -66,10 +66,10 @@ func (mc *ModelCatalog) ModelMetaByDigestOrName(dn string) (*db.ModelMeta, error
 
 	idx, ok := mc.indexByDigestOrName(dn)
 	if !ok {
-		return &db.ModelMeta{}, nil // return empty result: model not found or error
+		return &db.ModelMeta{}, false // return empty result: model not found or error
 	}
 
-	return mc.modelLst[idx].meta, nil
+	return mc.modelLst[idx].meta, true
 }
 
 // ModelTextByDigest return model_dic_txt db row by model digest and preferred language tags.

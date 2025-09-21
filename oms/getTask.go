@@ -22,7 +22,7 @@ func (mc *ModelCatalog) TaskList(dn string) ([]db.TaskPub, bool) {
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.TaskPub{}, false
 	}
 
@@ -67,14 +67,14 @@ func (mc *ModelCatalog) TaskListText(dn string, preferredLang []language.Tag) ([
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.TaskPub{}, false
 	}
 
 	// match preferred language
 	lc := mc.languageTagMatch(dn, preferredLang)
 	if lc == "" {
-		omppLog.Log("Warning: invalid (empty) model default language or model not found: ", dn)
+		omppLog.Log("Warning: invalid (empty) model default language or model not found:", dn)
 		return []db.TaskPub{}, false // return empty result: model default language cannot be empty
 	}
 
@@ -139,7 +139,7 @@ func (mc *ModelCatalog) TaskSets(dn, tn string) (*db.TaskPub, bool) {
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.TaskPub{}, false
 	}
 
@@ -188,7 +188,7 @@ func (mc *ModelCatalog) TaskRuns(dn, tn string) (*db.TaskPub, bool) {
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.TaskPub{}, false
 	}
 
@@ -240,7 +240,7 @@ func (mc *ModelCatalog) TaskRunStatus(dn, tn, trsn string) (*db.TaskRunRow, bool
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.TaskRunRow{}, false
 	}
 
@@ -289,7 +289,7 @@ func (mc *ModelCatalog) TaskRunStatusList(dn, tn, trsn string) ([]db.TaskRunRow,
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return []db.TaskRunRow{}, false
 	}
 
@@ -334,7 +334,7 @@ func (mc *ModelCatalog) FirstOrLastTaskRunStatus(dn, tn string, isFirst, isCompl
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.TaskRunRow{}, false
 	}
 
@@ -387,7 +387,7 @@ func (mc *ModelCatalog) TaskTextFull(dn, tn string, isAllLang bool, preferredLan
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return &db.TaskPub{}, nil, false
 	}
 
@@ -407,7 +407,7 @@ func (mc *ModelCatalog) TaskTextFull(dn, tn string, isAllLang bool, preferredLan
 	if !isAllLang {
 		lc = mc.languageTagMatch(dn, preferredLang)
 		if lc == "" {
-			omppLog.Log("Warning: invalid (empty) model default language or model not found: ", dn)
+			omppLog.Log("Warning: invalid (empty) model default language or model not found:", dn)
 			return &db.TaskPub{}, nil, false // return empty result: model default language cannot be empty
 		}
 	}

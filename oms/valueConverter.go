@@ -35,7 +35,7 @@ func (mc *ModelCatalog) ParameterCellConverter(
 
 	// check if parameter name exist in the model
 	if _, ok = meta.ParamByName(name); !ok {
-		omppLog.Log("Error: model parameter not found: ", dn, ": ", name)
+		omppLog.Log("Error: model parameter not found:", dn, ":", name)
 		return nil, false
 	}
 
@@ -538,7 +538,7 @@ func (mc *ModelCatalog) ParameterToCsvConverter(dn string, isCode bool, name str
 
 	// check if parameter name exist in the model
 	if _, ok = meta.ParamByName(name); !ok {
-		omppLog.Log("Error: model parameter not found: ", dn, ": ", name)
+		omppLog.Log("Error: model parameter not found:", dn, ":", name)
 		return []string{}, nil, false // return empty result: parameter not found or error
 	}
 

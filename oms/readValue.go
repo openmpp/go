@@ -29,7 +29,7 @@ func (mc *ModelCatalog) ReadParameterTo(dn, src string, layout *db.ReadParamLayo
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false
 	}
 
@@ -54,7 +54,7 @@ func (mc *ModelCatalog) ReadParameterTo(dn, src string, layout *db.ReadParamLayo
 		// get run_lst db row by digest, stamp or run name
 		rst, err := db.GetRunByDigestStampName(dbConn, meta.Model.ModelId, src)
 		if err != nil {
-			omppLog.Log("Error at get run status: ", meta.Model.Name, ": ", src, ": ", err.Error())
+			omppLog.Log("Error at get run status:", meta.Model.Name, ":", src, ":", err.Error())
 			return nil, false // return empty result: run select error
 		}
 		if rst == nil {
@@ -96,7 +96,7 @@ func (mc *ModelCatalog) ReadOutTableTo(dn, rdsn string, layout *db.ReadTableLayo
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false
 	}
 
@@ -163,7 +163,7 @@ func (mc *ModelCatalog) ReadOutTableCalculateTo(
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false
 	}
 
@@ -214,7 +214,7 @@ func (mc *ModelCatalog) ReadMicrodataTo(dn, rdsn string, layout *db.ReadMicroLay
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false
 	}
 
@@ -289,7 +289,7 @@ func (mc *ModelCatalog) ReadMicrodataCalculateTo(
 	// get model metadata and database connection
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return nil, false
 	}
 

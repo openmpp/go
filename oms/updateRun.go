@@ -26,7 +26,7 @@ func (mc *ModelCatalog) UpdateRunStatus(dn, rdsn string, status string) (bool, e
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -63,7 +63,7 @@ func (mc *ModelCatalog) DeleteRunStart(dn, rdsn string) (bool, error) {
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -104,7 +104,7 @@ func (mc *ModelCatalog) DeleteRunListStart(dn string, rdsnLst []string) (bool, e
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil
 	}
 
@@ -185,7 +185,7 @@ func (mc *ModelCatalog) UpdateRunText(rp *db.RunPub) (bool, string, string, erro
 
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, "", "", nil
 	}
 

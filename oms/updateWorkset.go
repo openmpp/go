@@ -29,7 +29,7 @@ func (mc *ModelCatalog) UpdateWorksetReadonly(dn, wsn string, isReadonly bool) (
 	}
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return "", &db.WorksetRow{}, false, nil // return empty result: model not found or error
 	}
 
@@ -547,7 +547,7 @@ func (mc *ModelCatalog) DeleteWorksetParameter(dn, wsn, name string) (bool, erro
 
 	meta, dbConn, ok := mc.modelMeta(dn)
 	if !ok {
-		omppLog.Log("Warning: model digest or name not found: ", dn)
+		omppLog.Log("Warning: model digest or name not found:", dn)
 		return false, nil // return empty result: model not found or error
 	}
 
