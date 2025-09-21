@@ -630,6 +630,7 @@ func mainBody(args []string) error {
 
 	// set web root handler: UI web pages or "not found" if this is web-service mode
 	if !isApiOnly {
+		uiModelRoutes(router)                     // serve UI routes /model/*
 		router.Get("/*", homeHandler, logRequest) // serve UI web pages
 	} else {
 		router.Get("/*", http.NotFound) // only /api, any other pages not found

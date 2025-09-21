@@ -122,8 +122,8 @@ func doModelMetaHandler(w http.ResponseWriter, r *http.Request, isPack bool) {
 	}
 
 	// find model metadata in catalog and write to output stream
-	m, err := theCatalog.ModelMetaByDigestOrName(dn)
-	if err != nil {
+	m, ok := theCatalog.ModelMetaByDigestOrName(dn)
+	if !ok {
 		omppLog.Log("Error: model digest or name not found:", dn)
 		http.Error(w, helper.MsgL(lang, "Model digest or name not found:", dn), http.StatusBadRequest)
 		return
@@ -151,10 +151,10 @@ func modelAllTextHandler(w http.ResponseWriter, r *http.Request) {
 	dn := getRequestParam(r, "model")
 
 	// find model metadata in catalog
-	m, err := theCatalog.ModelMetaByDigestOrName(dn)
-	if err != nil {
-		omppLog.Log("Error at model metadata search:", dn, ":", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	m, ok := theCatalog.ModelMetaByDigestOrName(dn)
+	if !ok {
+		omppLog.Log("Error: model digest or name not found:", dn)
+		http.Error(w, helper.Msg("Error: model digest or name not found:", dn), http.StatusInternalServerError)
 		return
 	}
 

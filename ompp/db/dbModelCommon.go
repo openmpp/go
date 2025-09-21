@@ -476,6 +476,11 @@ func IsRunCompleted(status string) bool {
 	return status == DoneRunStatus || status == ExitRunStatus || status == ErrorRunStatus
 }
 
+// IsRunCompleted return true if run status one of: s=success, x=exit, e=error, p=progress
+func IsRunCompletedOrProgress(status string) bool {
+	return status == DoneRunStatus || status == ExitRunStatus || status == ErrorRunStatus || status == ProgressRunStatus
+}
+
 // NameOfRunStatus return short name by run run status code: s=success, x=exit, e=error
 func NameOfRunStatus(status string) string {
 	switch status {

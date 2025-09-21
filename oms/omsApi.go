@@ -9,52 +9,6 @@ import (
 	"github.com/husobee/vestigo"
 )
 
-// homeHandler is static pages handler for front-end UI served on web / root.
-// Only GET requests expected.
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	setContentType(http.FileServer(http.Dir(theCfg.htmlDir))).ServeHTTP(w, r)
-}
-
-// static file download handler from user home/io/download or home/io/upload and subfolders.
-// URLs served from home/io directory are:
-//
-//	https://domain.name/download/file.name
-//	https://domain.name/upload/file.name
-//
-// Only GET requests expected.
-func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	http.FileServer(http.Dir(theCfg.inOutDir)).ServeHTTP(w, r)
-}
-
-// static file download handler from user files directory and subfolders, if userhome specified then it is home/io.
-// URLs served from home/io directory are:
-//
-//	https://domain.name/files/file.name
-//	https://domain.name/files/download/file.name
-//	https://domain.name/files/upload/file.name
-//
-// Only GET requests expected.
-func filesHandler(w http.ResponseWriter, r *http.Request) {
-	http.StripPrefix("/files/", http.FileServer(http.Dir(theCfg.filesDir))).ServeHTTP(w, r)
-}
-
-// modelDocHandler is static pages handler for model documentation served /doc URLs.
-// Files served from models/doc directory URLs are:
-//
-//	https://domain.name/doc/any-dir/ModelName.doc.EN.html
-//	https://domain.name/doc/any-dir/ModelName.doc.FR.html
-//
-// Model documentation file path must be specified through ModelName.extra.json file.
-// It must be relative to models, for example:
-//
-//	ModelName.extra.json: any-dir/ModelName.doc.FR.html
-//	result in URL:        https://domain.name/doc/any-dir/ModelName.doc.FR.html
-//
-// Only GET requests expected.
-func modelDocHandler(w http.ResponseWriter, r *http.Request) {
-	setContentType(http.StripPrefix("/doc/", http.FileServer(http.Dir(theCfg.docDir)))).ServeHTTP(w, r)
-}
-
 // add http GET web-service /api routes to get metadata
 func apiGetRoutes(router *vestigo.Router) {
 
