@@ -127,7 +127,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 	// assume model exe name is the same as model name
 	mExe := helper.CleanFileName(rs.ModelName)
 
-	cmd, err := rsc.makeCommand(mExe, binDir, wDir, mb.dbPath, mArgs, job.RunRequest, job.Res.ProcessCount, hfPath)
+	cmd, err := rsc.makeCommand(mExe, binDir, wDir, mb.dbPath, mArgs, &job.RunRequest, job.Res.ProcessCount, hfPath)
 	if err != nil {
 		omppLog.Log("Error at starting model: ", err)
 		moveJobQueueToFailed(queueJobPath, rs.SubmitStamp, rs.ModelName, rs.ModelDigest, rs.RunStamp, false)
@@ -266,7 +266,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 // If template file name specified then template processing results used to create command line.
 // If this is MPI model run then tempalate is requred
 // MPI run template can be model specific: "mpi.ModelName.template.txt" or default: "mpi.ModelRun.template.txt".
-func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs []string, req RunRequest, procCount int, hfPath string) (*exec.Cmd, error) {
+func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs []string, req *RunRequest, procCount int, hfPath string) (*exec.Cmd, error) {
 
 	// check is it MPI model run, to run MPI model template is required
 	// if template not specified then try to use default template
@@ -274,15 +274,19 @@ func (rsc *RunCatalog) makeCommand(mExe, binDir, workDir, dbPath string, mArgs [
 
 		// search for model-specific MPI template
 		mtn := "mpi." + req.ModelName + ".template.txt"
+		isDef := false
 
 		for _, tn := range theRunCatalog.mpiTemplates {
 			if tn == mtn {
 				req.Template = mtn
 			}
+			if tn == defaultMpiTemplate {
+				isDef = true
+			}
 		}
 
-		// if model-specific MPI template not found then try to use use default MPI template to run the model
-		if req.Template == "" && helper.IsFileExist(defaultMpiTemplate) {
+		// if model-specific MPI template not found then use default MPI template to run the model
+		if req.Template == "" && isDef {
 			req.Template = defaultMpiTemplate
 		}
 	}
