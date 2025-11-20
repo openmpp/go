@@ -195,8 +195,8 @@ type RunStateLogPage struct {
 	Lines     []string // page of log lines
 }
 
-// JobServiceState is a service state and job control state, it should NOT have any reference types members
-type JobServiceState struct {
+// Public portion of service state and job control state, it should NOT have any reference types members
+type JobServicePub struct {
 	IsQueuePaused     bool       // this oms instance: if true then jobs queue is paused, jobs are not selected from queue
 	IsAllQueuePaused  bool       // all oms instances: if true then jobs queue is paused, jobs are not selected from queue
 	JobUpdateDateTime string     // last date-time jobs list updated
@@ -211,15 +211,20 @@ type JobServiceState struct {
 	LocalRes          ComputeRes // localhost non-MPI jobs total resources limits
 	LocalActiveRes    ComputeRes // localhost non-MPI jobs resources used by this instance to run models
 	LocalQueueRes     ComputeRes // localhost non-MPI jobs queue resources for this oms instance
-	isLeader          bool       // if true then this oms instance is a leader
-	maxStartTime      int64      // max time in milliseconds to start compute server or cluster
-	maxStopTime       int64      // max time in milliseconds to stop compute server or cluster
-	maxIdleTime       int64      // max idle in milliseconds time before stopping server or cluster
-	lastStartStopTs   int64      // last time when start or stop of computational servers done
-	maxComputeErrors  int        // errors threshold for compute server or cluster
-	jobLastPosition   int        // last job position in the queue
-	jobFirstPosition  int        // minimal job position in the queue
-	hostFile          hostIni    // MPI jobs hostfile settings
+}
+
+// Service state and job control state, it should NOT have any reference types members
+type JobServiceState struct {
+	JobServicePub
+	isLeader         bool    // if true then this oms instance is a leader
+	maxStartTime     int64   // max time in milliseconds to start compute server or cluster
+	maxStopTime      int64   // max time in milliseconds to stop compute server or cluster
+	maxIdleTime      int64   // max idle in milliseconds time before stopping server or cluster
+	lastStartStopTs  int64   // last time when start or stop of computational servers done
+	maxComputeErrors int     // errors threshold for compute server or cluster
+	jobLastPosition  int     // last job position in the queue
+	jobFirstPosition int     // minimal job position in the queue
+	hostFile         hostIni // MPI jobs hostfile settings
 }
 
 // computational server or cluster state
@@ -455,4 +460,12 @@ func (rsc *RunCatalog) getCfgRes(digest string) modelCfgRes {
 		return mr
 	}
 	return modelCfgRes{}
+}
+
+// return job control state and service state.
+func (rsc *RunCatalog) getJobServiceState() JobServiceState {
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+
+	return rsc.JobServiceState
 }

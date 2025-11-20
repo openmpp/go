@@ -18,39 +18,41 @@ import (
 func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	st := struct {
-		OmsName        string             // server instance name
-		DoubleFmt      string             // format to convert float or double value to string
-		LoginUrl       string             // user login URL for UI
-		LogoutUrl      string             // user logout URL for UI
-		AllowUserHome  bool               // if true then store user settings in home directory
-		AllowDownload  bool               // if true then allow download from home/io/download directory
-		AllowUpload    bool               // if true then allow upload from home/io/upload directory
-		AllowFiles     bool               // if true then allow user files, if home directory specified then files directory: home/io
-		AllowMicrodata bool               // if true then allow model run microdata
-		IsJobControl   bool               // if true then job control enabled
-		IsModelDoc     bool               // if true then model documentation is enabled
-		IsDiskUse      bool               // if true then storage usage control enabled
-		IsDiskCleanup  bool               // if true then disk cleanup enabled
-		DiskUse        diskUseConfig      // disk use config
-		Env            map[string]string  // server config environmemt variables for UI
-		UiExtra        string             // UI extra config from etc/ui.extra.json
-		ModelCatalog   ModelCatalogConfig // "public" state of model catalog
-		RunCatalog     RunCatalogConfig   // "public" state of model run catalog
+		OmsName         string             // server instance name
+		DoubleFmt       string             // format to convert float or double value to string
+		LoginUrl        string             // user login URL for UI
+		LogoutUrl       string             // user logout URL for UI
+		AllowUserHome   bool               // if true then store user settings in home directory
+		AllowDownload   bool               // if true then allow download from home/io/download directory
+		AllowUpload     bool               // if true then allow upload from home/io/upload directory
+		AllowFiles      bool               // if true then allow user files, if home directory specified then files directory: home/io
+		AllowMicrodata  bool               // if true then allow model run microdata
+		IsJobControl    bool               // if true then job control enabled
+		IsModelDoc      bool               // if true then model documentation is enabled
+		IsDiskUse       bool               // if true then storage usage control enabled
+		IsDiskCleanup   bool               // if true then disk cleanup enabled
+		JobServiceState                    // jobs service state: paused, resources usage and limits
+		DiskUse         diskUseConfig      // disk use config
+		Env             map[string]string  // server config environmemt variables for UI
+		UiExtra         string             // UI extra config from etc/ui.extra.json
+		ModelCatalog    ModelCatalogConfig // "public" state of model catalog
+		RunCatalog      RunCatalogConfig   // "public" state of model run catalog
 	}{
-		OmsName:        theCfg.omsName,
-		DoubleFmt:      theCfg.doubleFmt,
-		AllowUserHome:  theCfg.isHome,
-		AllowDownload:  theCfg.downloadDir != "",
-		AllowUpload:    theCfg.uploadDir != "",
-		AllowFiles:     theCfg.filesDir != "",
-		AllowMicrodata: theCfg.isMicrodata,
-		IsJobControl:   theCfg.isJobControl,
-		IsModelDoc:     theCfg.docDir != "",
-		IsDiskUse:      theCfg.isDiskUse,
-		Env:            theCfg.env,
-		UiExtra:        theCfg.uiExtra,
-		ModelCatalog:   theCatalog.toPublicConfig(),
-		RunCatalog:     *theRunCatalog.toPublicConfig(),
+		OmsName:         theCfg.omsName,
+		DoubleFmt:       theCfg.doubleFmt,
+		AllowUserHome:   theCfg.isHome,
+		AllowDownload:   theCfg.downloadDir != "",
+		AllowUpload:     theCfg.uploadDir != "",
+		AllowFiles:      theCfg.filesDir != "",
+		AllowMicrodata:  theCfg.isMicrodata,
+		IsJobControl:    theCfg.isJobControl,
+		JobServiceState: theRunCatalog.getJobServiceState(),
+		IsModelDoc:      theCfg.docDir != "",
+		IsDiskUse:       theCfg.isDiskUse,
+		Env:             theCfg.env,
+		UiExtra:         theCfg.uiExtra,
+		ModelCatalog:    theCatalog.toPublicConfig(),
+		RunCatalog:      *theRunCatalog.toPublicConfig(),
 	}
 	if theCfg.isDiskUse {
 		_, st.DiskUse = theRunCatalog.getDiskUseStatus()

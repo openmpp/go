@@ -913,11 +913,13 @@ func findComputeRes(src jobHostUse, isUse bool, mpiMaxTh int, computeHost []stri
 func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map[string]computeItem) (JobServiceState, []modelCfgRes) {
 
 	jsState := JobServiceState{
-		IsQueuePaused:     isPausedJobQueue(),
-		IsAllQueuePaused:  isPausedJobAllQueue(),
-		JobUpdateDateTime: helper.MakeDateTime(updateTs),
-		maxStartTime:      serverTimeoutDefault,
-		maxStopTime:       serverTimeoutDefault,
+		JobServicePub: JobServicePub{
+			IsQueuePaused:     isPausedJobQueue(),
+			IsAllQueuePaused:  isPausedJobAllQueue(),
+			JobUpdateDateTime: helper.MakeDateTime(updateTs),
+		},
+		maxStartTime: serverTimeoutDefault,
+		maxStopTime:  serverTimeoutDefault,
 	}
 	cfgRes := []modelCfgRes{}
 

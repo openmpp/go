@@ -298,14 +298,14 @@ func parseOmsTickPath(srcPath string) (string, string, int64, string) {
 	sp := strings.Split(p, "-#-")
 	if len(sp) < 4 || sp[0] != "oms" ||
 		sp[1] == "" || !helper.IsUnderscoreTimeStamp(sp[2]) || sp[3] == "" {
-		return "", "", 0, "" // source file path is not job file
+		return "", "", 0, "" // source file path is not oms heart beat file
 	}
 
-	// check if there last run satmp in file name, use current dat-time stamp if not
+	// check if there last run stamp in file name, use current date-time stamp if not
 	lastRunStamp := ""
 	if len(sp) == 5 {
 		if !helper.IsUnderscoreTimeStamp(sp[4]) {
-			return "", "", 0, "" // source file path is not job file
+			return "", "", 0, "" // source file path is not oms heart beat file
 		}
 		lastRunStamp = sp[4]
 	} else {
