@@ -402,7 +402,7 @@ func parseCompUsedPath(srcPath string) (string, string, string, int, int) {
 }
 
 // Parse disk state use file path: job/state/disk-#-_4040-#-size-#-100-#-status-#-ok-#-2022_07_08_23_45_12_123-#-125678.json
-// Return oms instance name, usage in bytes, is over status, time stamp and clock ticks.
+// Return oms instance name, total MB usage, is over status, time stamp and clock ticks.
 func parseDiskUseStatePath(srcPath string) (string, int64, bool, string, int64) {
 
 	// remove job state directory and extension, file extension must be .json
@@ -445,7 +445,7 @@ func parseDiskUseStatePath(srcPath string) (string, int64, bool, string, int64) 
 		return "", 0, false, "", 0 // clock ticks must after 2020-08-17 23:45:59
 	}
 
-	return sp[1], (mb * 1024 * 1024), isOver, sp[6], tickMs
+	return sp[1], mb, isOver, sp[6], tickMs
 }
 
 // move run job to active state from queue
@@ -541,7 +541,7 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 		}
 
 		//  add usage time to the file
-
+		//
 		var jc RunJob
 		ok, err := helper.FromJsonFile(p, &jc) // read completed job info
 		if err != nil {
@@ -909,7 +909,7 @@ func createHostFile(job *RunJob, hfCfg hostIni, compUse []computeUse) (string, e
 			ln := hfCfg.hostLine
 
 			if hfCfg.hostName != "" {
-				ln = strings.ReplaceAll(ln, hfCfg.hostName, cu.name)
+				ln = strings.ReplaceAll(ln, hfCfg.hostName, cu.CompName)
 			}
 			if hfCfg.cpuCores != "" {
 				if job.Mpi.IsNotByJob {

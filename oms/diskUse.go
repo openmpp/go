@@ -106,13 +106,13 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 
 			for _, fp := range diskUseFiles {
 
-				oms, size, _, _, ts := parseDiskUseStatePath(fp)
+				oms, mb, _, _, ts := parseDiskUseStatePath(fp)
 
 				if oms == "" || oms == theCfg.omsName {
 					continue // skip: invalid disk use state file path or it is current instance
 				}
 				if ts > minTs {
-					nOtherSize += size // oms instance is alive
+					nOtherSize += (mb * 1024 * 1024) // oms instance is alive
 				}
 			}
 		}

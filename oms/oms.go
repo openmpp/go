@@ -111,7 +111,7 @@ Following arguments supporetd by oms:
 
 -oms.NoAdmin
 
-	if true then disable local administrative routes: /admin/
+	if true then disable administrative routes: /admin/ and /admin-all/
 
 -oms.NoShutdown
 
@@ -198,7 +198,7 @@ const (
 	logRequestArgKey   = "oms.LogRequest"        // if true then log http request
 	apiOnlyArgKey      = "oms.ApiOnly"           // if true then API only web-service, no web UI
 	adminAllArgKey     = "oms.AdminAll"          // if true then allow global administrative routes: /admin-all/
-	noAdminArgKey      = "oms.NoAdmin"           // if true then disable loca administrative routes: /admin/
+	noAdminArgKey      = "oms.NoAdmin"           // if true then disable administrative routes: /admin/ and /admin-all/
 	noShutdownArgKey   = "oms.NoShutdown"        // if true then disable shutdown route: /shutdown/
 	uiLangsArgKey      = "oms.Languages"         // comma-separated list of supported languages
 	msgLangArgKey      = "OpenM.MessageLanguage" // oms prefered output messages language, e.g. fr-CA
@@ -223,6 +223,7 @@ var theCfg = struct {
 	isJobControl bool              // if true then do job control: model run queue and resource allocation
 	isJobPast    bool              // if true then do job history shadow copy
 	isDiskUse    bool              // if true then control disk space usage, it enabled if etc/disk.ini exists
+	isAdminAll   bool              // if true then allow global administrative routes: /admin-all
 	jobDir       string            // job control directory
 	omsName      string            // oms instance name, if empty then derived from address to listen
 	dbcopyPath   string            // if download or upload allowed then it is path to dbcopy.exe
@@ -289,7 +290,7 @@ func mainBody(args []string) error {
 	_ = flag.Bool(logRequestArgKey, false, "if true then log HTTP requests")
 	_ = flag.Bool(apiOnlyArgKey, false, "if true then API only web-service, no web UI")
 	_ = flag.Bool(adminAllArgKey, false, "if true then allow global administrative routes: /admin-all/")
-	_ = flag.Bool(noAdminArgKey, false, "if true then disable loca administrative routes: /admin/")
+	_ = flag.Bool(noAdminArgKey, false, "if true then disable administrative routes: /admin/ and /admin-all/")
 	_ = flag.Bool(noShutdownArgKey, false, "if true then disable shutdown route: /shutdown/")
 	_ = flag.String(uiLangsArgKey, "", "comma-separated list of supported languages")
 	_ = flag.String(msgLangArgKey, "", "oms output messages language, e.g.: fr-CA, default: current user OS language")
@@ -310,8 +311,8 @@ func mainBody(args []string) error {
 	isLogRequest = runOpts.Bool(logRequestArgKey)
 	isApiOnly := runOpts.Bool(apiOnlyArgKey)
 	theCfg.isMicrodata = runOpts.Bool(isMicrodataArgKey)
-	isAdminAll := runOpts.Bool(adminAllArgKey)
 	isAdmin := !runOpts.Bool(noAdminArgKey)
+	theCfg.isAdminAll = isAdmin && runOpts.Bool(adminAllArgKey)
 	isShutdown := !runOpts.Bool(noShutdownArgKey)
 	theCfg.doubleFmt = runOpts.String(doubleFormatArgKey)
 	theCfg.encodingName = runOpts.String(encodingArgKey)
@@ -612,7 +613,7 @@ func mainBody(args []string) error {
 	apiUserRoutes(router)     // web-service /api routes for user-specific requests
 	apiServiceRoutes(router)  // web-service /api routes for service state
 	if isAdmin {
-		apiAdminRoutes(isAdminAll, router) // web-service /api routes for oms instance administrative tasks
+		apiAdminRoutes(router) // web-service /api routes for oms instance administrative tasks
 	}
 
 	// serve static content from home/io/download, home/io/upload, models/doc and user files folders

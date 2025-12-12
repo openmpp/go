@@ -18,7 +18,7 @@ import (
 func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	st := struct {
-		OmsName         string             // server instance name
+		OmsName         string             // service instance name
 		DoubleFmt       string             // format to convert float or double value to string
 		LoginUrl        string             // user login URL for UI
 		LogoutUrl       string             // user logout URL for UI
@@ -31,6 +31,7 @@ func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 		IsModelDoc      bool               // if true then model documentation is enabled
 		IsDiskUse       bool               // if true then storage usage control enabled
 		IsDiskCleanup   bool               // if true then disk cleanup enabled
+		IsAdminAll      bool               // if true then it is global admin service
 		JobServiceState                    // jobs service state: paused, resources usage and limits
 		DiskUse         diskUseConfig      // disk use config
 		Env             map[string]string  // server config environmemt variables for UI
@@ -49,6 +50,7 @@ func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 		JobServiceState: theRunCatalog.getJobServiceState(),
 		IsModelDoc:      theCfg.docDir != "",
 		IsDiskUse:       theCfg.isDiskUse,
+		IsAdminAll:      theCfg.isAdminAll,
 		Env:             theCfg.env,
 		UiExtra:         theCfg.uiExtra,
 		ModelCatalog:    theCatalog.toPublicConfig(),

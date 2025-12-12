@@ -6,6 +6,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +36,7 @@ type RunCatalog struct {
 	shutdownNames   []string                           // names of the servers which are stopping now
 	cfgRes          map[string]modelCfgRes             // map model digest to resources configuration
 	first           jobHostUse                         // first MPI job host usage
+	adminState                                         // model run state and resources usage: for global admin only
 }
 
 var theRunCatalog RunCatalog // list of most recent state of model run for each model.
@@ -244,9 +247,59 @@ type computeItem struct {
 
 // computational server or cluster usage
 type computeUse struct {
-	name       string // name of server or cluster
+	CompName   string // name of server or cluster
 	ComputeRes        // used computational resources (CPU cores and memory)
 	filePath   string // if not empty then compute use file path
+}
+
+// model run state and resources usage: for global admin only
+type adminState struct {
+	OmsActive    []omsState      // for all oms instances: state, computational and disk resources usage
+	ActiveRuns   []runUsage      // for active model runs: computational resources usage
+	RunCompUsage []runComputeUse // for all active model runs computational resources usage on each server
+}
+
+// computational resources used by model run
+type runComputeUse struct {
+	SubmitStamp string // submission timestamp
+	computeUse         // computational server or cluster usage
+}
+
+// oms instance state, computational and disk resources usage
+type omsState struct {
+	Oms      string // oms instance name
+	omsUsage        // oms state, total MPI computational and disk resources usage
+}
+
+// oms instance state, total computational and disk resources usage.
+// it should NOT have any refernce types
+type omsUsage struct {
+	LastStamp   string     // last run stamp
+	IsPaused    bool       // if true then oms instance queue is paused
+	ComputeRes             // total MPI resources used by this instance
+	LocalRes    ComputeRes // total localhost computational resources usage
+	diskUsage              // oms instance disk usage
+	omsFilePath string     // oms state file path
+}
+
+// oms instance disk usage
+type diskUsage struct {
+	IsDiskOver   bool   // if true then disk usage exceeds quota
+	TotalSize    int64  // disk use total size: models/bin size + download + upload
+	diskFilePath string // oms disk usage file path
+}
+
+// active model runs resources
+type runUsage struct {
+	SubmitStamp string // submission timestamp
+	Oms         string // oms instance name
+	ComputeRes         // run total resources: cpu count and memory size
+	IsMpi       bool   // if true then it use MPI to run the model
+	ModelName   string // model name
+	ModelDigest string // model digest
+	RunStamp    string // model run stamp, may be auto-generated as timestamp
+	pid         int    // process id
+	filePath    string // job control file path
 }
 
 // job resources allocation by computational servers or clusters
@@ -351,6 +404,11 @@ func (rsc *RunCatalog) refreshCatalog(etcDir string, jsc *jobControlState) error
 			rsc.queueKeys = append(rsc.queueKeys, jsc.Queue...)
 		}
 	}
+
+	// cleanup resources usage state
+	rsc.OmsActive = []omsState{}
+	rsc.ActiveRuns = []runUsage{}
+	rsc.RunCompUsage = []runComputeUse{}
 
 	return nil
 }
@@ -468,4 +526,55 @@ func (rsc *RunCatalog) getJobServiceState() JobServiceState {
 	defer rsc.rscLock.Unlock()
 
 	return rsc.JobServiceState
+}
+
+// return service state and resources usage for all oms instances and all active model runs.
+func (rsc *RunCatalog) getAllAdminState() adminState {
+
+	if !theCfg.isAdminAll {
+		return adminState{} // this is not a global admin instance: return empty result
+	}
+
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+
+	// make a copy of service state
+	st := adminState{
+		OmsActive:    make([]omsState, len(rsc.OmsActive)),
+		ActiveRuns:   make([]runUsage, len(rsc.ActiveRuns)),
+		RunCompUsage: make([]runComputeUse, len(rsc.RunCompUsage)),
+	}
+
+	copy(st.OmsActive, rsc.OmsActive)
+	copy(st.ActiveRuns, rsc.ActiveRuns)
+	copy(st.RunCompUsage, rsc.RunCompUsage)
+
+	slices.SortStableFunc(st.OmsActive, func(left, right omsState) int { return strings.Compare(left.Oms, right.Oms) })
+
+	// sort active runs by submit stamp and oms name
+	slices.SortStableFunc(rsc.ActiveRuns, func(left, right runUsage) int {
+		if left.SubmitStamp < right.SubmitStamp {
+			return -1
+		} else {
+			if left.Oms > right.Oms {
+				return 1
+			}
+		}
+		return 0
+
+	})
+
+	// sort model run run computational resources usage by submit stamp and server name
+	slices.SortStableFunc(rsc.RunCompUsage, func(left, right runComputeUse) int {
+		if left.SubmitStamp < right.SubmitStamp {
+			return -1
+		} else {
+			if left.CompName > right.CompName {
+				return 1
+			}
+		}
+		return 0
+	})
+
+	return st
 }

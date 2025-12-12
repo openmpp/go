@@ -96,7 +96,7 @@ func (rsc *RunCatalog) selectJobFromQueue() (bool, *RunJob, string, hostIni, []c
 
 		for _, hcu := range rsc.first.hostUse {
 
-			cs, ok := rsc.computeState[hcu.name]
+			cs, ok := rsc.computeState[hcu.CompName]
 			if !ok || cs.state != "ready" {
 				return false, nil, "", hostIni{}, []computeUse{}, nil // server is not ready, return to wait
 			}
@@ -467,27 +467,27 @@ func (rsc *RunCatalog) selectToStartCompute() ([]string, int64, []string, [][]st
 
 	for _, cu := range rsc.first.hostUse {
 
-		if cs, ok := rsc.computeState[cu.name]; !ok || cs.state != "" {
+		if cs, ok := rsc.computeState[cu.CompName]; !ok || cs.state != "" {
 			continue // server not exists or not in power off state
 		}
 
 		isAct := false
 		for k := 0; !isAct && k < len(rsc.startupNames); k++ {
-			isAct = rsc.startupNames[k] == cu.name
+			isAct = rsc.startupNames[k] == cu.CompName
 		}
 		for k := 0; !isAct && k < len(rsc.shutdownNames); k++ {
-			isAct = rsc.shutdownNames[k] == cu.name
+			isAct = rsc.shutdownNames[k] == cu.CompName
 		}
 		if isAct {
 			continue // this server already in startup or shutdown list
 		}
 
 		// for each server find startup executable and arguments
-		srvLst = append(srvLst, cu.name)
-		exeLst = append(exeLst, rsc.computeState[cu.name].startExe)
+		srvLst = append(srvLst, cu.CompName)
+		exeLst = append(exeLst, rsc.computeState[cu.CompName].startExe)
 
-		args := make([]string, len(rsc.computeState[cu.name].startArgs))
-		copy(args, rsc.computeState[cu.name].startArgs)
+		args := make([]string, len(rsc.computeState[cu.CompName].startArgs))
+		copy(args, rsc.computeState[cu.CompName].startArgs)
 		argLst = append(argLst, args)
 	}
 
@@ -536,7 +536,7 @@ func (rsc *RunCatalog) selectToStopCompute() ([]string, int64, []string, [][]str
 			isAct = rsc.startupNames[k] == cs.name
 		}
 		for k := 0; !isAct && k < len(rsc.first.hostUse); k++ {
-			isAct = rsc.first.hostUse[k].name == cs.name
+			isAct = rsc.first.hostUse[k].CompName == cs.name
 		}
 		if isAct {
 			// this server already in shutdown or startup list
@@ -624,6 +624,10 @@ func (rsc *RunCatalog) updateRunJobs(
 	queueJobs map[string]queueJobFile,
 	activeJobs map[string]runJobFile,
 	historyJobs map[string]historyJobFile,
+	omsActive map[string]omsUsage,
+	activeRuns []runUsage,
+	runCompUsage []runComputeUse,
+
 ) *jobControlState {
 
 	rsc.rscLock.Lock()
@@ -668,7 +672,7 @@ func (rsc *RunCatalog) updateRunJobs(
 		// check if all hosts allocated before still have enough resources to run the job
 		for k := 0; isOk && k < len(rsc.first.hostUse); k++ {
 
-			cs, ok := rsc.computeState[rsc.first.hostUse[k].name]
+			cs, ok := rsc.computeState[rsc.first.hostUse[k].CompName]
 			isOk = ok && cs.state != "error" && cs.totalRes.Cpu >= rsc.first.hostUse[k].Cpu && cs.totalRes.Mem >= rsc.first.hostUse[k].Mem
 		}
 		if !isOk {
@@ -758,7 +762,7 @@ func (rsc *RunCatalog) updateRunJobs(
 			continue // skip: model digest is not the models list
 		}
 		if jf.isError {
-			continue // skip: model job error or
+			continue // skip: model job error
 		}
 		rsc.activeJobs[stamp] = jf
 	}
@@ -792,6 +796,22 @@ func (rsc *RunCatalog) updateRunJobs(
 		Queue: make([]string, len(rsc.queueKeys)),
 	}
 	copy(jsc.Queue, rsc.queueKeys)
+
+	// if this is a global admin oms instance then update model runs state and resources usage
+	if theCfg.isAdminAll {
+
+		// for all oms instances: state and resources usage
+		rsc.OmsActive = rsc.OmsActive[:0]
+		for name, u := range omsActive {
+			rsc.OmsActive = append(rsc.OmsActive, omsState{Oms: name, omsUsage: u})
+		}
+
+		rsc.ActiveRuns = rsc.ActiveRuns[:0] // for active model runs: computational resources usage
+		rsc.ActiveRuns = append(rsc.ActiveRuns, activeRuns...)
+
+		rsc.RunCompUsage = rsc.RunCompUsage[:0] // for all active model runs computational resources usage on each server
+		rsc.RunCompUsage = append(rsc.RunCompUsage, runCompUsage...)
+	}
 
 	return &jsc
 }

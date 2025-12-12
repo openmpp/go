@@ -14,14 +14,6 @@ import (
 	"github.com/openmpp/go/ompp/omppLog"
 )
 
-// oms instance last run stamp and resorce usage
-type omsUsage struct {
-	lastStamp  string // last run stamp
-	ComputeRes        // MPI resources used by this instance
-	isPaused   bool   // if true then oms instance queue is paused
-	isDiskOver bool   // if true then disk usage exceeds quota
-}
-
 // scan job control directories to read and update job lists: queue, active and history
 func scanStateJobs(doneC <-chan bool) {
 	if !theCfg.isJobControl {
@@ -65,12 +57,14 @@ func scanStateJobs(doneC <-chan bool) {
 	queueJobs := map[string]queueJobFile{}
 	activeJobs := map[string]runJobFile{}
 	historyJobs := map[string]historyJobFile{}
-	omsActive := map[string]omsUsage{}
 	omsPaused := map[string]bool{}
-	omsDiskOver := map[string]bool{}
+	omsDiskUsage := map[string]diskUsage{}
 	computeState := map[string]computeItem{}
-	hostByCpu := []string{} // names of computational servers or clusters sorted by available CPU cores
-	hostByMem := []string{} // names of computational servers or clusters sorted by available memory
+	omsActive := map[string]omsUsage{} // for all oms instances: state, computational and disk resources usage
+	activeRuns := []runUsage{}         // for active model runs: computational resources usage
+	runCompUsage := []runComputeUse{}  // for all active model runs computational resources usage on each server
+	hostByCpu := []string{}            // names of computational servers or clusters sorted by available CPU cores
+	hostByMem := []string{}            // names of computational servers or clusters sorted by available memory
 
 	for {
 		// get jobs service state and computational resources state: servers or clustres definition
@@ -106,13 +100,17 @@ func scanStateJobs(doneC <-chan bool) {
 		}
 
 		// update oms instances disk usage status
-		clear(omsDiskOver)
+		clear(omsDiskUsage)
 
 		for _, fp := range diskUseFiles {
 
-			oms, _, isOver, _, _ := parseDiskUseStatePath(fp)
+			oms, mb, isOver, _, _ := parseDiskUseStatePath(fp)
 			if oms != "" {
-				omsDiskOver[oms] = isOver
+				omsDiskUsage[oms] = diskUsage{
+					IsDiskOver:   isOver,
+					TotalSize:    mb,
+					diskFilePath: fp,
+				}
 			}
 		}
 
@@ -132,10 +130,12 @@ func scanStateJobs(doneC <-chan bool) {
 
 				u := omsActive[oms]
 				omsActive[oms] = omsUsage{
-					lastStamp:  rStamp,
-					ComputeRes: u.ComputeRes,
-					isPaused:   omsPaused[oms],
-					isDiskOver: omsDiskOver[oms],
+					LastStamp:   rStamp,
+					IsPaused:    omsPaused[oms],
+					ComputeRes:  u.ComputeRes,
+					LocalRes:    u.LocalRes,
+					diskUsage:   omsDiskUsage[oms],
+					omsFilePath: fp,
 				}
 				if leaderName == "" || leaderName > oms {
 					leaderName = oms
@@ -149,9 +149,10 @@ func scanStateJobs(doneC <-chan bool) {
 		// computational resources state
 		// for each server or cluster detect current state: ready, start, stop or power off
 		// total computational resources (cpu and memory), used resources and avaliable resources
-		updateComputeState(
+		runCompUsage = updateComputeState(
 			computeState,
 			omsActive,
+			runCompUsage,
 			nowTs,
 			jsState.maxStartTime,
 			jsState.maxStopTime,
@@ -227,7 +228,7 @@ func scanStateJobs(doneC <-chan bool) {
 		// model runs
 		//
 		// parse active files, use unlimited resources for already active jobs
-		aKeys, aTotal, aOwn, aLocal := updateActiveJobs(activeFiles, activeJobs, omsActive)
+		aKeys, aTotal, aOwn, aLocal, activeRuns := updateActiveJobs(activeFiles, activeJobs, omsActive, activeRuns)
 
 		// parse queue files and re-build model runs queue
 		sort.Strings(queueFiles)
@@ -319,13 +320,13 @@ func scanStateJobs(doneC <-chan bool) {
 		jsState.jobLastPosition = maxPos
 		jsState.jobFirstPosition = minPos
 
-		jsc := theRunCatalog.updateRunJobs(jsState, computeState, firstHostUse, cfgRes, queueJobs, activeJobs, historyJobs)
+		jsc := theRunCatalog.updateRunJobs(jsState, computeState, firstHostUse, cfgRes, queueJobs, activeJobs, historyJobs, omsActive, activeRuns, runCompUsage)
 		jobStateWrite(*jsc)
 
 		// update oms heart beat file
 		nTick++
 		if nTick%7 == 0 {
-			omsTickPath, _ = makeOmsTick(omsActive[theCfg.omsName].lastStamp)
+			omsTickPath, _ = makeOmsTick(omsActive[theCfg.omsName].LastStamp)
 		}
 
 		// wait for doneC or sleep
@@ -339,7 +340,7 @@ func scanStateJobs(doneC <-chan bool) {
 
 // insert run job into job map: map job file submission stamp to file content (run job).
 // update last run stamp for oms instances.
-func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map[string]omsUsage) ([]string, ComputeRes, ComputeRes, ComputeRes) {
+func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map[string]omsUsage, activeRuns []runUsage) ([]string, ComputeRes, ComputeRes, ComputeRes, []runUsage) {
 
 	subStamps := make([]string, 0, len(fLst)) // list of submission stamps
 	totalRes := ComputeRes{}
@@ -350,15 +351,18 @@ func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map
 	for oms, u := range omsActive {
 		u.Cpu = 0
 		u.Mem = 0
+		u.LocalRes.Cpu = 0
+		u.LocalRes.Mem = 0
 		omsActive[oms] = u
 	}
 
 	// parse active files, collect jobs for current oms instance
 	// and for all instances update last run stamp and active MPI resource usage (cpu and memory)
+	activeRuns = activeRuns[:0]
 	for _, f := range fLst {
 
 		// get submission stamp, oms instance and resources
-		stamp, oms, mn, dgst, rStamp, isMpi, cpu, mem, _ := parseActivePath(f)
+		stamp, oms, mn, dgst, rStamp, isMpi, cpu, mem, pid := parseActivePath(f)
 		if stamp == "" || oms == "" || mn == "" || dgst == "" {
 			continue // file name is not a job file name
 		}
@@ -368,14 +372,33 @@ func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map
 			continue // skip: oms instance inactive
 		} else {
 
-			if rStamp > u.lastStamp {
-				u.lastStamp = rStamp
+			if rStamp > u.LastStamp {
+				u.LastStamp = rStamp
 			}
 			if isMpi {
 				u.Cpu += cpu
 				u.Mem += mem
+			} else {
+				u.LocalRes.Cpu += cpu
+				u.LocalRes.Mem += mem
 			}
 			omsActive[oms] = u
+		}
+
+		// append model run into activce runs collection
+		if theCfg.isAdminAll {
+			activeRuns = append(activeRuns,
+				runUsage{
+					SubmitStamp: stamp,
+					Oms:         oms,
+					ComputeRes:  ComputeRes{Cpu: cpu, Mem: mem},
+					IsMpi:       isMpi,
+					ModelName:   mn,
+					ModelDigest: dgst,
+					RunStamp:    rStamp,
+					pid:         pid,
+					filePath:    f,
+				})
 		}
 
 		// collect total resource usage and oms resource usage
@@ -418,7 +441,7 @@ func updateActiveJobs(fLst []string, jobMap map[string]runJobFile, omsActive map
 		jobMap[stamp] = runJobFile{RunJob: jc, filePath: f, oms: oms} // add job into jobs list
 	}
 
-	return subStamps, totalRes, ownRes, localOwnRes
+	return subStamps, totalRes, ownRes, localOwnRes, activeRuns
 }
 
 // insert run job into queue job map: map job file submission stamp to file content (run job)
@@ -486,7 +509,7 @@ func updateQueueJobs(
 		mem := memoryRunSize(procCount, thCount, procMem, thMem)
 
 		// check resources quota: MPI cpu and memory available and disk usage not over the limit
-		isOver := u.isDiskOver || (isMpiLimit && cpu > mpiTotalRes.Cpu) || (mpiTotalRes.Mem > 0 && mem > mpiTotalRes.Mem)
+		isOver := u.IsDiskOver || (isMpiLimit && cpu > mpiTotalRes.Cpu) || (mpiTotalRes.Mem > 0 && mem > mpiTotalRes.Mem)
 
 		// check resources quota: max cpu memory allowed for each oms instance
 		if !isOver && (maxMpiOwnRes.Cpu > 0 || maxMpiOwnRes.Mem > 0) {
@@ -527,7 +550,7 @@ func updateQueueJobs(
 				ProcessMemMb: procMem,
 				ThreadMemMb:  thMem,
 			},
-			isPaused: isAllPaused || u.isPaused,
+			isPaused: isAllPaused || u.IsPaused,
 			isOver:   isOver,
 		})
 		qAll[oms] = qOms
@@ -579,7 +602,7 @@ func updateQueueJobs(
 		if iUse.Cpu >= nc && jUse.Cpu < nc {
 			return false
 		}
-		return iUse.lastStamp < jUse.lastStamp || (iUse.lastStamp == jUse.lastStamp && omsKeys[i] < omsKeys[j])
+		return iUse.LastStamp < jUse.LastStamp || (iUse.LastStamp == jUse.LastStamp && omsKeys[i] < omsKeys[j])
 	})
 
 	// order combined queue jobs by:
@@ -649,8 +672,8 @@ func updateQueueJobs(
 
 	qKeys := make([]string, 0, nFiles) // model run submission stamps for current oms instance
 	usedLocal := ComputeRes{}
-	isOmsPaused := isAllPaused || omsActive[theCfg.omsName].isPaused // if current oms instance is paused
-	isOmsDiskOver := omsActive[theCfg.omsName].isDiskOver            // if current oms instance exceded disk quota
+	isOmsPaused := isAllPaused || omsActive[theCfg.omsName].IsPaused // if current oms instance is paused
+	isOmsDiskOver := omsActive[theCfg.omsName].IsDiskOver            // if current oms instance exceded disk quota
 	isFirstJob = true
 
 	for _, f := range fLst {
@@ -896,7 +919,7 @@ func findComputeRes(src jobHostUse, isUse bool, mpiMaxTh int, computeHost []stri
 				c := np * nTh
 				m := np * mp
 				dst.hostUse = append(dst.hostUse,
-					computeUse{name: computeHost[j], ComputeRes: ComputeRes{Cpu: c, Mem: m}},
+					computeUse{CompName: computeHost[j], ComputeRes: ComputeRes{Cpu: c, Mem: m}},
 				)
 				procCount += np
 			}
@@ -1075,12 +1098,13 @@ func initJobComputeState(jobIniPath string, updateTs time.Time, computeState map
 func updateComputeState(
 	computeState map[string]computeItem,
 	omsActive map[string]omsUsage,
+	runCompUsage []runComputeUse,
 	nowTs int64,
 	maxStartTime int64,
 	maxStopTime int64,
 	maxComputeErrors int,
 	compReadyFiles, compStartFiles, compStopFiles, compErrorFiles, compUsedFiles []string,
-) {
+) []runComputeUse {
 
 	// clear state for server or cluster: initial state is "" power off
 	for name, cs := range computeState {
@@ -1183,12 +1207,14 @@ func updateComputeState(
 		}
 	}
 
-	// servers or clusters used for model runs: sum up resources used by current oms instance and all oms inatances
+	// servers or clusters used for model runs: sum up resources used by current oms instance and all oms instances
+	runCompUsage = runCompUsage[:0]
+
 	for _, f := range compUsedFiles {
 
-		// get server name and time stamp
-		name, _, oms, cpu, mem := parseCompUsedPath(f)
-		if name == "" || oms == "" {
+		// get server name and oms name
+		name, stamp, oms, cpu, mem := parseCompUsedPath(f)
+		if name == "" || stamp == "" || oms == "" {
 			continue // skip: this is not a compute server state file
 		}
 		if _, ok := omsActive[oms]; !ok {
@@ -1209,7 +1235,22 @@ func updateComputeState(
 		if cs.lastUsedTs < nowTs {
 			cs.lastUsedTs = nowTs
 		}
-
 		computeState[name] = cs
+
+		// if this oms instance has global admin rigths then
+		// update computational resouces usage by model runs
+		if theCfg.isAdminAll {
+
+			runCompUsage = append(runCompUsage, runComputeUse{
+				SubmitStamp: stamp,
+				computeUse: computeUse{
+					CompName:   name,
+					ComputeRes: ComputeRes{Cpu: cpu, Mem: mem},
+					filePath:   f,
+				},
+			})
+		}
 	}
+
+	return runCompUsage
 }

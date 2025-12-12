@@ -139,7 +139,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 	isErr := false
 	for k := 0; !isErr && k < len(compUse); k++ {
 
-		compUse[k].filePath = compUsedPath(compUse[k].name, rs.SubmitStamp, compUse[k].Cpu, compUse[k].Mem)
+		compUse[k].filePath = compUsedPath(compUse[k].CompName, rs.SubmitStamp, compUse[k].Cpu, compUse[k].Mem)
 		isErr = !fileCreateEmpty(false, compUse[k].filePath)
 	}
 	if isErr {

@@ -488,3 +488,19 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse(w, r, st)
 }
+
+// for all oms instances: get state, computational and disk resources usage
+//
+//	GET /api/admin-all/state
+func adminAllStateGetHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !theCfg.isAdminAll {
+		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
+		return
+	}
+	st := theRunCatalog.getAllAdminState()
+
+	jsonResponse(w, r, st)
+}
