@@ -97,7 +97,7 @@ func (rsc *RunCatalog) selectJobFromQueue() (bool, *RunJob, string, hostIni, []c
 		for _, hcu := range rsc.first.hostUse {
 
 			cs, ok := rsc.computeState[hcu.CompName]
-			if !ok || cs.state != "ready" {
+			if !ok || cs.State != "ready" {
 				return false, nil, "", hostIni{}, []computeUse{}, nil // server is not ready, return to wait
 			}
 		}
@@ -144,7 +144,7 @@ func (rsc *RunCatalog) selectJobFromQueue() (bool, *RunJob, string, hostIni, []c
 }
 
 // Return copy of submission stamps and job control items for queue, active and history model run jobs
-func (rsc *RunCatalog) getRunJobs() (JobServiceState, []string, []RunJob, []string, []RunJob, []string, []historyJobFile, []computeItem) {
+func (rsc *RunCatalog) getRunJobs() ([]string, []RunJob, []string, []RunJob, []string, []historyJobFile) {
 
 	rsc.rscLock.Lock()
 	defer rsc.rscLock.Unlock()
@@ -185,26 +185,7 @@ func (rsc *RunCatalog) getRunJobs() (JobServiceState, []string, []RunJob, []stri
 		hJobs[k] = rsc.historyJobs[stamp]
 	}
 
-	// get computational servers state, sorted by name
-	cN := make([]string, len(rsc.computeState))
-
-	np := 0
-	for name := range rsc.computeState {
-		cN[np] = name
-		np++
-	}
-	sort.Strings(cN)
-
-	cState := make([]computeItem, len(rsc.computeState))
-
-	for k := 0; k < len(cN); k++ {
-		cs := rsc.computeState[cN[k]]
-		cState[k] = cs
-		cState[k].startArgs = []string{}
-		cState[k].stopArgs = []string{}
-	}
-
-	return rsc.JobServiceState, qKeys, qJobs, aKeys, aJobs, hKeys, hJobs, cState
+	return qKeys, qJobs, aKeys, aJobs, hKeys, hJobs
 }
 
 // Return active job control item and is found boolean flag
@@ -467,7 +448,7 @@ func (rsc *RunCatalog) selectToStartCompute() ([]string, int64, []string, [][]st
 
 	for _, cu := range rsc.first.hostUse {
 
-		if cs, ok := rsc.computeState[cu.CompName]; !ok || cs.state != "" {
+		if cs, ok := rsc.computeState[cu.CompName]; !ok || cs.State != "" {
 			continue // server not exists or not in power off state
 		}
 
@@ -530,13 +511,13 @@ func (rsc *RunCatalog) selectToStopCompute() ([]string, int64, []string, [][]str
 
 		isAct := false
 		for k := 0; !isAct && k < len(rsc.shutdownNames); k++ {
-			isAct = rsc.shutdownNames[k] == cs.name
+			isAct = rsc.shutdownNames[k] == cs.Name
 		}
 		for k := 0; !isAct && k < len(rsc.startupNames); k++ {
-			isAct = rsc.startupNames[k] == cs.name
+			isAct = rsc.startupNames[k] == cs.Name
 		}
 		for k := 0; !isAct && k < len(rsc.first.hostUse); k++ {
-			isAct = rsc.first.hostUse[k].CompName == cs.name
+			isAct = rsc.first.hostUse[k].CompName == cs.Name
 		}
 		if isAct {
 			// this server already in shutdown or startup list
@@ -545,16 +526,16 @@ func (rsc *RunCatalog) selectToStopCompute() ([]string, int64, []string, [][]str
 		}
 
 		// if no model runs for more than idle time in milliseconds and server started more than idle time in milliseconds
-		if cs.state == "ready" && cs.lastUsedTs+rsc.maxIdleTime < nowTs {
+		if cs.State == "ready" && cs.LastUsedTs+rsc.maxIdleTime < nowTs {
 
-			srvLst = append(srvLst, cs.name)
+			srvLst = append(srvLst, cs.Name)
 			exeLst = append(exeLst, cs.stopExe)
 
 			args := make([]string, len(cs.stopArgs))
 			copy(args, cs.stopArgs)
 			argLst = append(argLst, args)
 
-			rsc.shutdownNames = append(rsc.shutdownNames, cs.name)
+			rsc.shutdownNames = append(rsc.shutdownNames, cs.Name)
 		}
 	}
 
@@ -571,8 +552,8 @@ func (rsc *RunCatalog) startupCompleted(isOkStart bool, name string) {
 	rsc.lastStartStopTs = time.Now().UnixMilli()
 
 	if cs, ok := rsc.computeState[name]; ok {
-		if isOkStart && cs.lastUsedTs < rsc.lastStartStopTs {
-			cs.lastUsedTs = rsc.lastStartStopTs
+		if isOkStart && cs.LastUsedTs < rsc.lastStartStopTs {
+			cs.LastUsedTs = rsc.lastStartStopTs
 			rsc.computeState[name] = cs
 		}
 	}
@@ -598,8 +579,8 @@ func (rsc *RunCatalog) shutdownCompleted(isOkStop bool, name string) {
 	rsc.lastStartStopTs = time.Now().UnixMilli()
 
 	if cs, ok := rsc.computeState[name]; ok {
-		if isOkStop && cs.lastUsedTs < rsc.lastStartStopTs {
-			cs.lastUsedTs = rsc.lastStartStopTs
+		if isOkStop && cs.LastUsedTs < rsc.lastStartStopTs {
+			cs.LastUsedTs = rsc.lastStartStopTs
 			rsc.computeState[name] = cs
 		}
 	}
@@ -627,6 +608,7 @@ func (rsc *RunCatalog) updateRunJobs(
 	omsActive map[string]omsUsage,
 	activeRuns []runUsage,
 	runCompUsage []runComputeUse,
+	queueRqs []queueRequest,
 
 ) *jobControlState {
 
@@ -649,8 +631,8 @@ func (rsc *RunCatalog) updateRunJobs(
 		}
 	}
 	for name, cs := range computeState {
-		if cs.lastUsedTs < rsc.computeState[name].lastUsedTs {
-			cs.lastUsedTs = rsc.computeState[name].lastUsedTs
+		if cs.LastUsedTs < rsc.computeState[name].LastUsedTs {
+			cs.LastUsedTs = rsc.computeState[name].LastUsedTs
 		}
 		rsc.computeState[name] = cs
 	}
@@ -673,7 +655,7 @@ func (rsc *RunCatalog) updateRunJobs(
 		for k := 0; isOk && k < len(rsc.first.hostUse); k++ {
 
 			cs, ok := rsc.computeState[rsc.first.hostUse[k].CompName]
-			isOk = ok && cs.state != "error" && cs.totalRes.Cpu >= rsc.first.hostUse[k].Cpu && cs.totalRes.Mem >= rsc.first.hostUse[k].Mem
+			isOk = ok && cs.State != "error" && cs.TotalRes.Cpu >= rsc.first.hostUse[k].Cpu && cs.TotalRes.Mem >= rsc.first.hostUse[k].Mem
 		}
 		if !isOk {
 			rsc.first.hostUse = rsc.first.hostUse[:0]
@@ -811,6 +793,9 @@ func (rsc *RunCatalog) updateRunJobs(
 
 		rsc.RunCompUsage = rsc.RunCompUsage[:0] // for all active model runs computational resources usage on each server
 		rsc.RunCompUsage = append(rsc.RunCompUsage, runCompUsage...)
+
+		rsc.QueueRuns = rsc.QueueRuns[:0] // all queued runs oms, model and computational resources
+		rsc.QueueRuns = append(rsc.QueueRuns, queueRqs...)
 	}
 
 	return &jsc

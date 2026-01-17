@@ -500,7 +500,245 @@ func adminAllStateGetHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
 		return
 	}
-	st := theRunCatalog.getAllAdminState()
 
+	ast, jsp, csp := theRunCatalog.getAllAdminPubState()
+
+	st := struct {
+		IsAdminAll    bool         // if true then allow global administrative routes: /admin-all/
+		IsJobControl  bool         // if true then job control enabled
+		IsDiskUse     bool         // if true then storage usage control enabled
+		JobServicePub              // jobs service state: paused, resources usage and limits
+		ComputeState  []computePub // state of computational servers or clusters
+		adminState                 // model run state and resources usage: for global admin only
+	}{
+		IsAdminAll:    theCfg.isAdminAll,
+		IsJobControl:  theCfg.isJobControl,
+		IsDiskUse:     theCfg.isDiskUse,
+		JobServicePub: jsp,
+		ComputeState:  csp,
+		adminState:    ast,
+	}
 	jsonResponse(w, r, st)
+}
+
+// for global admin: get queue job state content by oms instance name and submit stamp
+//
+//	GET /api/admin-all/job/queue/:oms/stamp/:stamp/state
+func adminAllJobQueueStateHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !theCfg.isAdminAll {
+		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
+		return
+	}
+
+	// url or query parameters: submission stamp
+	oms := getRequestParam(r, "oms")
+	if oms == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) oms user name"), http.StatusBadRequest)
+		return
+	}
+	submitStamp := getRequestParam(r, "stamp")
+	if submitStamp == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
+		return
+	}
+
+	// find queue job request by oms name and submit stamp
+	qr, ok := theRunCatalog.findQueueRequest(oms, submitStamp)
+	if !ok {
+		jsonResponse(w, r, emptyRunJob(submitStamp)) // queue request not found, it may be completed
+		return
+	}
+	// read job control state
+	ok, jc := readAllAdminJobState(qr.filePath)
+	if !ok {
+		jsonResponse(w, r, emptyRunJob(submitStamp)) // unable to read job control file
+		return
+	}
+
+	jsonResponse(w, r, jc) // return final result
+}
+
+// for global admin: get active job state content by oms instance name and submit stamp
+//
+//	GET /api/admin-all/job/active/:oms/stamp/:stamp/state
+func adminAllJobActiveStateHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !theCfg.isAdminAll {
+		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
+		return
+	}
+
+	// url or query parameters: submission stamp
+	oms := getRequestParam(r, "oms")
+	if oms == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) oms user name"), http.StatusBadRequest)
+		return
+	}
+	submitStamp := getRequestParam(r, "stamp")
+	if submitStamp == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
+		return
+	}
+
+	// find active job run usage by oms name and submit stamp
+	ru, ok := theRunCatalog.findActiveRunUsage(oms, submitStamp)
+	if !ok {
+		jsonResponse(w, r, emptyRunJob(submitStamp)) // job not found, it may be completed
+		return
+	}
+	// read job control state
+	ok, jc := readAllAdminJobState(ru.filePath)
+	if !ok {
+		jsonResponse(w, r, emptyRunJob(submitStamp)) // unable to read job control file
+		return
+	}
+	// if log log file path is empty for that active run then set log file in active runs list
+	if ru.logAbsPath == "" && jc.LogAbsPath != "" {
+		theRunCatalog.updateActiveJobLogPath(oms, submitStamp, jc.LogAbsPath)
+	}
+	jsonResponse(w, r, jc) // return final result
+}
+
+// for global admin: get active job log file name and content by oms instance name and submit stamp, response is string array, first line is a file name
+//
+//	GET /api/admin-all/job/active/:oms/stamp/:stamp/log
+func adminAllJobActiveLogHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !theCfg.isAdminAll {
+		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
+		return
+	}
+
+	// url or query parameters: submission stamp
+	oms := getRequestParam(r, "oms")
+	if oms == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) oms user name"), http.StatusBadRequest)
+		return
+	}
+	submitStamp := getRequestParam(r, "stamp")
+	if submitStamp == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
+		return
+	}
+
+	// find active job run usage by oms name and submit stamp
+	lf := []string{}
+
+	ru, ok := theRunCatalog.findActiveRunUsage(oms, submitStamp)
+	if !ok {
+		jsonResponse(w, r, lf) // job not found, it may be completed
+		return
+	}
+
+	//  if log path is empty then read job control file to get log path from it
+	if ru.logAbsPath == "" {
+		ok, jc := readAllAdminJobState(ru.filePath)
+		if !ok {
+			jsonResponse(w, r, lf) // unable to read job control file
+			return
+		}
+
+		// update log log file path in active runs list
+		if jc.LogAbsPath != "" {
+			theRunCatalog.updateActiveJobLogPath(oms, submitStamp, jc.LogAbsPath)
+		}
+		ru.logAbsPath = jc.LogAbsPath
+	}
+	if ru.logAbsPath == "" {
+		jsonResponse(w, r, lf) // log path is empty, log disabled
+		return
+	}
+
+	// read log content and return final result
+	lf = append(lf, filepath.Base(ru.logAbsPath)) // first line is log file name
+
+	if lines, ok := readLogFile(ru.logAbsPath); ok {
+		lf = append(lf, lines...)
+	}
+	jsonResponse(w, r, lf)
+}
+
+// read job control file content
+func readAllAdminJobState(filePath string) (bool, *RunJob) {
+
+	st := emptyRunJob("")
+	if filePath == "" {
+		return false, &st
+	}
+
+	// read job control file
+	isOk, err := helper.FromJsonFile(filePath, &st)
+	if err != nil {
+		omppLog.LogNoLT(err)
+	}
+	if !isOk || err != nil {
+		return false, &st
+	}
+
+	// set job state default empty values instead of missing null values
+	if len(st.Opts) == 0 {
+		st.Opts = map[string]string{}
+	}
+	if st.Tables == nil {
+		st.Tables = []string{}
+	}
+	if st.Microdata.Entity == nil {
+		st.Microdata.Entity = []struct {
+			Name string
+			Attr []string
+		}{}
+	}
+	if st.RunNotes == nil {
+		st.RunNotes = []struct {
+			LangCode string
+			Note     string
+		}{}
+	}
+
+	return true, &st // return final result
+}
+
+// for global admin: stop queue run: find and delete job control file from the queue
+//
+//	PUT /api/admin-all/run/stop/queue/:oms/stamp/:stamp
+func adminAllStopQueueRunHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	if !theCfg.isAdminAll {
+		http.Error(w, helper.MsgL(lang, "Forbidden: disabled on the server"), http.StatusForbidden)
+		return
+	}
+
+	// url or query parameters: submission stamp
+	oms := getRequestParam(r, "oms")
+	if oms == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) oms user name"), http.StatusBadRequest)
+		return
+	}
+	stamp := getRequestParam(r, "stamp")
+	if stamp == "" {
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) submission stamp"), http.StatusBadRequest)
+		return
+	}
+
+	// find queue job request by oms name and submit stamp
+	qr, isFound := theRunCatalog.findQueueRequest(oms, stamp)
+	if !isFound {
+		http.Error(w, helper.MsgL(lang, "Model run not found:", oms, stamp), http.StatusBadRequest)
+		return // empty result: oms or submission stamp not found in the queue
+	}
+
+	isFound = moveJobQueueToFailed(qr.filePath, stamp, qr.ModelName, qr.ModelDigest, stamp, true) // move job control file to history
+
+	// write queue job run key as response
+	w.Header().Set("Content-Location", "/api/admin-all/run/stop/queue/"+oms+"/stamp/"+stamp+"/"+strconv.FormatBool(isFound))
+	w.Header().Set("Content-Type", "text/plain")
 }

@@ -18,43 +18,43 @@ import (
 func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	st := struct {
-		OmsName         string             // service instance name
-		DoubleFmt       string             // format to convert float or double value to string
-		LoginUrl        string             // user login URL for UI
-		LogoutUrl       string             // user logout URL for UI
-		AllowUserHome   bool               // if true then store user settings in home directory
-		AllowDownload   bool               // if true then allow download from home/io/download directory
-		AllowUpload     bool               // if true then allow upload from home/io/upload directory
-		AllowFiles      bool               // if true then allow user files, if home directory specified then files directory: home/io
-		AllowMicrodata  bool               // if true then allow model run microdata
-		IsJobControl    bool               // if true then job control enabled
-		IsModelDoc      bool               // if true then model documentation is enabled
-		IsDiskUse       bool               // if true then storage usage control enabled
-		IsDiskCleanup   bool               // if true then disk cleanup enabled
-		IsAdminAll      bool               // if true then it is global admin service
-		JobServiceState                    // jobs service state: paused, resources usage and limits
-		DiskUse         diskUseConfig      // disk use config
-		Env             map[string]string  // server config environmemt variables for UI
-		UiExtra         string             // UI extra config from etc/ui.extra.json
-		ModelCatalog    ModelCatalogConfig // "public" state of model catalog
-		RunCatalog      RunCatalogConfig   // "public" state of model run catalog
+		OmsName        string             // service instance name
+		DoubleFmt      string             // format to convert float or double value to string
+		LoginUrl       string             // user login URL for UI
+		LogoutUrl      string             // user logout URL for UI
+		AllowUserHome  bool               // if true then store user settings in home directory
+		AllowDownload  bool               // if true then allow download from home/io/download directory
+		AllowUpload    bool               // if true then allow upload from home/io/upload directory
+		AllowFiles     bool               // if true then allow user files, if home directory specified then files directory: home/io
+		AllowMicrodata bool               // if true then allow model run microdata
+		IsJobControl   bool               // if true then job control enabled
+		IsModelDoc     bool               // if true then model documentation is enabled
+		IsDiskUse      bool               // if true then storage usage control enabled
+		IsDiskCleanup  bool               // if true then disk cleanup enabled
+		IsAdminAll     bool               // if true then it is global admin service
+		JobServicePub                     // jobs service state: paused, resources usage and limits
+		DiskUse        diskUseConfig      // disk use config
+		Env            map[string]string  // server config environmemt variables for UI
+		UiExtra        string             // UI extra config from etc/ui.extra.json
+		ModelCatalog   ModelCatalogConfig // "public" state of model catalog
+		RunCatalog     RunCatalogConfig   // "public" state of model run catalog
 	}{
-		OmsName:         theCfg.omsName,
-		DoubleFmt:       theCfg.doubleFmt,
-		AllowUserHome:   theCfg.isHome,
-		AllowDownload:   theCfg.downloadDir != "",
-		AllowUpload:     theCfg.uploadDir != "",
-		AllowFiles:      theCfg.filesDir != "",
-		AllowMicrodata:  theCfg.isMicrodata,
-		IsJobControl:    theCfg.isJobControl,
-		JobServiceState: theRunCatalog.getJobServiceState(),
-		IsModelDoc:      theCfg.docDir != "",
-		IsDiskUse:       theCfg.isDiskUse,
-		IsAdminAll:      theCfg.isAdminAll,
-		Env:             theCfg.env,
-		UiExtra:         theCfg.uiExtra,
-		ModelCatalog:    theCatalog.toPublicConfig(),
-		RunCatalog:      *theRunCatalog.toPublicConfig(),
+		OmsName:        theCfg.omsName,
+		DoubleFmt:      theCfg.doubleFmt,
+		AllowUserHome:  theCfg.isHome,
+		AllowDownload:  theCfg.downloadDir != "",
+		AllowUpload:    theCfg.uploadDir != "",
+		AllowFiles:     theCfg.filesDir != "",
+		AllowMicrodata: theCfg.isMicrodata,
+		IsJobControl:   theCfg.isJobControl,
+		IsAdminAll:     theCfg.isAdminAll,
+		JobServicePub:  theRunCatalog.getJobServicePub(),
+		IsModelDoc:     theCfg.docDir != "",
+		IsDiskUse:      theCfg.isDiskUse,
+		Env:            theCfg.env,
+		UiExtra:        theCfg.uiExtra,
+		ModelCatalog:   theCatalog.toPublicConfig(),
+		RunCatalog:     *theRunCatalog.toPublicConfig(),
 	}
 	if theCfg.isDiskUse {
 		_, st.DiskUse = theRunCatalog.getDiskUseStatus()
@@ -69,40 +69,35 @@ func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 //	GET /api/service/state
 func serviceStateHandler(w http.ResponseWriter, r *http.Request) {
 
-	// service state: model run jobs queue, active jobs, history jobs and compute servers state
-	type cItem struct {
-		Name       string     // name of server or cluster
-		State      string     // state: start, stop, ready, error, off
-		TotalRes   ComputeRes // total computational resources (CPU cores and memory)
-		UsedRes    ComputeRes // resources (CPU cores and memory) used by all oms instances
-		OwnRes     ComputeRes // resources (CPU cores and memory) used by this instance
-		ErrorCount int        // number of incomplete starts, stops and errors
-		LastUsedTs int64      // last time for model run (unix milliseconds)
-	}
+	// it can be inconsistent between job service state, compute state and jobs state
 	st := struct {
-		IsJobControl    bool             // if true then job control enabled
-		JobServiceState                  // jobs service state: paused, resources usage and limits
-		Queue           []RunJob         // list of model run jobs in the queue
-		Active          []RunJob         // list of active (currently running) model run jobs
-		History         []historyJobFile // history of model runs
-		ComputeState    []cItem          // state of computational servers or clusters
-		IsDiskUse       bool             // if true then storage usage control enabled
-		IsDiskCleanup   bool             // if true then disk cleanup enabled
-		IsDiskOver      bool             // if true then storage use reach the limit
-		diskUseConfig                    // storage use settings
+		IsJobControl  bool             // if true then job control enabled
+		IsAdminAll    bool             // if true then it is global admin service
+		JobServicePub                  // jobs service state: paused, resources usage and limits
+		Queue         []RunJob         // list of model run jobs in the queue
+		Active        []RunJob         // list of active (currently running) model run jobs
+		History       []historyJobFile // history of model runs
+		ComputeState  []computePub     // state of computational servers or clusters
+		IsDiskUse     bool             // if true then storage usage control enabled
+		IsDiskCleanup bool             // if true then disk cleanup enabled
+		IsDiskOver    bool             // if true then storage use reach the limit
+		diskUseConfig                  // storage use settings
 	}{
 		IsJobControl: theCfg.isJobControl,
+		IsAdminAll:   theCfg.isAdminAll,
 		Queue:        []RunJob{},
 		Active:       []RunJob{},
 		History:      []historyJobFile{},
-		ComputeState: []cItem{},
+		ComputeState: []computePub{},
 		IsDiskUse:    theCfg.isDiskUse,
 	}
 
 	if theCfg.isJobControl {
-		jsState, qKeys, qJobs, aKeys, aJobs, hKeys, hJobs, cState := theRunCatalog.getRunJobs()
 
-		st.JobServiceState = jsState
+		st.JobServicePub = theRunCatalog.getJobServicePub()
+		st.ComputeState = theRunCatalog.getComputePub()
+
+		qKeys, qJobs, aKeys, aJobs, hKeys, hJobs := theRunCatalog.getRunJobs()
 
 		st.Queue = make([]RunJob, len(qKeys))
 		for k := range qKeys {
@@ -124,20 +119,6 @@ func serviceStateHandler(w http.ResponseWriter, r *http.Request) {
 		st.History = make([]historyJobFile, len(hKeys))
 		for k := range hKeys {
 			st.History[k] = hJobs[k]
-		}
-
-		st.ComputeState = make([]cItem, len(cState))
-		for k := range cState {
-			st.ComputeState[k].Name = cState[k].name
-			st.ComputeState[k].State = cState[k].state
-			if st.ComputeState[k].State == "" {
-				st.ComputeState[k].State = "off"
-			}
-			st.ComputeState[k].TotalRes = cState[k].totalRes
-			st.ComputeState[k].UsedRes = cState[k].usedRes
-			st.ComputeState[k].OwnRes = cState[k].ownRes
-			st.ComputeState[k].ErrorCount = cState[k].errorCount
-			st.ComputeState[k].LastUsedTs = cState[k].lastUsedTs
 		}
 	}
 
@@ -183,7 +164,7 @@ func serviceRefreshDiskUseHandler(w http.ResponseWriter, r *http.Request) {
 
 // job control state, log file content and run progress
 type runJobState struct {
-	JobStatus string      // if not empty then job run status name: success, error, exit
+	JobStatus string      // if not empty then job run status: success, error, exit
 	RunJob                // job control state: job control file content
 	RunStatus []db.RunPub // if not empty then run_lst and run_progerss from db
 	Lines     []string    // log file content
@@ -192,32 +173,37 @@ type runJobState struct {
 // return empty value of job control state
 func emptyRunJobState(submitStamp string) runJobState {
 	return runJobState{
-		RunJob: RunJob{
-			SubmitStamp: submitStamp,
-			RunRequest: RunRequest{
-				Opts:   map[string]string{},
-				Env:    map[string]string{},
-				Tables: []string{},
-				Microdata: struct {
-					IsToDb     bool
-					IsInternal bool
-					Entity     []struct {
-						Name string
-						Attr []string
-					}
-				}{
-					Entity: []struct {
-						Name string
-						Attr []string
-					}{},
-				},
-				RunNotes: []struct {
-					LangCode string
-					Note     string
-				}{}},
-		},
+		RunJob:    emptyRunJob(submitStamp),
 		RunStatus: []db.RunPub{},
 		Lines:     []string{},
+	}
+}
+
+// return empty value of run job
+func emptyRunJob(submitStamp string) RunJob {
+	return RunJob{
+		SubmitStamp: submitStamp,
+		RunRequest: RunRequest{
+			Opts:   map[string]string{},
+			Env:    map[string]string{},
+			Tables: []string{},
+			Microdata: struct {
+				IsToDb     bool
+				IsInternal bool
+				Entity     []struct {
+					Name string
+					Attr []string
+				}
+			}{
+				Entity: []struct {
+					Name string
+					Attr []string
+				}{},
+			},
+			RunNotes: []struct {
+				LangCode string
+				Note     string
+			}{}},
 	}
 }
 
@@ -339,6 +325,7 @@ func getJobState(filePath string) (bool, *runJobState) {
 	st.Pid = 0
 	st.CmdPath = ""
 	st.LogPath = ""
+	st.LogAbsPath = ""
 	st.BinDir = ""
 	st.WorkDir = ""
 	st.Env = map[string]string{}
@@ -471,7 +458,7 @@ func doJobHistoryAllDelete(isSuccess bool, w http.ResponseWriter, lang string) {
 	nDel := 0
 	if theCfg.isJobControl {
 
-		_, _, _, _, _, hKeys, hJobs, _ := theRunCatalog.getRunJobs()
+		_, _, _, _, hKeys, hJobs := theRunCatalog.getRunJobs()
 
 		for k := range hKeys {
 

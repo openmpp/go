@@ -133,22 +133,23 @@ func compUsedPath(name, submitStamp string, cpu, mem int) string {
 		"comp-used-#-"+name+"-#-"+submitStamp+"-#-"+theCfg.omsName+"-#-cpu-#-"+strconv.Itoa(cpu)+"-#-mem-#-"+strconv.Itoa(mem))
 }
 
-// Return disk state use file path: oms instance name, usage in MBytes, status (over / ok), time stamp and clock ticks.
-// For example: job/state/disk-#-_4040-#-size-#-100-#-status-#-ok-#-2022_07_08_23_45_12_123-#-125678.json
-func diskUseStatePath(totalSize int64, isOver bool, tickMs int64) string {
+// Return disk state use file path: oms instance name, usage in MBytes, status (over / ok), user limit in MBytes, time stamp and clock ticks.
+// For example: job/state/disk-#-_4040-#-size-#-100-#-ok-#-120-#-2022_07_08_23_45_12_123-#-125678.json
+func diskUseStatePath(totalSize int64, isOver bool, userLimit int64, tickMs int64) string {
 
 	s := "over"
 	if !isOver {
 		s = "ok"
 	}
 	mb := int(math.Ceil(float64(totalSize) / (1024.0 * 1024.0)))
+	ul := int(math.Floor(float64(userLimit) / (1024.0 * 1024.0)))
 
 	tPart := helper.MakeTimeStamp(time.UnixMilli(tickMs)) + "-#-" + strconv.FormatInt(tickMs, 10)
 
 	return filepath.Join(
 		theCfg.jobDir,
 		"state",
-		"disk-#-"+theCfg.omsName+"-#-size-#-"+strconv.Itoa(mb)+"-#-status-#-"+s+"-#-"+tPart+".json")
+		"disk-#-"+theCfg.omsName+"-#-size-#-"+strconv.Itoa(mb)+"-#-"+s+"-#-"+strconv.Itoa(ul)+"-#-"+tPart+".json")
 }
 
 // parse job file path or job file name:
@@ -401,51 +402,56 @@ func parseCompUsedPath(srcPath string) (string, string, string, int, int) {
 	return sp[1], sp[2], sp[3], cpu, mem
 }
 
-// Parse disk state use file path: job/state/disk-#-_4040-#-size-#-100-#-status-#-ok-#-2022_07_08_23_45_12_123-#-125678.json
-// Return oms instance name, total MB usage, is over status, time stamp and clock ticks.
-func parseDiskUseStatePath(srcPath string) (string, int64, bool, string, int64) {
+// Parse disk state use file path: job/state/disk-#-_4040-#-size-#-100-#-ok-#-120-#-2022_07_08_23_45_12_123-#-125678.json
+// Return oms instance name, total MB usage, is over status, user limit MB, time stamp and clock ticks, total bytes usage, user limit in bytes
+func parseDiskUseStatePath(srcPath string) (string, int64, bool, int64, string, int64, int64, int64) {
 
 	// remove job state directory and extension, file extension must be .json
 	if filepath.Ext(srcPath) != ".json" {
-		return "", 0, false, "", 0
+		return "", 0, false, 0, "", 0, 0, 0
 	}
 	p := filepath.Base(srcPath)
 	p = p[:len(p)-len(".json")]
 
 	// split file name and check result: it must be 8 non-empty parts with time stamp
 	sp := strings.Split(p, "-#-")
-
 	if len(sp) != 8 ||
 		sp[0] != "disk" || sp[1] == "" ||
 		sp[2] != "size" || sp[3] == "" ||
-		sp[4] != "status" || sp[5] == "" ||
+		sp[4] == "" || sp[5] == "" ||
 		!helper.IsUnderscoreTimeStamp(sp[6]) || sp[7] == "" {
-		return "", 0, false, "", 0 // source file path is not disk use state file
+		return "", 0, false, 0, "", 0, 0, 0 // source file path is not disk use state file
 	}
 
-	// parse and convert total size from MBytes to bytes
+	// parse total size MBytes
 	mb, err := strconv.ParseInt(sp[3], 10, 64)
 	if err != nil || mb < 0 {
-		return "", 0, false, "", 0 // disk usage must be non-negative integer
+		return "", 0, false, 0, "", 0, 0, 0 // disk usage must be non-negative integer
 	}
 
 	// check status: it must be "ok" or "over"
 	isOver := false
-	if sp[5] == "over" {
+	if sp[4] == "over" {
 		isOver = true
 	} else {
-		if sp[5] != "ok" {
-			return "", 0, false, "", 0 // status it must be "ok" or "over"
+		if sp[4] != "ok" {
+			return "", 0, false, 0, "", 0, 0, 0 // status it must be "ok" or "over"
 		}
+	}
+
+	// parse user limit MBytes
+	ul, err := strconv.ParseInt(sp[5], 10, 64)
+	if err != nil || ul < 0 {
+		return "", 0, false, 0, "", 0, 0, 0 // user limit must be non-negative integer
 	}
 
 	// convert clock ticks
 	tickMs, err := strconv.ParseInt(sp[7], 10, 64)
 	if err != nil || tickMs <= minJobTickMs {
-		return "", 0, false, "", 0 // clock ticks must after 2020-08-17 23:45:59
+		return "", 0, false, 0, "", 0, 0, 0 // clock ticks must after 2020-08-17 23:45:59
 	}
 
-	return sp[1], mb, isOver, sp[6], tickMs
+	return sp[1], mb, isOver, ul, sp[6], tickMs, mb * 1024 * 1024, ul * 1024 * 1024
 }
 
 // move run job to active state from queue
@@ -466,6 +472,10 @@ func moveJobToActive(queueJobPath string, rState *RunState, res RunRes, runStamp
 	}
 
 	// add run stamp, process info, actual run resources, log file and move job control file into active
+
+	if jc.LogAbsPath, err = filepath.Abs(rState.logPath); err != nil { // on error keep log absolute path empty
+		jc.LogAbsPath = ""
+	}
 	jc.RunStamp = runStamp
 	jc.Pid = rState.pid
 	jc.CmdPath = rState.cmdPath
@@ -813,7 +823,7 @@ func diskUseStateWrite(duState *diskUseState, dbUse []dbDiskUse) bool {
 	}
 
 	err := helper.ToJsonIndentFile(
-		diskUseStatePath(duState.TotalSize, duState.IsOver, duState.UpdateTs),
+		diskUseStatePath(duState.TotalSize, duState.IsOver, duState.Limit, duState.UpdateTs),
 		&ds)
 	if err != nil {
 		omppLog.Log(err)
@@ -825,8 +835,8 @@ func diskUseStateWrite(duState *diskUseState, dbUse []dbDiskUse) bool {
 // Remove all existing disk use state files for current oms instance, log delete errors, return true on success or false or errors.
 func deleteDiskUseStateFiles() bool {
 
-	// pattern: job/state/disk-#-_4040-#-size-#-100-#-status-#-ok-#-2022_07_08_23_45_12_123-#-125678.json
-	p := filepath.Join(theCfg.jobDir, "state", "disk-#-"+theCfg.omsName+"-#-size-#-*-#-status-#-*-#-*-#-*.json")
+	// pattern: job/state/disk-#-_4040-#-size-#-100-#-ok-#-120-#-2022_07_08_23_45_12_123-#-125678.json
+	p := filepath.Join(theCfg.jobDir, "state", "disk-#-"+theCfg.omsName+"-#-size-#-*-#-*-#-*-#-*-#-*.json")
 	isNoError := true
 
 	fl := filesByPattern(p, "Error at disk use state files search")

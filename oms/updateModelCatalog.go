@@ -131,18 +131,9 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 			}
 		}
 	}
-	mc.modelLst = append(mc.modelLst, mLst...) // append modela to catalog and sort models by file paths
+	mc.modelLst = append(mc.modelLst, mLst...) // append model to catalog and sort models by file paths
 
-	slices.SortStableFunc(mc.modelLst, func(left, right modelDef) int {
-		if left.relPath < right.relPath {
-			return -1
-		} else {
-			if left.relPath > right.relPath {
-				return 1
-			}
-		}
-		return 0
-	})
+	slices.SortStableFunc(mc.modelLst, func(left, right modelDef) int { return strings.Compare(left.relPath, right.relPath) })
 
 	return len(mLst), nil
 }

@@ -120,7 +120,7 @@ func (rsc *RunCatalog) postRunStateLog(digest string, runStamp string, isFinal b
 // read all non-empty text lines from log file.
 func readLogFile(logPath string) ([]string, bool) {
 
-	if logPath == "" {
+	if logPath == "" || logPath == "." {
 		return []string{}, false // empty log file path: exit
 	}
 

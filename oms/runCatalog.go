@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -107,6 +108,7 @@ type RunJob struct {
 	QueuePos    int    // one-based position of MPI job in global queue or any (MPI or non-MPI) job in localhost queue
 	LogFileName string // log file name
 	LogPath     string // log file path: log/dir/modelName.RunStamp.console.log
+	LogAbsPath  string // absolute log file path: /root/user/log/dir/modelName.RunStamp.console.log
 	IniPath     string // if not empty then actual ini file path, may be relative to log directory
 	BinDir      string // if not empty then model run bin directory
 	WorkDir     string // if not empty then model run work directory
@@ -148,6 +150,21 @@ type queueJobFile struct {
 	position int  // part of file name: queue position
 	isPaused bool // if true then queue is paused
 	isFirst  bool // if true then it is the first job in the queue
+}
+
+// queue job request, based on file name
+type queueRequest struct {
+	Oms          string // oms instance name
+	SubmitStamp  string // submission timestamp
+	ModelName    string // model name
+	ModelDigest  string // model digest
+	IsMpi        bool   // if true then it use MPI to run the model
+	ProcessCount int    // computaional proccess count
+	ThreadCount  int    // computaional thread count
+	ProcessMemMb int    // if not zero then memory required per proccess in megabytes
+	ThreadMemMb  int    // if not zero then memory required for each thread in megabytes
+	Position     int    // part of file name: queue position
+	filePath     string // job control file path
 }
 
 // job control file info for history job: parts of file name
@@ -200,20 +217,22 @@ type RunStateLogPage struct {
 
 // Public portion of service state and job control state, it should NOT have any reference types members
 type JobServicePub struct {
-	IsQueuePaused     bool       // this oms instance: if true then jobs queue is paused, jobs are not selected from queue
-	IsAllQueuePaused  bool       // all oms instances: if true then jobs queue is paused, jobs are not selected from queue
-	JobUpdateDateTime string     // last date-time jobs list updated
-	MpiRes            ComputeRes // MPI total available resources available (CPU cores and memory) as sum of all servers or localhost resources
-	MaxOwnMpiRes      ComputeRes // resources limit (CPU cores and memory) for each oms instance
-	ActiveTotalRes    ComputeRes // MPI active run resources (CPU cores and memory) used by all oms instances
-	ActiveOwnRes      ComputeRes // MPI active run resources (CPU cores and memory) used by this oms instance
-	QueueTotalRes     ComputeRes // MPI queue run resources (CPU cores and memory) requested by all oms instances
-	QueueOwnRes       ComputeRes // MPI queue run resources (CPU cores and memory) requested by this oms instance
-	MpiErrorRes       ComputeRes // MPI computational resources on "error" servers
-	MpiMaxThreads     int        // max number of modelling threads per MPI process, zero means unlimited
-	LocalRes          ComputeRes // localhost non-MPI jobs total resources limits
-	LocalActiveRes    ComputeRes // localhost non-MPI jobs resources used by this instance to run models
-	LocalQueueRes     ComputeRes // localhost non-MPI jobs queue resources for this oms instance
+	IsQueuePaused       bool       // this oms instance: if true then jobs queue is paused, jobs are not selected from queue
+	IsAllQueuePaused    bool       // all oms instances: if true then jobs queue is paused, jobs are not selected from queue
+	JobUpdateDateTime   string     // last date-time jobs list updated
+	MpiRes              ComputeRes // MPI total available resources available (CPU cores and memory) as sum of all servers or localhost resources
+	MaxOwnMpiRes        ComputeRes // resources limit (CPU cores and memory) for each oms instance
+	ActiveTotalRes      ComputeRes // MPI active run resources (CPU cores and memory) used by all oms instances
+	ActiveOwnRes        ComputeRes // MPI active run resources (CPU cores and memory) used by this oms instance
+	QueueTotalRes       ComputeRes // MPI queue run resources (CPU cores and memory) requested by all oms instances
+	QueueOwnRes         ComputeRes // MPI queue run resources (CPU cores and memory) requested by this oms instance
+	MpiErrorRes         ComputeRes // MPI computational resources on "error" servers
+	MpiMaxThreads       int        // max number of modelling threads per MPI process, zero means unlimited
+	LocalRes            ComputeRes // localhost non-MPI jobs total resources limits
+	LocalActiveTotalRes ComputeRes // localhost non-MPI jobs resources used by all oms instances
+	LocalActiveRes      ComputeRes // localhost non-MPI jobs resources used by this instance to run models
+	LocalQueueTotalRes  ComputeRes // localhost non-MPI jobs queue requested by all oms instances
+	LocalQueueRes       ComputeRes // localhost non-MPI jobs queue resources for this oms instance
 }
 
 // Service state and job control state, it should NOT have any reference types members
@@ -230,19 +249,24 @@ type JobServiceState struct {
 	hostFile         hostIni // MPI jobs hostfile settings
 }
 
+// public part of computational server or cluster state
+type computePub struct {
+	Name       string     // name of server or cluster
+	State      string     // state: start, stop, ready, error, off
+	TotalRes   ComputeRes // total computational resources (CPU cores and memory)
+	UsedRes    ComputeRes // resources (CPU cores and memory) used by all oms instances
+	OwnRes     ComputeRes // resources (CPU cores and memory) used by this instance
+	ErrorCount int        // number of incomplete starts, stops and errors
+	LastUsedTs int64      // last time for model run (unix milliseconds)
+}
+
 // computational server or cluster state
 type computeItem struct {
-	name       string     // name of server or cluster
-	state      string     // state: start, stop, ready, error, empty "" means power off
-	totalRes   ComputeRes // total computational resources (CPU cores and memory)
-	usedRes    ComputeRes // resources (CPU cores and memory) used by all oms instances
-	ownRes     ComputeRes // resources (CPU cores and memory) used by this instance
-	errorCount int        // number of incomplete starts, stops and errors
-	lastUsedTs int64      // last activity time (unix milliseconds): server start, stop or used
-	startExe   string     // name of executable to start server, e.g.: /bin/sh
-	startArgs  []string   // arguments to start server, e.g.: -c start.sh my-server-name
-	stopExe    string     // name of executable to stop server,, e.g.: /bin/sh
-	stopArgs   []string   // arguments to stop server, e.g.: -c stop.sh my-server-name
+	computePub          // name state and resources usage
+	startExe   string   // name of executable to start server, e.g.: /bin/sh
+	startArgs  []string // arguments to start server, e.g.: -c start.sh my-server-name
+	stopExe    string   // name of executable to stop server,, e.g.: /bin/sh
+	stopArgs   []string // arguments to stop server, e.g.: -c stop.sh my-server-name
 }
 
 // computational server or cluster usage
@@ -255,12 +279,14 @@ type computeUse struct {
 // model run state and resources usage: for global admin only
 type adminState struct {
 	OmsActive    []omsState      // for all oms instances: state, computational and disk resources usage
-	ActiveRuns   []runUsage      // for active model runs: computational resources usage
+	ActiveRuns   []runUsage      // for all active model runs: computational resources usage
 	RunCompUsage []runComputeUse // for all active model runs computational resources usage on each server
+	QueueRuns    []queueRequest  // for all queue jobs: oms, submit stamp, queue position and requested computational resources
 }
 
 // computational resources used by model run
 type runComputeUse struct {
+	Oms         string // oms instance name
 	SubmitStamp string // submission timestamp
 	computeUse         // computational server or cluster usage
 }
@@ -285,14 +311,15 @@ type omsUsage struct {
 // oms instance disk usage
 type diskUsage struct {
 	IsDiskOver   bool   // if true then disk usage exceeds quota
-	TotalSize    int64  // disk use total size: models/bin size + download + upload
+	TotalSizeMb  int64  // MBytes disk use total size: models/bin size + download + upload
+	LimitMb      int64  // MBytes storage limit
 	diskFilePath string // oms disk usage file path
 }
 
 // active model runs resources
 type runUsage struct {
-	SubmitStamp string // submission timestamp
 	Oms         string // oms instance name
+	SubmitStamp string // submission timestamp
 	ComputeRes         // run total resources: cpu count and memory size
 	IsMpi       bool   // if true then it use MPI to run the model
 	ModelName   string // model name
@@ -300,6 +327,7 @@ type runUsage struct {
 	RunStamp    string // model run stamp, may be auto-generated as timestamp
 	pid         int    // process id
 	filePath    string // job control file path
+	logAbsPath  string // if not empty then absolute log file path: /root/user/log/dir/modelName.RunStamp.console.log
 }
 
 // job resources allocation by computational servers or clusters
@@ -521,60 +549,151 @@ func (rsc *RunCatalog) getCfgRes(digest string) modelCfgRes {
 }
 
 // return job control state and service state.
-func (rsc *RunCatalog) getJobServiceState() JobServiceState {
+func (rsc *RunCatalog) getJobServicePub() JobServicePub {
 	rsc.rscLock.Lock()
 	defer rsc.rscLock.Unlock()
 
-	return rsc.JobServiceState
+	return rsc.JobServiceState.JobServicePub
+}
+
+// Return compute servers state
+func (rsc *RunCatalog) getComputePub() []computePub {
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+	return rsc.getComputeSorted()
+}
+
+// for internal use only: inside the lock.
+// Return compute servers state soretd by servers name
+func (rsc *RunCatalog) getComputeSorted() []computePub {
+
+	// get computational servers state, sorted by name
+	cN := make([]string, len(rsc.computeState))
+
+	np := 0
+	for name := range rsc.computeState {
+		cN[np] = name
+		np++
+	}
+	sort.Strings(cN)
+
+	cState := make([]computePub, len(rsc.computeState))
+
+	for k := 0; k < len(cN); k++ {
+		cState[k] = rsc.computeState[cN[k]].computePub
+		if cState[k].State == "" {
+			cState[k].State = "off"
+		}
+	}
+	return cState
 }
 
 // return service state and resources usage for all oms instances and all active model runs.
-func (rsc *RunCatalog) getAllAdminState() adminState {
+func (rsc *RunCatalog) getAllAdminPubState() (adminState, JobServicePub, []computePub) {
 
 	if !theCfg.isAdminAll {
-		return adminState{} // this is not a global admin instance: return empty result
+		return adminState{}, JobServicePub{}, []computePub{} // this is not a global admin instance: return empty result
 	}
-
 	rsc.rscLock.Lock()
 	defer rsc.rscLock.Unlock()
 
 	// make a copy of service state
-	st := adminState{
+	ast := adminState{
 		OmsActive:    make([]omsState, len(rsc.OmsActive)),
 		ActiveRuns:   make([]runUsage, len(rsc.ActiveRuns)),
 		RunCompUsage: make([]runComputeUse, len(rsc.RunCompUsage)),
+		QueueRuns:    make([]queueRequest, len(rsc.QueueRuns)),
 	}
 
-	copy(st.OmsActive, rsc.OmsActive)
-	copy(st.ActiveRuns, rsc.ActiveRuns)
-	copy(st.RunCompUsage, rsc.RunCompUsage)
+	copy(ast.OmsActive, rsc.OmsActive)
+	copy(ast.ActiveRuns, rsc.ActiveRuns)
+	copy(ast.RunCompUsage, rsc.RunCompUsage)
+	copy(ast.QueueRuns, rsc.QueueRuns)
 
-	slices.SortStableFunc(st.OmsActive, func(left, right omsState) int { return strings.Compare(left.Oms, right.Oms) })
+	slices.SortStableFunc(ast.OmsActive, func(left, right omsState) int { return strings.Compare(left.Oms, right.Oms) })
 
-	// sort active runs by submit stamp and oms name
-	slices.SortStableFunc(rsc.ActiveRuns, func(left, right runUsage) int {
-		if left.SubmitStamp < right.SubmitStamp {
-			return -1
-		} else {
-			if left.Oms > right.Oms {
-				return 1
-			}
+	// sort active runs by oms name and submit stamp
+	slices.SortStableFunc(ast.ActiveRuns, func(left, right runUsage) int {
+		if c := strings.Compare(left.Oms, right.Oms); c != 0 {
+			return c
 		}
-		return 0
-
+		return strings.Compare(left.SubmitStamp, right.SubmitStamp)
 	})
 
-	// sort model run run computational resources usage by submit stamp and server name
-	slices.SortStableFunc(rsc.RunCompUsage, func(left, right runComputeUse) int {
-		if left.SubmitStamp < right.SubmitStamp {
-			return -1
-		} else {
-			if left.CompName > right.CompName {
-				return 1
-			}
+	// sort model run run computational resources usage by oms name and submit stamp
+	slices.SortStableFunc(ast.RunCompUsage, func(left, right runComputeUse) int {
+		if c := strings.Compare(left.Oms, right.Oms); c != 0 {
+			return c
 		}
-		return 0
+		return strings.Compare(left.SubmitStamp, right.SubmitStamp)
 	})
 
-	return st
+	// sort queue files by submit stamp, position in the queue and oms name
+	slices.SortStableFunc(ast.QueueRuns, func(left, right queueRequest) int {
+		if c := strings.Compare(left.SubmitStamp, right.SubmitStamp); c != 0 {
+			return c
+		}
+		if c := left.Position - right.Position; c != 0 {
+			return c
+		}
+		return strings.Compare(left.Oms, right.Oms)
+	})
+
+	return ast, rsc.JobServiceState.JobServicePub, rsc.getComputeSorted()
+}
+
+// for global admin: find active job run usage by oms instance name and submit stamp.
+// return empty value and not flag if not found
+func (rsc *RunCatalog) findActiveRunUsage(oms, submitStamp string) (runUsage, bool) {
+
+	if !theCfg.isAdminAll {
+		return runUsage{}, false // this is not a global admin instance: return empty result
+	}
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+
+	for k := range rsc.ActiveRuns {
+
+		if rsc.ActiveRuns[k].Oms == oms && rsc.ActiveRuns[k].SubmitStamp == submitStamp {
+			return rsc.ActiveRuns[k], true
+		}
+	}
+	return runUsage{}, false // active job not found, it may be completed
+}
+
+// for global admin: update log file path for the active job.
+func (rsc *RunCatalog) updateActiveJobLogPath(oms, submitStamp, logPath string) {
+
+	if !theCfg.isAdminAll {
+		return // this is not a global admin instance: return empty result
+	}
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+
+	for k := range rsc.ActiveRuns {
+
+		if rsc.ActiveRuns[k].Oms == oms && rsc.ActiveRuns[k].SubmitStamp == submitStamp {
+			rsc.ActiveRuns[k].logAbsPath = logPath
+			return // oms and submit stamp expected to be a primary key
+		}
+	}
+}
+
+// for global admin: find queue job request by oms instance name and submit stamp.
+// return empty value and not found flag if not found
+func (rsc *RunCatalog) findQueueRequest(oms, submitStamp string) (queueRequest, bool) {
+
+	if !theCfg.isAdminAll {
+		return queueRequest{}, false // this is not a global admin instance: return empty result
+	}
+	rsc.rscLock.Lock()
+	defer rsc.rscLock.Unlock()
+
+	for k := range rsc.QueueRuns {
+
+		if rsc.QueueRuns[k].Oms == oms && rsc.QueueRuns[k].SubmitStamp == submitStamp {
+			return rsc.QueueRuns[k], true
+		}
+	}
+	return queueRequest{}, false // active job not found, it may be completed
 }

@@ -838,11 +838,23 @@ func apiAdminRoutes(router *vestigo.Router) {
 	// add web-service /admin-all/ routes for global administrative tasks, enabled by -oms.AdminAll run option
 	if theCfg.isAdminAll {
 
-		// GET /api/admin-all/state
-		router.Get("/api/admin-all/state", adminAllStateGetHandler, logRequest)
-
 		// POST /api/admin-all/jobs-pause/:pause
 		router.Post("/api/admin-all/jobs-pause/:pause", jobsAllPauseHandler, logRequest)
 		router.Post("/api/admin-all/jobs-pause/", http.NotFound)
+
+		// GET /api/admin-all/state
+		router.Get("/api/admin-all/state", adminAllStateGetHandler, logRequest)
+
+		// GET /api/admin-all/job/active/:oms/stamp/:stamp/state
+		router.Get("/api/admin-all/job/active/:oms/stamp/:stamp/state", adminAllJobActiveStateHandler, logRequest)
+
+		// GET /api/admin-all/job/queue/:oms/stamp/:stamp/state
+		router.Get("/api/admin-all/job/queue/:oms/stamp/:stamp/state", adminAllJobQueueStateHandler, logRequest)
+
+		// GET /api/admin-all/job/active/:oms/stamp/:stamp/log
+		router.Get("/api/admin-all/job/active/:oms/stamp/:stamp/log", adminAllJobActiveLogHandler, logRequest)
+
+		// PUT /api/admin-all/run/stop/queue/:oms/stamp/:stamp
+		router.Put("/api/admin-all/run/stop/queue/:oms/stamp/:stamp", adminAllStopQueueRunHandler, logRequest)
 	}
 }

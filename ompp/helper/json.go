@@ -13,6 +13,10 @@ import (
 // FromJsonFile reads read from json file and convert to destination pointer.
 func FromJsonFile(jsonPath string, dst interface{}) (bool, error) {
 
+	if jsonPath == "" || jsonPath == "." {
+		return false, nil // file path is empty
+	}
+
 	// open file and convert to utf-8
 	f, err := os.Open(jsonPath)
 	if err != nil {

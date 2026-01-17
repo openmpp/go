@@ -60,8 +60,8 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 	}
 
 	// if disk use file does not updated more than 3 times of scan interval (and minimum 1 minute) then oms instance is dead
-	// disk use file: disk-#-_4040-#-size-#-100-#-status-#-ok-#-2022_07_08_23_45_12_123-#-125678.json
-	diskUsePtrn := filepath.Join(theCfg.jobDir, "state", "disk-#-*-#-size-#-*-#-status-#-*-#-*-#-*.json")
+	// disk use file: disk-#-_4040-#-size-#-100-#-ok-#-120-#-2022_07_08_23_45_12_123-#-125678.json
+	diskUsePtrn := filepath.Join(theCfg.jobDir, "state", "disk-#-*-#-size-#-*-#-*-#-*-#-*-#-*.json")
 
 	diskIniPath := filepath.Join(theCfg.etcDir, "disk.ini") // path to disk.ini: storage quotas and configuration
 	var nOtherSize int64                                    // all other oms instances disk use size
@@ -106,13 +106,13 @@ func scanDisk(doneC <-chan bool, refreshC <-chan bool) {
 
 			for _, fp := range diskUseFiles {
 
-				oms, mb, _, _, ts := parseDiskUseStatePath(fp)
+				oms, _, _, _, _, ts, ut, _ := parseDiskUseStatePath(fp)
 
 				if oms == "" || oms == theCfg.omsName {
 					continue // skip: invalid disk use state file path or it is current instance
 				}
 				if ts > minTs {
-					nOtherSize += (mb * 1024 * 1024) // oms instance is alive
+					nOtherSize += ut // oms instance is alive
 				}
 			}
 		}
