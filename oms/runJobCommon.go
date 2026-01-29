@@ -288,6 +288,95 @@ func parseHistoryPath(srcPath string) (string, string, string, string, string, s
 	return subStamp, oms, mn, dgst, sp[0], sp[1]
 }
 
+// Parse past shadow history file path and return:
+// year-month sub-folder,
+// submission stamp, oms instance name, model name, digest, run stamp,
+// MPI or local, cpu cores, memory size in GBytes, run time in seconds and run status.
+// For example:
+// 2022_07/2022_07_08_23_03_27_555-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-mpi-#-cpu-#-8-#-mem-#-4-#-3600-#-success.json
+func parsePastPath(srcPath string) (string, string, string, string, string, string, bool, int, int, int64, string) {
+
+	// split month sub-folder and file name
+	dir, fName := filepath.Split(srcPath)
+	if dir == "" || fName == "" {
+		return "", "", "", "", "", "", false, 0, 0, 0, "" // source file path is not shadow history job file
+	}
+
+	// bottom directory must be year and month: yyyy_mm, for example: 2022_07
+	ym := filepath.Base(dir)
+	if len(ym) != 7 || ym[4] != '_' {
+		return "", "", "", "", "", "", false, 0, 0, 0, "" // source file parent folder is not yyyy_mm
+	}
+
+	// parse common job file part
+	subStamp, oms, mn, dgst, p := parseJobPath(fName)
+
+	if subStamp == "" || oms == "" || mn == "" || dgst == "" || len(p) < len("r-#-M-#-c-#-m-#-t-#-s") {
+		return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // source file path is not shadow history job file
+	}
+
+	// parse the rest of file name, it old format, same as history file, 2 parts only:
+	//   run stamp run status
+	// or new format, 8 parts:
+	//   stamp, MPI or local, cpu cores, memory size in GBytes, run time in seconds and run status
+	//   for example:
+	//   2022_07_04_20_06_10_818-#-mpi-#-cpu-#-8-#-mem-#-4-#-3600-#-success
+	rStamp := ""
+	status := ""
+	isMpi := false
+	cpu := 0
+	mem := 0
+	var tSec int64 = 0
+	var err error
+
+	sp := strings.Split(p, "-#-")
+	if len(sp) != 8 && len(sp) != 2 {
+		return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // source file path is not shadow history job file
+	}
+
+	if len(sp) == 2 { // file name is in history format
+
+		rStamp = sp[0]
+		status = sp[1]
+
+	} else { // file name is in past history format
+
+		if sp[0] == "" ||
+			(sp[1] != "mpi" && sp[1] != "local") ||
+			sp[2] != "cpu" || sp[3] == "" ||
+			sp[4] != "mem" || sp[5] == "" ||
+			sp[6] == "" || sp[7] == "" {
+			return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // source file path is not shadow history job file
+		}
+		rStamp = sp[0]
+		status = sp[7]
+		isMpi = sp[1] == "mpi"
+
+		// convert cpu cores, memory size and total run time
+		cpu, err = strconv.Atoi(sp[3])
+		if err != nil || cpu <= 0 {
+			return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // cpu count must be positive integer
+		}
+		mem, err = strconv.Atoi(sp[5])
+		if err != nil || mem < 0 {
+			return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // memory size must be non-negative integer
+		}
+		tSec, err = strconv.ParseInt(sp[6], 10, 64)
+		if err != nil || tSec < 0 {
+			return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // total run time must be non-negative integer
+		}
+	}
+
+	if rStamp == "" || status == "" {
+		return ym, subStamp, oms, "", "", "", false, 0, 0, 0, "" // source file path is not history job file
+	}
+
+	// month sub-folder,
+	// submission stamp, oms instance name, model name, digest, run stamp,
+	// MPI or local, cpu cores, memory size in GBytes, run time in seconds and run status.
+	return ym, subStamp, oms, mn, dgst, rStamp, isMpi, cpu, mem, tSec, status
+}
+
 // Parse oms heart beat tick file path: job/state/oms-#-_4040-#-2022_07_08_23_45_12_123-#-1257894000000-#-2022_08_17_21_56_34_321
 // Return oms instance name time stamp, clock ticks and last run stamp.
 // If oms instance file does not have last run stamp then use current date-time stamp
@@ -455,7 +544,7 @@ func parseDiskUseStatePath(srcPath string) (string, int64, bool, int64, string, 
 }
 
 // move run job to active state from queue
-func moveJobToActive(queueJobPath string, rState *RunState, res RunRes, runStamp, iniPath, binDir, workDir string) (string, bool) {
+func moveJobToActive(queueJobPath string, rState *RunState, res RunRes, runStamp, binDir, workDir, iniPath, hfPath, cmdLine string) (string, bool) {
 	if !theCfg.isJobControl {
 		return "", true // job control disabled
 	}
@@ -471,20 +560,21 @@ func moveJobToActive(queueJobPath string, rState *RunState, res RunRes, runStamp
 		return "", false
 	}
 
-	// add run stamp, process info, actual run resources, log file and move job control file into active
-
-	if jc.LogAbsPath, err = filepath.Abs(rState.logPath); err != nil { // on error keep log absolute path empty
-		jc.LogAbsPath = ""
+	// make absolute path to log file
+	if jc.LogPath, err = filepath.Abs(rState.logPath); err != nil { // on error keep log absolute path empty
+		jc.LogPath = ""
 	}
+	// add run stamp, process info, actual run resources and move job control file into active
 	jc.RunStamp = runStamp
 	jc.Pid = rState.pid
 	jc.CmdPath = rState.cmdPath
+	jc.CmdLine = cmdLine
 	jc.Res = res
 	jc.LogFileName = rState.LogFileName
-	jc.LogPath = rState.logPath
-	jc.IniPath = iniPath
 	jc.BinDir = binDir
 	jc.WorkDir = workDir
+	jc.IniPath = iniPath
+	jc.HostFilePath = hfPath
 
 	dst := jobActivePath(rState.SubmitStamp, rState.ModelName, rState.ModelDigest, runStamp, jc.IsMpi, rState.pid, jc.Res.Cpu, jc.Res.Mem)
 
@@ -512,10 +602,19 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 	isOk := fileMoveAndLog(false, activePath, hst)
 	if !isOk {
 		fileDeleteAndLog(true, activePath) // if move failed then delete job control file from active list
-		return false
 	}
 
-	if theCfg.isJobPast { // copy to the shadow history path
+	// remove all compute server usage files
+	// for example: job/state/comp-used-#-name-#-2022_07_08_23_03_27_555-#-_4040-#-cpu-#-4-#-mem-#-8
+	ptrn := filepath.Join(theCfg.jobDir, "state") + string(filepath.Separator) + "comp-used-#-*-#-" + submitStamp + "-#-" + theCfg.omsName + "-#-cpu-#-*-#-mem-#-*"
+
+	if fLst, err := filepath.Glob(ptrn); err == nil {
+		for _, f := range fLst {
+			fileDeleteAndLog(false, f)
+		}
+	}
+
+	if isOk && theCfg.isJobPast { // copy to the shadow history path
 
 		// check start and stop time
 		if cmdStart < minCmdTimeSec {
@@ -587,13 +686,7 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 			se = helper.MakeDateTime(time.Unix(cmdStop, 0))
 		}
 
-		pj := struct { // past job: completed job with time info
-			RunJob
-			Submitted string
-			Started   string
-			Completed string
-			Duration  string
-		}{
+		pj := PastRunJob{
 			RunJob:    jc,
 			Submitted: helper.FromUnderscoreTimeStamp(submitStamp),
 			Started:   sb,
@@ -607,15 +700,6 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 		}
 	}
 
-	// remove all compute server usage files
-	// for example: job/state/comp-used-#-name-#-2022_07_08_23_03_27_555-#-_4040-#-cpu-#-4-#-mem-#-8
-	ptrn := filepath.Join(theCfg.jobDir, "state") + string(filepath.Separator) + "comp-used-#-*-#-" + submitStamp + "-#-" + theCfg.omsName + "-#-cpu-#-*-#-mem-#-*"
-
-	if fLst, err := filepath.Glob(ptrn); err == nil {
-		for _, f := range fLst {
-			fileDeleteAndLog(false, f)
-		}
-	}
 	return isOk
 }
 

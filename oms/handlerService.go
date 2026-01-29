@@ -99,6 +99,7 @@ func serviceStateHandler(w http.ResponseWriter, r *http.Request) {
 
 		qKeys, qJobs, aKeys, aJobs, hKeys, hJobs := theRunCatalog.getRunJobs()
 
+		// clean active and queue job details, do not expose path or environment
 		st.Queue = make([]RunJob, len(qKeys))
 		for k := range qKeys {
 			st.Queue[k] = qJobs[k]
@@ -110,9 +111,12 @@ func serviceStateHandler(w http.ResponseWriter, r *http.Request) {
 			st.Active[k] = aJobs[k]
 			st.Active[k].Pid = 0
 			st.Active[k].CmdPath = ""
+			st.Active[k].CmdLine = ""
 			st.Active[k].LogPath = ""
 			st.Active[k].BinDir = ""
 			st.Active[k].WorkDir = ""
+			// st.Active[k].IniPath = ""
+			st.Active[k].HostFilePath = ""
 			st.Active[k].Env = map[string]string{}
 		}
 
@@ -205,6 +209,11 @@ func emptyRunJob(submitStamp string) RunJob {
 				Note     string
 			}{}},
 	}
+}
+
+// return empty value of past job
+func emptyPastRunJob(submitStamp string) PastRunJob {
+	return PastRunJob{RunJob: emptyRunJob(submitStamp)}
 }
 
 // return active job state, run log file content and, if model run exists in database then also run progress
@@ -324,29 +333,15 @@ func getJobState(filePath string) (bool, *runJobState) {
 	st.RunJob = jc
 	st.Pid = 0
 	st.CmdPath = ""
+	st.CmdLine = ""
 	st.LogPath = ""
-	st.LogAbsPath = ""
 	st.BinDir = ""
 	st.WorkDir = ""
+	// st.IniPath = ""
+	st.HostFilePath = ""
 	st.Env = map[string]string{}
-	if len(st.Opts) == 0 {
-		st.Opts = map[string]string{}
-	}
-	if st.Tables == nil {
-		st.Tables = []string{}
-	}
-	if st.Microdata.Entity == nil {
-		st.Microdata.Entity = []struct {
-			Name string
-			Attr []string
-		}{}
-	}
-	if st.RunNotes == nil {
-		st.RunNotes = []struct {
-			LangCode string
-			Note     string
-		}{}
-	}
+
+	setRunJobDefaults(&st.RunJob) // set default values for empty fields instead of nil
 
 	// read log file content
 	if jc.LogPath != "" {
@@ -363,6 +358,28 @@ func getJobState(filePath string) (bool, *runJobState) {
 	}
 
 	return true, &st // return final result
+}
+
+// set job state default empty values instead of missing null values
+func setRunJobDefaults(jc *RunJob) {
+	if len(jc.Opts) == 0 {
+		jc.Opts = map[string]string{}
+	}
+	if jc.Tables == nil {
+		jc.Tables = []string{}
+	}
+	if jc.Microdata.Entity == nil {
+		jc.Microdata.Entity = []struct {
+			Name string
+			Attr []string
+		}{}
+	}
+	if jc.RunNotes == nil {
+		jc.RunNotes = []struct {
+			LangCode string
+			Note     string
+		}{}
+	}
 }
 
 // move job into the specified queue index position.

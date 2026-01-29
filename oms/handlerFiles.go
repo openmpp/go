@@ -4,15 +4,10 @@
 package main
 
 import (
-	"cmp"
-	"errors"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/openmpp/go/ompp/helper"
@@ -172,124 +167,6 @@ func doFileTreeGet(rootDir string, isAllowEmptyPath bool, pathParam string, isEx
 	}
 
 	jsonResponse(w, r, treeLst)
-}
-
-// return files list or file tree under rootDir/folder directory.
-// rootDir top removed from the path results.
-// if extCsv is not empty then filtered by extensions in comma separated list.
-// if isTree is true then return files tree else files path list.
-func filesWalk(rootDir, folder string, extCsv string, isTree bool, lang string) ([]PathItem, error) {
-
-	// parse comma separated list of extensions, if it is empty "" string then add all files, do not filter by extension
-	eLst := []string{}
-	isAll := extCsv == ""
-
-	if !isAll {
-		eLst = helper.ParseCsvLine(strings.ToLower(extCsv), ',')
-
-		j := 0
-		for _, elc := range eLst {
-			if elc == "" {
-				continue
-			}
-			if elc[0] != '.' {
-				elc = "." + elc
-			}
-			eLst[j] = elc
-			j++
-		}
-		eLst = eLst[:j]
-	}
-
-	// check if folder path exist under the root dir
-	folderPath := filepath.Join(rootDir, folder)
-	if !helper.IsDirExist(folderPath) {
-		return nil, errors.New("Folder not found: " + folder)
-	}
-	rDir := filepath.ToSlash(rootDir)
-	rsDir := rDir + "/"
-
-	// get list of files under the folder
-	treeLst := []PathItem{}
-	err := filepath.Walk(folderPath, func(path string, fi fs.FileInfo, err error) error {
-		if err != nil {
-			omppLog.Log("Error at directory walk:", path, " :", err)
-			return err
-		}
-		p := filepath.ToSlash(path)
-		if p == rDir || p == rsDir {
-			p = "/"
-		} else {
-			p = strings.TrimPrefix(p, rsDir)
-		}
-		elc := strings.ToLower(filepath.Ext(p))
-
-		// if no all files then check if extension is in the list of filter extensions
-		isAdd := isAll
-
-		for k := 0; !isAdd && k < len(eLst); k++ {
-			isAdd = eLst[k] == elc
-		}
-		if isAdd {
-			treeLst = append(treeLst, PathItem{
-				Path:    p,
-				IsDir:   fi.IsDir(),
-				Size:    fi.Size(),
-				ModTime: fi.ModTime().UnixMilli(),
-			})
-		}
-		return nil
-	})
-
-	// if required then build files tree from files path list by adding directories into the path list
-	if isTree {
-
-		pm := map[string]bool{}
-		addLst := []PathItem{}
-
-		for k := 0; k < len(treeLst); k++ {
-
-			d := treeLst[k].Path
-			pm[d] = true // mark source path as already processed
-
-			for { // until all directories above that path are processed
-
-				d = path.Dir(d)
-
-				if d == "" || d == "." || d == ".." || d == "/" || d == rDir {
-					break // done with that directory and all directories above
-				}
-				if _, ok := pm[d]; ok {
-					continue // directory already processed
-				}
-				pm[d] = true
-
-				// get directory stat, ignoring error can potentially lead to incorrect tree
-				if fi, e := helper.DirStat(filepath.Join(rootDir, filepath.FromSlash(d))); e == nil {
-					addLst = append(addLst, PathItem{
-						Path:    d,
-						IsDir:   fi.IsDir(),
-						Size:    fi.Size(),
-						ModTime: fi.ModTime().UnixMilli(),
-					})
-				}
-			}
-		}
-
-		// merge additional directories into files tree, sort file tree to put files after directories
-		treeLst = append(treeLst, addLst...)
-
-		slices.SortStableFunc(treeLst, func(left, right PathItem) int {
-			if left.IsDir && !right.IsDir {
-				return -1
-			}
-			if !left.IsDir && right.IsDir {
-				return 1
-			}
-			return cmp.Compare(strings.ToLower(left.Path), strings.ToLower(right.Path))
-		})
-	}
-	return treeLst, err
 }
 
 // create folder under user files directory.

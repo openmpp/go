@@ -99,19 +99,29 @@ type RunRequest struct {
 
 // RunJob is model run request and run job control: submission stamp and model process id
 type RunJob struct {
-	SubmitStamp string // submission timestamp
-	Pid         int    // process id
-	CmdPath     string // executable path
-	RunRequest         // model run request: model name, digest and run options
-	Res         RunRes // job run resources: CPU cores and memory
-	IsOverLimit bool   // if true then job run resource(s) exceed limit(s)
-	QueuePos    int    // one-based position of MPI job in global queue or any (MPI or non-MPI) job in localhost queue
-	LogFileName string // log file name
-	LogPath     string // log file path: log/dir/modelName.RunStamp.console.log
-	LogAbsPath  string // absolute log file path: /root/user/log/dir/modelName.RunStamp.console.log
-	IniPath     string // if not empty then actual ini file path, may be relative to log directory
-	BinDir      string // if not empty then model run bin directory
-	WorkDir     string // if not empty then model run work directory
+	SubmitStamp  string // submission timestamp
+	Pid          int    // process id
+	CmdPath      string // executable path
+	CmdLine      string // model run command line
+	RunRequest          // model run request: model name, digest and run options
+	Res          RunRes // job run resources: CPU cores and memory
+	IsOverLimit  bool   // if true then job run resource(s) exceed limit(s)
+	QueuePos     int    // one-based position of MPI job in global queue or any (MPI or non-MPI) job in localhost queue
+	LogFileName  string // log file name
+	LogPath      string // log file path: models/log/modelName.RunStamp.console.log
+	BinDir       string // if not empty then model run bin directory
+	WorkDir      string // if not empty then model run work directory
+	IniPath      string // if not empty then actual ini file path, may be relative to log directory
+	HostFilePath string // if not empty then absolute path to MPI hostfile
+}
+
+// completed model job with time info
+type PastRunJob struct {
+	RunJob
+	Submitted string // submission stamp in iso format
+	Started   string // run start time in iso format
+	Completed string // run end time as iso string
+	Duration  string // duration as HH:MM:SS or MM:SS
 }
 
 // RunRes is model run computational resources
@@ -192,7 +202,7 @@ type RunState struct {
 	TaskRunName    string    // if not empty then task run name
 	IsLog          bool      // if true then use run log file
 	LogFileName    string    // log file name
-	logPath        string    // log file path: log/dir/modelName.RunStamp.console.log
+	logPath        string    // log file path: models/log/modelName.RunStamp.console.log
 	pid            int       // process id
 	cmdPath        string    // executable path
 	killC          chan bool // channel to kill model process
@@ -327,7 +337,7 @@ type runUsage struct {
 	RunStamp    string // model run stamp, may be auto-generated as timestamp
 	pid         int    // process id
 	filePath    string // job control file path
-	logAbsPath  string // if not empty then absolute log file path: /root/user/log/dir/modelName.RunStamp.console.log
+	logPath     string // if not empty then absolute log file path: /root/user/modesl/log/modelName.RunStamp.console.log
 }
 
 // job resources allocation by computational servers or clusters
@@ -670,11 +680,11 @@ func (rsc *RunCatalog) updateActiveJobLogPath(oms, submitStamp, logPath string) 
 	rsc.rscLock.Lock()
 	defer rsc.rscLock.Unlock()
 
+	// find model run: oms and submit stamp expected to be a primary key
 	for k := range rsc.ActiveRuns {
-
 		if rsc.ActiveRuns[k].Oms == oms && rsc.ActiveRuns[k].SubmitStamp == submitStamp {
-			rsc.ActiveRuns[k].logAbsPath = logPath
-			return // oms and submit stamp expected to be a primary key
+			rsc.ActiveRuns[k].logPath = logPath
+			return
 		}
 	}
 }
@@ -689,11 +699,11 @@ func (rsc *RunCatalog) findQueueRequest(oms, submitStamp string) (queueRequest, 
 	rsc.rscLock.Lock()
 	defer rsc.rscLock.Unlock()
 
+	// find model run: oms and submit stamp expected to be a primary key
 	for k := range rsc.QueueRuns {
-
 		if rsc.QueueRuns[k].Oms == oms && rsc.QueueRuns[k].SubmitStamp == submitStamp {
 			return rsc.QueueRuns[k], true
 		}
 	}
-	return queueRequest{}, false // active job not found, it may be completed
+	return queueRequest{}, false // job not found, it may be completed or canceled
 }

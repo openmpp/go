@@ -37,14 +37,6 @@ type UpDownStatusLog struct {
 	Lines         []string // file content
 }
 
-// PathItem contain basic file info after tree walk: relative path, size and modification time
-type PathItem struct {
-	Path    string // file path in / slash form
-	IsDir   bool   // if true then it is a directory
-	Size    int64  // file size (may be zero for directories)
-	ModTime int64  // file modification time in milliseconds since epoch
-}
-
 // make dbcopy command to prepare full model download
 func makeModelDownloadCommand(mb modelBasic, logPath string, isNoAcc bool, isNoMd bool, isCsvBom bool, isIdCsv bool, msgLang string) (*exec.Cmd, string) {
 

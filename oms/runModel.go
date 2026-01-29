@@ -187,7 +187,8 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 	if rs.logPath != "" {
 		omppLog.Log("Run model: ", mExe, " log: ", rs.logPath)
 	}
-	omppLog.Log(strings.Join(cmd.Args, " "))
+	cmdLine := strings.Join(cmd.Args, " ")
+	omppLog.Log(cmdLine)
 	rs.cmdPath = cmd.Path
 	rsc.updateRunStateProcess(rs, false)
 
@@ -206,7 +207,7 @@ func (rsc *RunCatalog) runModel(job *RunJob, queueJobPath string, hfCfg hostIni,
 	rsc.updateRunStateProcess(rs, false)
 
 	// move job file form queue to active
-	activeJobPath, _ := moveJobToActive(queueJobPath, rs, job.Res, rs.RunStamp, iniPath, binDir, wDir)
+	activeJobPath, _ := moveJobToActive(queueJobPath, rs, job.Res, rs.RunStamp, binDir, wDir, iniPath, hfPath, cmdLine)
 
 	//  wait until run completed or terminated
 	go func(rState *RunState, cmd *exec.Cmd, jobPath string, cuLst []computeUse) {
@@ -563,7 +564,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 		if strings.HasSuffix(strings.ToLower(key), dotRunDescrLc) {
 
 			if 1+len(dotRunDescrLc) >= len(key) {
-				return []string{}, "", errors.New("invalid run description key: " + key)
+				return []string{}, iniPath, errors.New("invalid run description key: " + key)
 			}
 			lc := key[1:(len(key) - len(dotRunDescrLc))] // language code
 
@@ -590,18 +591,18 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 		if strings.HasPrefix(strings.ToLower(key), microdataLcDot) {
 
 			if !theCfg.isMicrodata {
-				return []string{}, "", errors.New("microdata not allowed: " + rs.ModelName + ": " + rs.ModelDigest)
+				return []string{}, iniPath, errors.New("microdata not allowed: " + rs.ModelName + ": " + rs.ModelDigest)
 			}
 			subKey := key[len(microdataLcDot):]
 
 			if strings.EqualFold(subKey, "All") || strings.EqualFold(subKey, "ToDb") || strings.EqualFold(subKey, "UseInternal") {
-				return []string{}, "", errors.New("incorrect use of run option: " + key + ": " + rs.ModelName + ": " + rs.ModelDigest)
+				return []string{}, iniPath, errors.New("incorrect use of run option: " + key + ": " + rs.ModelName + ": " + rs.ModelDigest)
 			}
 
 			for k := range entAttrs {
 
 				if subKey == entAttrs[k].Name {
-					return []string{}, "", errors.New("incorrect use of run option: " + key + ": " + rs.ModelName + ": " + rs.ModelDigest)
+					return []string{}, iniPath, errors.New("incorrect use of run option: " + key + ": " + rs.ModelName + ": " + rs.ModelDigest)
 				}
 			}
 		}
@@ -659,7 +660,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 				}
 			}
 			if eIdx < 0 || eIdx >= len(entAttrs) {
-				return []string{}, "", errors.New("invalid microdata entity: " + job.Microdata.Entity[k].Name + ": " + rs.ModelName + ": " + rs.ModelDigest)
+				return []string{}, iniPath, errors.New("invalid microdata entity: " + job.Microdata.Entity[k].Name + ": " + rs.ModelName + ": " + rs.ModelDigest)
 			}
 
 			// check if all entity attributes included in run microdata
@@ -708,7 +709,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 			continue
 		}
 		if !rs.IsLog {
-			return []string{}, "", errors.New("Unable to save run notes: " + rs.ModelName + ": " + rs.ModelDigest)
+			return []string{}, iniPath, errors.New("Unable to save run notes: " + rs.ModelName + ": " + rs.ModelDigest)
 		}
 
 		p, e := filepath.Abs(filepath.Join(logDir, rs.RunStamp+".run_notes."+rn.LangCode+".md"))
@@ -719,7 +720,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 			p, e = filepath.Rel(absWorkDir, p)
 		}
 		if e != nil {
-			return []string{}, "", e
+			return []string{}, iniPath, e
 		}
 
 		// store path to notes .md file instead of actual notes
@@ -752,7 +753,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 				}
 			}
 			if !isOk {
-				return []string{}, "", errors.New("invalid language code: " + descrNotes[k].LangCode + ": " + rs.ModelName + ": " + rs.ModelDigest)
+				return []string{}, iniPath, errors.New("invalid language code: " + descrNotes[k].LangCode + ": " + rs.ModelName + ": " + rs.ModelDigest)
 			}
 
 			if descrNotes[k].Descr != "" {
@@ -777,13 +778,13 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 
 			p, e := filepath.Abs(filepath.Join(binDir, iniPath))
 			if e != nil {
-				return []string{}, "", e
+				return []string{}, iniPath, e
 			}
 			var e2 error
 
 			eaIni, e2 = config.NewIni(p, theCfg.encodingName)
 			if e2 != nil {
-				return []string{}, "", e2
+				return []string{}, iniPath, e2
 			}
 
 			for _, e := range eaIni {
@@ -830,7 +831,7 @@ func makeRunArgsIni(binDir, workDir, logDir string, job *RunJob, rs *RunState) (
 			p, e = filepath.Rel(absWorkDir, p)
 		}
 		if e != nil {
-			return []string{}, "", e
+			return []string{}, iniPath, e
 		}
 		mArgs = append(mArgs, "-ini", p) // append ini file path to command line arguments
 	}

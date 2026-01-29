@@ -845,16 +845,22 @@ func apiAdminRoutes(router *vestigo.Router) {
 		// GET /api/admin-all/state
 		router.Get("/api/admin-all/state", adminAllStateGetHandler, logRequest)
 
-		// GET /api/admin-all/job/active/:oms/stamp/:stamp/state
-		router.Get("/api/admin-all/job/active/:oms/stamp/:stamp/state", adminAllJobActiveStateHandler, logRequest)
+		// GET /api/admin-all/job/active/user/:user/stamp/:stamp/state
+		// GET /api/admin-all/job/active/user/:user/stamp/:stamp/log
+		router.Get("/api/admin-all/job/active/user/:user/stamp/:stamp/state", adminAllJobActiveStateHandler, logRequest)
+		router.Get("/api/admin-all/job/active/user/:user/stamp/:stamp/log", adminAllJobActiveLogHandler, logRequest)
 
-		// GET /api/admin-all/job/queue/:oms/stamp/:stamp/state
-		router.Get("/api/admin-all/job/queue/:oms/stamp/:stamp/state", adminAllJobQueueStateHandler, logRequest)
+		// GET /api/admin-all/job/queue/user/:user/stamp/:stamp/state
+		router.Get("/api/admin-all/job/queue/user/:user/stamp/:stamp/state", adminAllJobQueueStateHandler, logRequest)
 
-		// GET /api/admin-all/job/active/:oms/stamp/:stamp/log
-		router.Get("/api/admin-all/job/active/:oms/stamp/:stamp/log", adminAllJobActiveLogHandler, logRequest)
+		// PUT /api/admin-all/run/stop/queue/user/:user/stamp/:stamp
+		router.Put("/api/admin-all/run/stop/queue/user/:user/stamp/:stamp", adminAllJobStopQueueRunHandler, logRequest)
 
-		// PUT /api/admin-all/run/stop/queue/:oms/stamp/:stamp
-		router.Put("/api/admin-all/run/stop/queue/:oms/stamp/:stamp", adminAllStopQueueRunHandler, logRequest)
+		// GET /api/admin-all/job/past/file-tree
+		// GET /api/admin-all/job/past/folder/:path/user/:user/stamp/:stamp/state
+		// GET /api/admin-all/job/past/folder/:path/user/:user/stamp/:stamp/log
+		router.Get("/api/admin-all/job/past/file-tree", adminAllJobPastTreeHandler, logRequest)
+		router.Get("/api/admin-all/job/past/folder/:path/user/:user/stamp/:stamp/state", adminAllJobPastStateHandler, logRequest)
+		router.Get("/api/admin-all/job/past/folder/:path/user/:user/stamp/:stamp/log", adminAllJobPastLogHandler, logRequest)
 	}
 }
