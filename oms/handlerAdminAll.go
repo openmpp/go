@@ -250,7 +250,7 @@ func adminAllJobStopQueueRunHandler(w http.ResponseWriter, r *http.Request) {
 		return // empty result: oms or submission stamp not found in the queue
 	}
 
-	isFound = moveJobQueueToFailed(qr.filePath, stamp, qr.ModelName, qr.ModelDigest, stamp, true) // move job control file to history
+	isFound = moveJobQueueOmsToFailed(qr.filePath, stamp, oms, qr.ModelName, qr.ModelDigest, stamp, true) // move job control file to history
 
 	// write queue job run key as response
 	w.Header().Set("Content-Location", "/api/admin-all/run/stop/queue/"+oms+"/stamp/"+stamp+"/"+strconv.FormatBool(isFound))

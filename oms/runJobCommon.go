@@ -69,25 +69,44 @@ func jobQueuePath(submitStamp, modelName, modelDigest string, isMpi bool, positi
 // Return job control file path to completed model with run status suffix.
 // For example: job/history/2022_07_04_20_06_10_817-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-success.json
 func jobHistoryPath(status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string) string {
+	return jobHistoryOmsPath(status, isKill, submitStamp, theCfg.omsName, modelName, modelDigest, runStamp)
+}
+
+// Return job control file path to completed model with run status suffix.
+// For example: job/history/2022_07_04_20_06_10_817-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-success.json
+func jobHistoryOmsPath(status string, isKill bool, submitStamp, oms, modelName, modelDigest, runStamp string) string {
 
 	st := db.NameOfRunStatus(status)
 	if isKill && status == db.ErrorRunStatus {
 		st = "kill"
 	}
+	if oms == "" {
+		oms = theCfg.omsName
+	}
 	return filepath.Join(
 		theCfg.jobDir,
 		"history",
-		submitStamp+"-#-"+theCfg.omsName+"-#-"+modelName+"-#-"+modelDigest+"-#-"+runStamp+"-#-"+st+".json")
+		submitStamp+"-#-"+oms+"-#-"+modelName+"-#-"+modelDigest+"-#-"+runStamp+"-#-"+st+".json")
 }
 
 // Return parts of job control shadow history file path: past folder, month sub-folder and file name.
 // For example:
 // job/past, 2022_07, 2022_07_08_23_03_27_555-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-mpi-#-cpu-#-8-#-mem-#-4-#-3600.json
 func jobPastPath(status string, isKill bool, submitStamp, modelName, modelDigest, runStamp string, isMpi bool, cpu int, mem int, totalSec int64) (string, string, string) {
+	return jobPastOmsPath(status, isKill, submitStamp, theCfg.omsName, modelName, modelDigest, runStamp, isMpi, cpu, mem, totalSec)
+}
+
+// Return parts of job control shadow history file path: past folder, month sub-folder and file name.
+// For example:
+// job/past, 2022_07, 2022_07_08_23_03_27_555-#-_4040-#-RiskPaths-#-d90e1e9a-#-2022_07_04_20_06_10_818-#-mpi-#-cpu-#-8-#-mem-#-4-#-3600.json
+func jobPastOmsPath(status string, isKill bool, submitStamp, oms, modelName, modelDigest, runStamp string, isMpi bool, cpu int, mem int, totalSec int64) (string, string, string) {
 
 	d := ""
 	if len(submitStamp) >= 7 {
 		d = submitStamp[:7]
+	}
+	if oms == "" {
+		oms = theCfg.omsName
 	}
 	st := db.NameOfRunStatus(status)
 	if isKill && status == db.ErrorRunStatus {
@@ -100,7 +119,7 @@ func jobPastPath(status string, isKill bool, submitStamp, modelName, modelDigest
 
 	return filepath.Join(theCfg.jobDir, "past"),
 		d,
-		submitStamp + "-#-" + theCfg.omsName + "-#-" + modelName + "-#-" + modelDigest + "-#-" + runStamp + "-#-" +
+		submitStamp + "-#-" + oms + "-#-" + modelName + "-#-" + modelDigest + "-#-" + runStamp + "-#-" +
 			ml + "-#-cpu-#-" + strconv.Itoa(cpu) + "-#-mem-#-" + strconv.Itoa(mem) + "-#-" + strconv.FormatInt(totalSec, 10) + "-#-" + st + ".json"
 }
 
@@ -705,14 +724,22 @@ func moveActiveJobToHistory(activePath, status string, isKill bool, submitStamp,
 
 // move model run request from queue to error if model run fail to start
 func moveJobQueueToFailed(queuePath string, submitStamp, modelName, modelDigest, runStamp string, isKill bool) bool {
+	return moveJobQueueOmsToFailed(queuePath, submitStamp, theCfg.omsName, modelName, modelDigest, runStamp, isKill)
+}
+
+// move model run request from queue to error if model run fail to start
+func moveJobQueueOmsToFailed(queuePath string, submitStamp, oms, modelName, modelDigest, runStamp string, isKill bool) bool {
 	if !theCfg.isJobControl || queuePath == "" {
 		return true // job control disabled
 	}
 	if !helper.IsUnderscoreTimeStamp(runStamp) {
 		runStamp = submitStamp
 	}
+	if oms == "" {
+		oms = theCfg.omsName
+	}
 
-	hst := jobHistoryPath(db.ErrorRunStatus, isKill, submitStamp, modelName, modelDigest, runStamp)
+	hst := jobHistoryOmsPath(db.ErrorRunStatus, isKill, submitStamp, oms, modelName, modelDigest, runStamp)
 
 	if !fileMoveAndLog(true, queuePath, hst) {
 		fileDeleteAndLog(true, queuePath) // if move failed then delete job control file from queue
@@ -721,12 +748,16 @@ func moveJobQueueToFailed(queuePath string, submitStamp, modelName, modelDigest,
 
 		if theCfg.isJobPast { // copy to the shadow history path
 
-			stamp, _, mn, dgst, isMpi, procCount, thCount, procMem, thMem, _ := parseQueuePath(queuePath)
+			stamp, qOms, mn, dgst, isMpi, procCount, thCount, procMem, thMem, _ := parseQueuePath(queuePath)
 			if stamp != submitStamp || mn != modelName || dgst != modelDigest {
 				return false // file name is not a job queue file name
 			}
+			if !theCfg.isAdminAll && (oms != qOms || oms != theCfg.omsName) {
+				omppLog.Log("Queue oms name must be the same as current instance oms name:", qOms, theCfg.omsName, oms)
+				return false // queue oms is not
+			}
 
-			pastDir, monthDir, fn := jobPastPath(db.ErrorRunStatus, isKill, submitStamp, modelName, modelDigest, runStamp, isMpi, procCount*thCount, (procMem + thCount*thMem), 0)
+			pastDir, monthDir, fn := jobPastOmsPath(db.ErrorRunStatus, isKill, submitStamp, oms, modelName, modelDigest, runStamp, isMpi, procCount*thCount, (procMem + thCount*thMem), 0)
 			d := filepath.Join(pastDir, monthDir)
 
 			if os.MkdirAll(d, 0750) == nil {

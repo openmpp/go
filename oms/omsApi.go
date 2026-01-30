@@ -803,7 +803,7 @@ func apiAdminRoutes(router *vestigo.Router) {
 	// POST /api/admin/model/:model/close
 	router.Post("/api/admin/model/:model/close", modelCloseHandler, logRequest)
 
-	//	POST /api/admin/db-file-open/:path
+	// POST /api/admin/db-file-open/:path
 	router.Post("/api/admin/db-file-open/:path", modelOpenDbFileHandler, logRequest)
 	router.Post("/api/admin/db-file-open/", http.NotFound)
 
