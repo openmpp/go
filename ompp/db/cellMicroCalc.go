@@ -563,7 +563,7 @@ func (cellCvt *CellMicroCalcConverter) groupByAttrs() ([]EntityAttrRow, error) {
 // If language code or description is empty then label is attribute name
 func (cellCvt *CellMicroCalcLocaleConverter) groupByLabel() (map[int]string, error) {
 
-	if cellCvt.theGroupByLabels != nil && len(cellCvt.theGroupByLabels) > 0 {
+	if len(cellCvt.theGroupByLabels) > 0 {
 		return cellCvt.theGroupByLabels, nil // attribute labels are already found
 	}
 

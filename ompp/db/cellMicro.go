@@ -764,7 +764,7 @@ func (cellCvt *CellEntityConverter) entityAttrs() (*EntityMeta, []EntityAttrRow,
 // If language code or description is empty then label is attribute name
 func (cellCvt *CellMicroLocaleConverter) attrLabel() (map[int]string, error) {
 
-	if cellCvt.theAttrLabels != nil && len(cellCvt.theAttrLabels) > 0 {
+	if len(cellCvt.theAttrLabels) > 0 {
 		return cellCvt.theAttrLabels, nil // attribute labels are already found
 	}
 

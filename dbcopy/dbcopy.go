@@ -226,8 +226,8 @@ By default dbcopy using SQLite database connection:
 is equivalent of:
 
 	dbcopy -m modelOne -dbcopy.FromSqlite modelOne.sqlite
-	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadOnly;"
-	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadOnly;" -dbcopy.DatabaseDriver SQLite
+	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
+	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;" -dbcopy.DatabaseDriver SQLite
 
 Output database connection settings by default are the same as input database,
 which may not be suitable because you don't want to overwrite input database.
@@ -235,8 +235,8 @@ which may not be suitable because you don't want to overwrite input database.
 To specify output database connection string and driver:
 
 	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToSqlite modelOne.sqlite
-	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadWrite;"
-	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; OpenMode=ReadWrite;" -dbcopy.ToDatabaseDriver SQLite
+	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;"
+	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToDatabase "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;" -dbcopy.ToDatabaseDriver SQLite
 
 	dbcopy -m modelOne -dbcopy.To db2db -dbcopy.FromSqlite src.sqlite -dbcopy.ToSqlite dst.sqlite
 

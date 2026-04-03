@@ -289,7 +289,7 @@ func (mc *ModelCatalog) UpdateWorksetParameter(
 func (mc *ModelCatalog) UpdateWorksetParameterText(dn, wsn string, pvtLst []db.ParamRunSetTxtPub) (bool, error) {
 
 	// validate parameters
-	if pvtLst == nil || len(pvtLst) <= 0 {
+	if len(pvtLst) <= 0 {
 		omppLog.Log("Warning: empty list of run parameters to update value notes")
 		return false, nil
 	}

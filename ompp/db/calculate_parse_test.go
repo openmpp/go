@@ -200,7 +200,7 @@ func TestTranslateToExprSql(t *testing.T) {
 	if k, ok := modelDef.OutTableByName(tableName); ok {
 		table = &modelDef.Table[k]
 	} else {
-		t.Errorf("output table not found: " + tableName)
+		t.Errorf("output table not found: %s", tableName)
 	}
 
 	t.Log("Check non-aggregation SQL")

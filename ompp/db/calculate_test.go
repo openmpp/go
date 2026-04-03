@@ -59,7 +59,7 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 	if k, ok := modelDef.OutTableByName(tableName); ok {
 		table = &modelDef.Table[k]
 	} else {
-		t.Errorf("output table not found: " + tableName)
+		t.Errorf("output table not found: %s", tableName)
 	}
 
 	validLst := []struct {
@@ -98,10 +98,6 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 			sql += "WITH " + cteSql + " "
 		}
 		sql += mainSql
-
-		if err != nil {
-			t.Fatal(err)
-		}
 
 		if sql != v.valid {
 			t.Error("Expected:", v.valid)
@@ -154,7 +150,7 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 	if k, ok := modelDef.OutTableByName(tableName); ok {
 		table = &modelDef.Table[k]
 	} else {
-		t.Errorf("output table not found: " + tableName)
+		t.Errorf("output table not found: %s", tableName)
 	}
 
 	t.Log("Check calculation SQL")

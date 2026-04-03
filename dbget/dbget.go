@@ -9,7 +9,7 @@ Most generic format to specify source data is to use connection string and drive
 
 	dbget
 	  -dbget.Do model-list
-	  -dbget.Database "Database=model.sqlite; Timeout=86400; OpenMode=ReadOnly;"
+	  -dbget.Database "Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
 	  -dbget.DatabaseDriver SQLite
 
 Dget can read model data from SQLite, MySQL, PostgreSQL, MS SQL, Oracle and DB2.
@@ -146,7 +146,7 @@ Get list of the models from database:
 
 	dbget
 	  -dbget.Do model-list
-	  -dbget.Database "Database=model.sqlite; Timeout=86400; OpenMode=ReadOnly;"
+	  -dbget.Database "Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
 	  -dbget.DatabaseDriver SQLite
 
 Get model metadata from database:

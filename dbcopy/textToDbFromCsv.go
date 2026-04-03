@@ -206,8 +206,8 @@ func makeFromCsvReader(
 	switch {
 	case e == io.EOF:
 		return nil, helper.ErrorNew("invalid (empty) csv file:", fileName)
-	case err != nil:
-		return nil, helper.ErrorNew("csv file read error:", fileName, ":", err)
+	case e != nil:
+		return nil, helper.ErrorNew("csv file read error:", fileName, ":", e)
 	}
 	fh := strings.Join(fhs, ",")
 	if strings.HasPrefix(fh, string(helper.Utf8bom)) {

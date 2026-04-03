@@ -81,14 +81,11 @@ func doWriteMicrodataFrom(
 
 	// find entity generation by name and check: generation digest and db table name are not empty
 	gIdx, ok := runMeta.EntityGenByEntityId(modelDef.Entity[eIdx].EntityId)
-	if !ok {
+	if !ok || gIdx < 0 {
 		return []RunEntityRow{}, errors.New("model entity generation not found by entity id: " + strconv.Itoa(modelDef.Entity[eIdx].EntityId) + " " + entityName)
 	}
 	entityGen := &runMeta.EntityGen[gIdx]
 
-	if entityGen == nil {
-		return []RunEntityRow{}, errors.New("invalid (empty) entity generation metadata")
-	}
 	if entityGen.GenDigest == "" {
 		return []RunEntityRow{}, errors.New("invalid (empty) microdata entity generation digest, entity: " + entityName)
 	}

@@ -348,17 +348,15 @@ func fromRunTextToDb(
 
 		err := writeTableFromCsvFiles(dbConn, modelDef, tblLt, tableCsvDir, cvtExpr, cvtAcc)
 		if err != nil {
-			if err != nil {
-				omppLog.Log("Error at:", tblLt.Name, ":", err)
-				omppLog.Log("Cleanup on error: delete model run", srcName, dstId)
+			omppLog.Log("Error at:", tblLt.Name, ":", err)
+			omppLog.Log("Cleanup on error: delete model run", srcName, dstId)
 
-				// delete model run on error to rollback results of UpdateRun() call above
-				e := db.DeleteRun(dbConn, dstId)
-				if e != nil {
-					omppLog.LogFmt("Failed to delete model run %s id: %d: %v", srcName, dstId, e)
-				}
-				return 0, err // return original error
+			// delete model run on error to rollback results of UpdateRun() call above
+			e := db.DeleteRun(dbConn, dstId)
+			if e != nil {
+				omppLog.LogFmt("Failed to delete model run %s id: %d: %v", srcName, dstId, e)
 			}
+			return 0, err // return original error
 		}
 	}
 

@@ -48,12 +48,12 @@ const MaxSchemaVersion = 105
 //
 // Default driver name: "SQLite" and connection string is compatible with model connection, ie:
 //
-//	Database=modelName.sqlite; Timeout=86400; OpenMode=ReadWrite;
+//	Database=modelName.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;
 //
 // Otherwise it is expected to be driver-specific connection string, ie:
 //
 //	DSN=ms2014; UID=sa; PWD=secret;
-//	file:m1.sqlite?mode=rw&_busy_timeout=86400000
+//	file:m1.sqlite?mode=rw&_foreign_keys=on&_busy_timeout=86400000
 //
 // If isFacetRequired is true then database facet determined
 func Open(dbConnStr, dbDriver string, isFacetRequired bool) (*sql.DB, Facet, error) {
@@ -109,7 +109,7 @@ func Open(dbConnStr, dbDriver string, isFacetRequired bool) (*sql.DB, Facet, err
 
 // return SQLite connection string and driver name based on model name:
 //
-//	Database=modelName.sqlite; Timeout=86400; OpenMode=ReadWrite;
+//	Database=modelName.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;
 func IfEmptyMakeDefault(modelName, sqlitePath, dbConnStr, dbDriver string) (string, string) {
 	if dbDriver == "" {
 		dbDriver = SQLiteDbDriver
@@ -126,7 +126,7 @@ func IfEmptyMakeDefault(modelName, sqlitePath, dbConnStr, dbDriver string) (stri
 
 // return read-only SQLite connection string and driver name based on model name:
 //
-//	Database=modelName.sqlite; Timeout=86400; OpenMode=ReadWrite;
+//	Database=modelName.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;
 func IfEmptyMakeDefaultReadOnly(modelName, sqlitePath, dbConnStr, dbDriver string) (string, string) {
 	if dbDriver == "" {
 		dbDriver = SQLiteDbDriver
@@ -143,16 +143,16 @@ func IfEmptyMakeDefaultReadOnly(modelName, sqlitePath, dbConnStr, dbDriver strin
 
 // return default SQLite connection string based on model.sqlite file path:
 //
-//	Database=model.sqlite; Timeout=86400; OpenMode=ReadWrite;
+//	Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadWrite;
 func MakeSqliteDefault(sqlitePath string) string {
-	return "Database=" + sqlitePath + "; Timeout=" + strconv.Itoa(SQLiteTimeout) + "; OpenMode=ReadWrite;"
+	return "Database=" + sqlitePath + "; Timeout=" + strconv.Itoa(SQLiteTimeout) + "; ForeignKeys = 1; OpenMode=ReadWrite;"
 }
 
 // return default read-only SQLite connection string based on model.sqlite file path:
 //
-//	Database=model.sqlite; Timeout=86400; OpenMode=ReadOnly;
+//	Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;
 func MakeSqliteDefaultReadOnly(sqlitePath string) string {
-	return "Database=" + sqlitePath + "; Timeout=" + strconv.Itoa(SQLiteTimeout) + "; OpenMode=ReadOnly;"
+	return "Database=" + sqlitePath + "; Timeout=" + strconv.Itoa(SQLiteTimeout) + "; ForeignKeys = 1; OpenMode=ReadOnly;"
 }
 
 // Convert SQLite connection string into "sqlite3" format and delete existing db.slite file if required.
@@ -163,6 +163,7 @@ func MakeSqliteDefaultReadOnly(sqlitePath string) string {
 //	Timeout - (optional) table lock "busy" timeout in seconds, default=0
 //	OpenMode - (optional) database file open mode: ReadOnly, ReadWrite, Create, default=ReadOnly
 //	DeleteExisting - (optional) if true then delete existing database file, default: false
+//	ForeignKeys - (optional) boolean to control foreign_keys, by default: PRAGMA foreign_keys = on
 func prepareSqlite(dbConnStr string) (string, string, error) {
 
 	// parse SQLite connection string
@@ -205,6 +206,20 @@ func prepareSqlite(dbConnStr string) (string, string, error) {
 		}
 	}
 
+	// if foreign key true/false explicitly specified, by default: "PRAGMA foreign_keys = on"
+	fk := ""
+	s = kv["ForeignKeys"]
+	if s != "" {
+		isFk, err := strconv.ParseBool(s)
+		if err != nil {
+			return "", "", err
+		}
+		fk = "on"
+		if !isFk {
+			fk = "off"
+		}
+	}
+
 	// if required delete source file
 	s = kv["DeleteExisting"]
 	if s != "" {
@@ -221,6 +236,9 @@ func prepareSqlite(dbConnStr string) (string, string, error) {
 	s3Conn := "file:" + dbPath + "?mode=" + m
 	if t != 0 {
 		s3Conn += "&_busy_timeout=" + strconv.Itoa(1000*t)
+	}
+	if fk != "" {
+		s3Conn += "&_foreign_keys=" + fk
 	}
 
 	return s3Conn, Sqlite3DbDriver, nil
