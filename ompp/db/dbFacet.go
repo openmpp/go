@@ -17,13 +17,13 @@ type Facet uint8
 const maxTableNameSize int = 63
 
 const (
-	DefaultFacet Facet = iota // common default db facet
-	SqliteFacet               // SQLite db facet
-	PgSqlFacet                // PostgreSQL db facet
-	MySqlFacet                // MySQL and MariaDB facet
-	MsSqlFacet                // MS SQL db facet
-	OracleFacet               // Oracle db facet
-	Db2Facet                  // DB2 db facet
+	DefaultFacet    Facet = iota // common default db facet
+	SqliteFacet                  // SQLite db facet
+	PostgreSqlFacet              // PostgreSQL db facet
+	MySqlFacet                   // MySQL and MariaDB facet
+	MsSqlFacet                   // MS SQL db facet
+	OracleFacet                  // Oracle db facet
+	Db2Facet                     // DB2 db facet
 )
 
 // String is default printable value of db facet, Stringer implementation
@@ -33,7 +33,7 @@ func (facet Facet) String() string {
 		return "Default db facet"
 	case SqliteFacet:
 		return "Sqlite db facet"
-	case PgSqlFacet:
+	case PostgreSqlFacet:
 		return "PostgreSQL db facet"
 	case MySqlFacet:
 		return "MySQL db facet"
@@ -82,7 +82,7 @@ func (facet Facet) textType(len int) string {
 func (facet Facet) createTableIfNotExist(tableName string, bodySql string) string {
 
 	switch facet {
-	case SqliteFacet, PgSqlFacet, MySqlFacet:
+	case SqliteFacet, PostgreSqlFacet, MySqlFacet:
 		return "CREATE TABLE IF NOT EXISTS " + tableName + " " + bodySql
 	case MsSqlFacet:
 		return "IF NOT EXISTS" +
@@ -98,7 +98,7 @@ func (facet Facet) createViewIfNotExist(viewName string, bodySql string) string 
 	switch facet {
 	case SqliteFacet:
 		return "CREATE VIEW IF NOT EXISTS " + viewName + " AS " + bodySql
-	case PgSqlFacet, MySqlFacet:
+	case PostgreSqlFacet, MySqlFacet:
 		return "CREATE OR REPLACE VIEW " + viewName + " AS " + bodySql
 	case MsSqlFacet:
 		return "CREATE VIEW " + viewName + " AS " + bodySql
@@ -129,7 +129,7 @@ func detectFacet(dbConn *sql.DB) Facet {
 			if s.Valid {
 				v := s.String
 				if strings.Contains(v, "postgresql") {
-					facet = PgSqlFacet
+					facet = PostgreSqlFacet
 				}
 				if facet == DefaultFacet &&
 					(strings.Contains(v, "mysql") || strings.Contains(v, "mariadb") || strings.HasPrefix(v, "5.")) {

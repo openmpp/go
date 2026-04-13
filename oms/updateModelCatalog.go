@@ -148,7 +148,7 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 	}
 
 	// open db connection and check version of openM++ database
-	dbc, _, err := db.Open(db.MakeSqliteDefault(srcPath), db.SQLiteDbDriver, false)
+	dbc, _, err := db.Open(db.MakeSqliteDefault(srcPath), db.SQLiteDbDriver)
 	if err != nil {
 		omppLog.Log("Error: ", srcPath, " : ", err.Error())
 		return nil, err

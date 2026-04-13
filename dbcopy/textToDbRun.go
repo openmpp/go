@@ -109,13 +109,9 @@ func textToDbRun(modelName string, modelDigest string, runOpts *config.RunOption
 	}
 
 	// open source database connection and check is it valid
-	dn := runOpts.String(toDbDriverArgKey)
-	if dn == "" && runOpts.IsExist(dbDriverArgKey) {
-		dn = runOpts.String(dbDriverArgKey)
-	}
-	cs, dn := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), dn)
+	cs, dn := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), theCfg.dstDbDriver)
 
-	dstDb, dbFacet, err := db.Open(cs, dn, true)
+	dstDb, dbFacet, err := db.Open(cs, dn)
 	if err != nil {
 		return err
 	}

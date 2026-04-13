@@ -168,7 +168,6 @@ import (
 
 	"github.com/husobee/vestigo"
 	"github.com/jeandeaual/go-locale"
-	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/text/language"
 
 	"github.com/openmpp/go/ompp/config"

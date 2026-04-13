@@ -5,16 +5,7 @@
 dbget is a command line tool to export OpenM++ model metadata, input parameters and run results.
 It is reading from model database and produce CSV, TSV or JSON output.
 
-Most generic format to specify source data is to use connection string and driver name:
-
-	dbget
-	  -dbget.Do model-list
-	  -dbget.Database "Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
-	  -dbget.DatabaseDriver SQLite
-
-Dget can read model data from SQLite, MySQL, PostgreSQL, MS SQL, Oracle and DB2.
-
-By default openM++ is using SQLite database and it is enough to specife path to model.sqlite file:
+You don't need to use driver name for SQLite database, it is enough to specify path to model.sqlite file:
 
 	dbget -do model-list -db some/dir/model.sqlite
 	dbget -do model-list -dbget.Sqlite some/dir/model.sqlite
@@ -66,6 +57,56 @@ to produce output suitable for command pipes.
 **Important:**
 By using -pipe you are suppressing any console error message output and therefore you must check dbget exit code
 or enable additonal log output to file by using -OpenM.LogToFile option.
+
+**Data Source**
+
+Most generic format to specify source data is to use connection string and driver name:
+
+	dbget
+	  -dbget.Do model-list
+	  -dbget.Database "Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
+	  -dbget.DatabaseDriver SQLite
+
+By default openM++ is using SQLite database. You don't need to use driver name for SQLite database, it is enough to specify model name or path to model.sqlite file:
+
+	dbget -m modelOne -do run-list
+	dbget -do model-list -db some/dir/model.sqlite
+
+It is also possible to read the data from MySQL, PostgreSQL, MS SQL, Oracle or DB2, for example:
+
+	dbget
+	  -dbget.Do model-list
+	  -dbget.Database "user:pasword@tcp(server:3306)/my-database"
+	  -dbget.DatabaseDriver mysql
+
+	dbget
+	  -dbget.Do model-list
+	  -dbget.Database "DSN=BigData;UID=UserName;PWD=SecretPassword"
+	  -dbget.DatabaseDriver odbc
+
+For non-SQLite vendors you must provide database driver name eiher as `-dbget.DatabaseDriver` option or as `OM_DB_DRIVER` environment variable:
+
+	set OM_DB_DRIVER=postgresql
+
+You can use one of the following driver names:
+
+	odbc: MySQL, PostgreSQL, MS SQL, Oracle or DB2
+	mysql: MySQL, MariaDB
+	postgres: PostgreSQL
+	sqlserver: Microsoft SQL Sever
+
+For some database vendors you may want to adjust connection properties by using `OM_DB_SET_{vendor-or-driver-name}` environment variable.
+For example, connecting from Windows to MySQL:
+
+	set OM_DB_SET_mysql=SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT,ANSI_QUOTES,NO_BACKSLASH_ESCAPES'), AUTOCOMMIT = 0
+
+Or from Linux:
+
+	export OM_DB_SET_mysql="SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT,ANSI_QUOTES,NO_BACKSLASH_ESCAPES'), AUTOCOMMIT = 0"
+
+Above names can be either driver name or one of: sqlite3, mysql, postgresql, sqlserver, oracle, db2
+
+**Language**
 
 By default dbget produces language specific output based on match of user OS language to model languages.
 For example, if user OS language is fr-CA then output will be created from model FR language, if it is exists in the model database.
@@ -532,7 +573,6 @@ import (
 	"strings"
 
 	"github.com/jeandeaual/go-locale"
-	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/openmpp/go/ompp/config"
 	"github.com/openmpp/go/ompp/db"
@@ -688,7 +728,7 @@ func mainBody(args []string) error {
 	_ = flag.String(sqliteArgKey, "", "input database SQLite file path")
 	_ = flag.String(sqliteShortKey, "", "model name (short of "+sqliteArgKey+")")
 	_ = flag.String(dbConnStrArgKey, "", "input database connection string")
-	_ = flag.String(dbDriverArgKey, db.SQLiteDbDriver, "input database driver name: SQLite, odbc, sqlite3")
+	_ = flag.String(dbDriverArgKey, "", "input database driver name: SQLite, odbc, sqlite3")
 	_ = flag.String(modelNameArgKey, "", "model name")
 	_ = flag.String(modelNameShortKey, "", "model name (short of "+modelNameArgKey+")")
 	_ = flag.String(modelDigestArgKey, "", "model hash digest")
@@ -854,9 +894,13 @@ func mainBody(args []string) error {
 	}
 
 	// open source database connection and check is it valid
-	cs, dn := db.IfEmptyMakeDefaultReadOnly(runOpts.String(modelNameArgKey), runOpts.String(sqliteArgKey), runOpts.String(dbConnStrArgKey), runOpts.String(dbDriverArgKey))
+	dn := runOpts.String(dbDriverArgKey)
+	if dn == "" {
+		dn = os.Getenv("OM_DB_DRIVER")
+	}
+	cs, dn := db.IfEmptyMakeDefaultReadOnly(runOpts.String(modelNameArgKey), runOpts.String(sqliteArgKey), runOpts.String(dbConnStrArgKey), dn)
 
-	srcDb, _, err := db.Open(cs, dn, false)
+	srcDb, _, err := db.Open(cs, dn)
 	if err != nil {
 		return err
 	}
