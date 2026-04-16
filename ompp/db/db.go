@@ -156,8 +156,8 @@ func Open(dbConnStr, dbDriver string) (Dbc, error) {
 		case Db2Engine:
 			facet = Db2OdbcFacet
 		}
-		omppLog.LogSql(facet.String())
 	}
+	omppLog.LogSql(facet.String())
 
 	err = connectionSetup(dbDriver, facet.engine(), dbConn) // apply provider-specific connecton settings
 	if err != nil {
