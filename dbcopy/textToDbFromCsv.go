@@ -4,7 +4,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/csv"
 	"io"
 	"os"
@@ -17,7 +16,7 @@ import (
 
 // writeParamFromCsvFile read parameter csv file and write into db parameter value table.
 func writeParamFromCsvFile(
-	dbConn *sql.DB,
+	dbConn db.Dbc,
 	modelDef *db.ModelMeta,
 	layout db.WriteParamLayout,
 	csvDir string,
@@ -64,7 +63,7 @@ func writeParamFromCsvFile(
 
 // writeTableFromCsvFiles read output table csv files (accumulators and expressions) and write it into db output tables.
 func writeTableFromCsvFiles(
-	dbConn *sql.DB,
+	dbConn db.Dbc,
 	modelDef *db.ModelMeta,
 	layout db.WriteTableLayout,
 	csvDir string,
@@ -139,8 +138,7 @@ func writeTableFromCsvFiles(
 
 // writeMicroFromCsvFile read microdata csv file and write into db enity generation value table.
 func writeMicroFromCsvFile(
-	dbConn *sql.DB,
-	dbFacet db.Facet,
+	dbConn db.Dbc,
 	modelDef *db.ModelMeta,
 	runMeta *db.RunMeta,
 	layout db.WriteMicroLayout,
@@ -178,7 +176,7 @@ func writeMicroFromCsvFile(
 	}
 
 	// write each csv row into microdata entity generation table
-	err = db.WriteMicrodataFrom(dbConn, dbFacet, modelDef, runMeta, &layout, from)
+	err = db.WriteMicrodataFrom(dbConn, modelDef, runMeta, &layout, from)
 	if err != nil {
 		return err
 	}

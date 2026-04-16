@@ -24,13 +24,13 @@ func textToDb(modelName string, runOpts *config.RunOptions) error {
 	// open source database connection and check is it valid
 	cs, dn := db.IfEmptyMakeDefault(modelName, runOpts.String(toSqliteArgKey), runOpts.String(toDbConnStrArgKey), theCfg.dstDbDriver)
 
-	dstDb, dbFacet, err := db.Open(cs, dn)
+	dstDb, err := db.Open(cs, dn)
 	if err != nil {
 		return err
 	}
 	defer dstDb.Close()
 
-	if err := db.CheckOpenmppSchemaVersion(dstDb); err != nil {
+	if err := db.CheckOpenmppSchemaVersion(dstDb.DB); err != nil {
 		return err
 	}
 
@@ -53,20 +53,20 @@ func textToDb(modelName string, runOpts *config.RunOptions) error {
 	}
 
 	// insert model metadata from json file into database
-	modelDef, err := fromModelJsonToDb(dstDb, dbFacet, inpDir, modelName)
+	modelDef, err := fromModelJsonToDb(dstDb, inpDir, modelName)
 	if err != nil {
 		return err
 	}
 
 	// insert languages and model text metadata from json file into database
-	langDef, err := fromLangTextJsonToDb(dstDb, modelDef, inpDir)
+	langDef, err := fromLangTextJsonToDb(dstDb.DB, modelDef, inpDir)
 	if err != nil {
 		return err
 	}
 
 	// insert model runs data from csv into database:
 	// parameters, output expressions and accumulators
-	if err = fromRunTextListToDb(dstDb, dbFacet, modelDef, langDef, inpDir); err != nil {
+	if err = fromRunTextListToDb(dstDb, modelDef, langDef, inpDir); err != nil {
 		return err
 	}
 
@@ -76,14 +76,14 @@ func textToDb(modelName string, runOpts *config.RunOptions) error {
 	}
 
 	// insert modeling tasks and tasks run history from json file into database
-	if err = fromTaskListJsonToDb(dstDb, modelDef, langDef, inpDir); err != nil {
+	if err = fromTaskListJsonToDb(dstDb.DB, modelDef, langDef, inpDir); err != nil {
 		return err
 	}
 	return nil
 }
 
 // fromModelJsonToDb reads model metadata from json file and insert it into database.
-func fromModelJsonToDb(dbConn *sql.DB, dbFacet db.Facet, inpDir string, modelName string) (*db.ModelMeta, error) {
+func fromModelJsonToDb(dbConn db.Dbc, inpDir string, modelName string) (*db.ModelMeta, error) {
 
 	// restore  model metadta from json
 	js, err := helper.FileToUtf8(filepath.Join(inpDir, modelName+".model.json"), "")
@@ -104,7 +104,7 @@ func fromModelJsonToDb(dbConn *sql.DB, dbFacet db.Facet, inpDir string, modelNam
 	}
 
 	// insert model metadata into destination database if not exists
-	if _, err = db.UpdateModel(dbConn, dbFacet, modelDef); err != nil {
+	if _, err = db.UpdateModel(dbConn, modelDef); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func fromModelJsonToDb(dbConn *sql.DB, dbFacet db.Facet, inpDir string, modelNam
 		return nil, err
 	}
 	if isExist && modelProfile.Name == modelName { // if this is profile default model profile then do update
-		if err = db.UpdateProfile(dbConn, &modelProfile); err != nil {
+		if err = db.UpdateProfile(dbConn.DB, &modelProfile); err != nil {
 			return nil, err
 		}
 	}

@@ -40,18 +40,30 @@ import (
 const (
 	SQLiteDbDriver     = "SQLite"    // default db driver name
 	Sqlite3DbDriver    = "sqlite3"   // actual SQLite db driver name
-	SQLiteTimeout      = 86400       // default SQLite busy timeout
 	OdbcDbDriver       = "odbc"      // ODBC db driver name
 	PostgreSqlDbDriver = "postgres"  // PostgreSQL db driver name
 	MySqlDbDriver      = "mysql"     // MySQL and MariaDB db driver name
 	MsSqlDbDriver      = "sqlserver" // MS SQL Server db driver name
 )
+const SQLiteTimeout = 86400 // default SQLite busy timeout
 
 // MinSchemaVersion is a minimal compatible db schema version
 const MinSchemaVersion = 105
 
 // MaxSchemaVersion is a maximum compatible db schema version
 const MaxSchemaVersion = 105
+
+// database connections pool and database engine facet
+type Dbc struct {
+	*sql.DB
+	Dbf Facet // database engine and driver facets
+}
+
+// database transaction and database engine facet
+type DbTrx struct {
+	*sql.Tx
+	Dbf Facet // database engine and driver facets
+}
 
 // Open database connection.
 //
@@ -68,7 +80,7 @@ const MaxSchemaVersion = 105
 //
 //	driver name: sqlite3
 //	file:m1.sqlite?mode=rw&_foreign_keys=on&_busy_timeout=86400000
-func Open(dbConnStr, dbDriver string) (*sql.DB, Facet, error) {
+func Open(dbConnStr, dbDriver string) (Dbc, error) {
 
 	// detect driver name
 	if dbDriver == "" && strings.HasPrefix(dbConnStr, "postgresql") {
@@ -86,7 +98,7 @@ func Open(dbConnStr, dbDriver string) (*sql.DB, Facet, error) {
 	if dbDriver == "" || dbDriver == SQLiteDbDriver {
 		var err error
 		if dbConnStr, dbDriver, err = prepareSqlite(dbConnStr); err != nil {
-			return nil, DefaultFacet, err
+			return Dbc{Dbf: DefaultFacet}, err
 		}
 	}
 
@@ -100,7 +112,7 @@ func Open(dbConnStr, dbDriver string) (*sql.DB, Facet, error) {
 
 	dbConn, err := sql.Open(dbDriver, dbConnStr)
 	if err != nil {
-		return nil, DefaultFacet, err
+		return Dbc{Dbf: DefaultFacet}, err
 	}
 
 	// determine db facet if requered and not defined by driver (example: odbc)
@@ -117,23 +129,42 @@ func Open(dbConnStr, dbDriver string) (*sql.DB, Facet, error) {
 		facet = MsSqlFacet
 	case OdbcDbDriver: // check if ODBC compiled in, use go install -tags odbc to do this
 		if !IsOdbcSupported {
-			return nil, DefaultFacet, helper.ErrorNew("ODBC database connection not supported (executable build without ODBC library)")
+			return Dbc{Dbf: DefaultFacet}, helper.ErrorNew("ODBC database connection not supported (executable build without ODBC library)")
 		}
 	default: // at this point "" empty driver name replaced by "sqlite3" db-driver name
-		return nil, DefaultFacet, helper.ErrorNew("Invalid database driver name")
+		return Dbc{Dbf: DefaultFacet}, helper.ErrorNew("Invalid database driver name")
 	}
 
 	if facet == DefaultFacet {
-		facet = detectFacet(dbConn)
+		if dbDriver != "odbc" {
+			return Dbc{Dbf: DefaultFacet}, helper.ErrorNew("Invalid database driver name", dbDriver)
+		}
+
+		engine := detectEngine(dbConn)
+
+		switch engine {
+		case SqliteEngine:
+			facet = SqliteFacet
+		case PostgreSqlEngine:
+			facet = PostgreSqlOdbcFacet
+		case MySqlEngine:
+			facet = MySqlOdbcFacet
+		case MsSqlEngine:
+			facet = MsSqlOdbcFacet
+		case OracleEngine:
+			facet = OracleOdbcFacet
+		case Db2Engine:
+			facet = Db2OdbcFacet
+		}
 		omppLog.LogSql(facet.String())
 	}
 
-	err = connectionSetup(dbDriver, facet, dbConn) // apply provider-specific connecton settings
+	err = connectionSetup(dbDriver, facet.engine(), dbConn) // apply provider-specific connecton settings
 	if err != nil {
-		return nil, DefaultFacet, err
+		return Dbc{Dbf: DefaultFacet}, err
 	}
 
-	return dbConn, facet, nil
+	return Dbc{DB: dbConn, Dbf: facet}, nil
 }
 
 // set connection properties using OM_DB_SET_{vendor-or-driver-name} environment variable, for example MySQL:
@@ -141,27 +172,24 @@ func Open(dbConnStr, dbDriver string) (*sql.DB, Facet, error) {
 //	set OM_DB_SET_mysql=SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT,ANSI_QUOTES,NO_BACKSLASH_ESCAPES'), AUTOCOMMIT = 0
 //
 // names are: driver name or one of: sqlite3, mysql, postgresql, sqlserver, oracle, db2
-func connectionSetup(dbDriver string, facet Facet, dbConn *sql.DB) error {
+func connectionSetup(dbDriver string, engine Engine, dbConn *sql.DB) error {
 
 	s := ""
-
-	if s == "" {
-		switch facet {
-		case SqliteFacet:
-			s = os.Getenv("OM_DB_SET_sqlite3")
-		case MySqlFacet:
-			s = os.Getenv("OM_DB_SET_mysql")
-		case PostgreSqlFacet:
-			s = os.Getenv("OM_DB_SET_postgresql")
-		case MsSqlFacet:
-			s = os.Getenv("OM_DB_SET_sqlserver")
-		case OracleFacet:
-			s = os.Getenv("OM_DB_SET_oracle")
-		case Db2Facet:
-			s = os.Getenv("OM_DB_SET_db2")
-		default:
-			s = os.Getenv("OM_DB_SET_" + dbDriver)
-		}
+	switch engine {
+	case SqliteEngine:
+		s = os.Getenv("OM_DB_SET_sqlite3")
+	case MySqlEngine:
+		s = os.Getenv("OM_DB_SET_mysql")
+	case PostgreSqlEngine:
+		s = os.Getenv("OM_DB_SET_postgresql")
+	case MsSqlEngine:
+		s = os.Getenv("OM_DB_SET_sqlserver")
+	case OracleEngine:
+		s = os.Getenv("OM_DB_SET_oracle")
+	case Db2Engine:
+		s = os.Getenv("OM_DB_SET_db2")
+	default:
+		s = os.Getenv("OM_DB_SET_" + dbDriver)
 	}
 
 	if s != "" {

@@ -728,7 +728,7 @@ func mainBody(args []string) error {
 	_ = flag.String(sqliteArgKey, "", "input database SQLite file path")
 	_ = flag.String(sqliteShortKey, "", "model name (short of "+sqliteArgKey+")")
 	_ = flag.String(dbConnStrArgKey, "", "input database connection string")
-	_ = flag.String(dbDriverArgKey, "", "input database driver name: SQLite, odbc, sqlite3")
+	_ = flag.String(dbDriverArgKey, "", "input database driver name: SQLite, odbc, mysql, postgres, sqlserver, sqlite3")
 	_ = flag.String(modelNameArgKey, "", "model name")
 	_ = flag.String(modelNameShortKey, "", "model name (short of "+modelNameArgKey+")")
 	_ = flag.String(modelDigestArgKey, "", "model hash digest")
@@ -900,13 +900,13 @@ func mainBody(args []string) error {
 	}
 	cs, dn := db.IfEmptyMakeDefaultReadOnly(runOpts.String(modelNameArgKey), runOpts.String(sqliteArgKey), runOpts.String(dbConnStrArgKey), dn)
 
-	srcDb, _, err := db.Open(cs, dn)
+	srcDb, err := db.Open(cs, dn)
 	if err != nil {
 		return err
 	}
 	defer srcDb.Close()
 
-	if err := db.CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := db.CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		srcDb.Close()
 		return err
 	}
@@ -927,13 +927,13 @@ func mainBody(args []string) error {
 
 		// check if model exists in database
 		ok := false
-		if ok, modelId, err = db.GetModelId(srcDb, theCfg.modelName, theCfg.modelDigest); err != nil {
+		if ok, modelId, err = db.GetModelId(srcDb.DB, theCfg.modelName, theCfg.modelDigest); err != nil {
 			return err
 		}
 		if !ok {
 			return helper.ErrorFmt("model %s %s not found", theCfg.modelName, theCfg.modelDigest)
 		}
-		mdRow, err := db.GetModelRow(srcDb, modelId)
+		mdRow, err := db.GetModelRow(srcDb.DB, modelId)
 		if err != nil {
 			return err
 		}
@@ -944,7 +944,7 @@ func mainBody(args []string) error {
 		// match user language to model language, use default model language if there are no match
 		if !theCfg.isNoLang && !theCfg.isIdCsv {
 			if theCfg.userLang != "" {
-				theCfg.lang, err = matchUserLang(srcDb, *mdRow)
+				theCfg.lang, err = matchUserLang(srcDb.DB, *mdRow)
 				if err != nil {
 					return err
 				}
@@ -1006,45 +1006,45 @@ func mainBody(args []string) error {
 	// dispatch the command
 	switch theCfg.action {
 	case "model-list":
-		return modelList(srcDb)
+		return modelList(srcDb.DB)
 	case "run-list":
-		return runList(srcDb, modelId, runOpts)
+		return runList(srcDb.DB, modelId, runOpts)
 	case "set-list":
-		return setList(srcDb, modelId, runOpts)
+		return setList(srcDb.DB, modelId, runOpts)
 	case "model":
-		return modelMeta(srcDb, modelId)
+		return modelMeta(srcDb.DB, modelId)
 	case "run":
-		return runValue(srcDb, modelId, runOpts)
+		return runValue(srcDb.DB, modelId, runOpts)
 	case "all-runs":
-		return runAllValue(srcDb, modelId, runOpts)
+		return runAllValue(srcDb.DB, modelId, runOpts)
 	case "all-sets":
-		return setAllValue(srcDb, modelId, runOpts)
+		return setAllValue(srcDb.DB, modelId, runOpts)
 	case "set":
-		return setValue(srcDb, modelId, runOpts)
+		return setValue(srcDb.DB, modelId, runOpts)
 	case "parameter":
-		return parameterRunValue(srcDb, modelId, runOpts)
+		return parameterRunValue(srcDb.DB, modelId, runOpts)
 	case "parameter-set":
-		return parameterWsValue(srcDb, modelId, runOpts)
+		return parameterWsValue(srcDb.DB, modelId, runOpts)
 	case "table":
-		return tableValue(srcDb, modelId, runOpts)
+		return tableValue(srcDb.DB, modelId, runOpts)
 	case "table-compare":
-		return tableCompare(srcDb, modelId, runOpts)
+		return tableCompare(srcDb.DB, modelId, runOpts)
 	case "sub-table":
-		return tableAcc(srcDb, modelId, runOpts)
+		return tableAcc(srcDb.DB, modelId, runOpts)
 	case "sub-table-all":
-		return tableAllAcc(srcDb, modelId, runOpts)
+		return tableAllAcc(srcDb.DB, modelId, runOpts)
 	case "micro":
-		return microdataValue(srcDb, modelId, runOpts)
+		return microdataValue(srcDb.DB, modelId, runOpts)
 	case "micro-compare":
-		return microdataCompare(srcDb, modelId, runOpts)
+		return microdataCompare(srcDb.DB, modelId, runOpts)
 	case "old-model":
-		return modelOldMeta(srcDb, modelId)
+		return modelOldMeta(srcDb.DB, modelId)
 	case "old-run":
-		return runOldValue(srcDb, modelId, runOpts)
+		return runOldValue(srcDb.DB, modelId, runOpts)
 	case "old-parameter":
-		return parameterOldValue(srcDb, modelId, runOpts)
+		return parameterOldValue(srcDb.DB, modelId, runOpts)
 	case "old-table":
-		return tableOldValue(srcDb, modelId, runOpts)
+		return tableOldValue(srcDb.DB, modelId, runOpts)
 	}
 	return helper.ErrorNew("invalid action argument:", theCfg.action)
 }

@@ -231,13 +231,13 @@ Above is equivalent of:
 	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
 	dbcopy -m modelOne -dbcopy.Database "Database=modelOne.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;" -dbcopy.DatabaseDriver SQLite
 
-Most generic data source format is to use connection string and driver name:
+Most generic data source format is to use connection string and driver name, for example:
 
 	dbcopy -m modelOne
 	  -dbcopy.Database "Database=model.sqlite; Timeout=86400; ForeignKeys = 1; OpenMode=ReadOnly;"
 	  -dbcopy.DatabaseDriver SQLite
 
-You don't need to use driver name for SQLite database, it is enough to specify model name or path to model.sqlite file:
+You don't need to specify driver name for SQLite database, it is enough to specify model name or path to model.sqlite file:
 
 	dbcopy -m modelOne
 	dbcopy -m modelOne -dbcopy.FromSqlite some/dir/m1.sqlite
@@ -422,10 +422,10 @@ func mainBody(args []string) error {
 	_ = flag.Int(taskIdArgKey, 0, "modeling task id, if specified then copy only this run modeling task data")
 	_ = flag.String(fromSqliteArgKey, "", "input database SQLite file path")
 	_ = flag.String(dbConnStrArgKey, "", "input database connection string")
-	_ = flag.String(dbDriverArgKey, "", "input database driver name: SQLite, odbc, sqlite3")
+	_ = flag.String(dbDriverArgKey, "", "input database driver name: SQLite, odbc, mysql, postgres, sqlserver, sqlite3")
 	_ = flag.String(toSqliteArgKey, "", "output database SQLite file path")
 	_ = flag.String(toDbConnStrArgKey, "", "output database connection string")
-	_ = flag.String(toDbDriverArgKey, "", "output database driver name: SQLite, odbc, sqlite3")
+	_ = flag.String(toDbDriverArgKey, "", "output database driver name: SQLite, odbc, mysql, postgres, sqlserver, sqlite3")
 	_ = flag.String(inputDirArgKey, "", "input directory to read model .json and .csv files")
 	_ = flag.String(outputDirArgKey, "", "output directory for model .json and .csv files")
 	_ = flag.Bool(keepOutputDirArgKey, theCfg.isKeepOutputDir, "keep (do not delete) existing output directory")

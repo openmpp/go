@@ -175,18 +175,18 @@ func TestTranslateToExprSql(t *testing.T) {
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
 	t.Log(cs)
 
-	srcDb, _, err := Open(cs, SQLiteDbDriver)
+	srcDb, err := Open(cs, SQLiteDbDriver)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srcDb.Close()
 
-	if err := CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		t.Fatal(err)
 	}
 
 	// get model metadata
-	modelDef, err := GetModel(srcDb, modelName, modelDigest)
+	modelDef, err := GetModel(srcDb.DB, modelName, modelDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,18 +283,18 @@ func TestParseAggrCalculation(t *testing.T) {
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
 	t.Log(cs)
 
-	srcDb, _, err := Open(cs, SQLiteDbDriver)
+	srcDb, err := Open(cs, SQLiteDbDriver)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srcDb.Close()
 
-	if err := CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		t.Fatal(err)
 	}
 
 	// get model metadata
-	modelDef, err := GetModel(srcDb, modelName, modelDigest)
+	modelDef, err := GetModel(srcDb.DB, modelName, modelDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestParseAggrCalculation(t *testing.T) {
 		entity = &modelDef.Entity[eIdx]
 
 		// get list of entity generations for that model run
-		egLst, err := GetEntityGenList(srcDb, microRunId)
+		egLst, err := GetEntityGenList(srcDb.DB, microRunId)
 		if err != nil {
 			t.Fatal("Error at get run entities: ", entityName, ": ", microRunId, ": ", err.Error())
 		}

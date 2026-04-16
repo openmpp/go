@@ -34,18 +34,18 @@ func TestTransalteAccAggrToSql(t *testing.T) {
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
 	t.Log(cs)
 
-	srcDb, _, err := Open(cs, SQLiteDbDriver)
+	srcDb, err := Open(cs, SQLiteDbDriver)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srcDb.Close()
 
-	if err := CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		t.Fatal(err)
 	}
 
 	// get model metadata
-	modelDef, err := GetModel(srcDb, modelName, modelDigest)
+	modelDef, err := GetModel(srcDb.DB, modelName, modelDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,18 +125,18 @@ func TestTranslateTableCalcToSql(t *testing.T) {
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
 	t.Log(cs)
 
-	srcDb, _, err := Open(cs, SQLiteDbDriver)
+	srcDb, err := Open(cs, SQLiteDbDriver)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srcDb.Close()
 
-	if err := CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		t.Fatal(err)
 	}
 
 	// get model metadata
-	modelDef, err := GetModel(srcDb, modelName, modelDigest)
+	modelDef, err := GetModel(srcDb.DB, modelName, modelDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,18 +261,18 @@ func TestCalculateOutputTable(t *testing.T) {
 	cs := MakeSqliteDefaultReadOnly(modelSqliteDbPath)
 	t.Log(cs)
 
-	srcDb, _, err := Open(cs, SQLiteDbDriver)
+	srcDb, err := Open(cs, SQLiteDbDriver)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer srcDb.Close()
 
-	if err := CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		t.Fatal(err)
 	}
 
 	// get model metadata
-	modelDef, err := GetModel(srcDb, modelName, modelDigest)
+	modelDef, err := GetModel(srcDb.DB, modelName, modelDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestCalculateOutputTable(t *testing.T) {
 	t.Log("Model:", modelDef.Model.Name, " ", modelDef.Model.Digest)
 
 	// create csv converter by including all model runs (test only)
-	rLst, err := GetRunList(srcDb, modelDef.Model.ModelId)
+	rLst, err := GetRunList(srcDb.DB, modelDef.Model.ModelId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestCalculateOutputTable(t *testing.T) {
 		}
 
 		// read table
-		cLst, rdLt, err := CalculateOutputTable(srcDb, modelDef, tableLt, runIds)
+		cLst, rdLt, err := CalculateOutputTable(srcDb.DB, modelDef, tableLt, runIds)
 		if err != nil {
 			t.Fatal(err)
 		}

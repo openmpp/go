@@ -24,29 +24,29 @@ func dbToDb(modelName string, modelDigest string, runOpts *config.RunOptions) er
 	}
 
 	// open source database connection and check is it valid
-	srcDb, _, err := db.Open(csInp, dnInp)
+	srcDb, err := db.Open(csInp, dnInp)
 	if err != nil {
 		return err
 	}
 	defer srcDb.Close()
 
-	if err := db.CheckOpenmppSchemaVersion(srcDb); err != nil {
+	if err := db.CheckOpenmppSchemaVersion(srcDb.DB); err != nil {
 		return err
 	}
 
 	// open destination database and check is it valid
-	dstDb, dbFacet, err := db.Open(csOut, dnOut)
+	dstDb, err := db.Open(csOut, dnOut)
 	if err != nil {
 		return err
 	}
 	defer dstDb.Close()
 
-	if err := db.CheckOpenmppSchemaVersion(dstDb); err != nil {
+	if err := db.CheckOpenmppSchemaVersion(dstDb.DB); err != nil {
 		return err
 	}
 
 	// get source model metadata and languages, make a deep copy to use for destination database writing
-	err = copyDbToDb(srcDb, dstDb, dbFacet, modelName, modelDigest)
+	err = copyDbToDb(srcDb.DB, dstDb, modelName, modelDigest)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func dbToDb(modelName string, modelDigest string, runOpts *config.RunOptions) er
 // For example, in source db model id can be 11 and in destination it will be 200,
 // same for all other id's: type Hid, parameter Hid, table Hid, run id, set id, task id, etc.
 func copyDbToDb(
-	srcDb *sql.DB, dstDb *sql.DB, dbFacet db.Facet, modelName string, modelDigest string) error {
+	srcDb *sql.DB, dstDb db.Dbc, modelName string, modelDigest string) error {
 
 	// source: get model metadata
 	srcModel, err := db.GetModel(srcDb, modelName, modelDigest)
@@ -107,38 +107,38 @@ func copyDbToDb(
 	}
 
 	// destination: insert model metadata into destination database if not exists
-	if _, err = db.UpdateModel(dstDb, dbFacet, dstModel); err != nil {
+	if _, err = db.UpdateModel(dstDb, dstModel); err != nil {
 		return err
 	}
 
 	// destination: insert or update language list
-	if err = db.UpdateLanguage(dstDb, dstLang); err != nil {
+	if err = db.UpdateLanguage(dstDb.DB, dstLang); err != nil {
 		return err
 	}
 
 	// destination: get full list of languages in destination database
-	dstLang, err = db.GetLanguages(dstDb)
+	dstLang, err = db.GetLanguages(dstDb.DB)
 	if err != nil {
 		return err
 	}
 
 	// destination: insert, update or delete model default profile
-	if err = db.UpdateProfile(dstDb, modelProfile); err != nil {
+	if err = db.UpdateProfile(dstDb.DB, modelProfile); err != nil {
 		return err
 	}
 
 	// destination: insert or update model text data (description and notes)
-	if err = db.UpdateModelText(dstDb, dstModel, dstLang, modelTxt); err != nil {
+	if err = db.UpdateModelText(dstDb.DB, dstModel, dstLang, modelTxt); err != nil {
 		return err
 	}
 
 	// destination: insert or update model language-specific strings
-	if err = db.UpdateModelWord(dstDb, dstModel, dstLang, mwDef); err != nil {
+	if err = db.UpdateModelWord(dstDb.DB, dstModel, dstLang, mwDef); err != nil {
 		return err
 	}
 
 	// source to destination: copy model runs: parameters, output expressions and accumulators
-	err = copyRunListDbToDb(srcDb, dstDb, dbFacet, srcModel, dstModel, dstLang)
+	err = copyRunListDbToDb(srcDb, dstDb, srcModel, dstModel, dstLang)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func copyDbToDb(
 	}
 
 	// source to destination: copy all modeling tasks
-	err = copyTaskListDbToDb(srcDb, dstDb, srcModel, dstModel, dstLang)
+	err = copyTaskListDbToDb(srcDb, dstDb.DB, srcModel, dstModel, dstLang)
 	if err != nil {
 		return err
 	}

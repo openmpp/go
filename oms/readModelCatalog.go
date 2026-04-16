@@ -4,8 +4,6 @@
 package main
 
 import (
-	"database/sql"
-
 	"github.com/openmpp/go/ompp/db"
 	"golang.org/x/text/language"
 )
@@ -95,15 +93,15 @@ func (mc *ModelCatalog) modelBasicByDigestOrName(dn string) (modelBasic, bool) {
 
 // modelMeta return model metadata and database connection by digest or model name.
 // It is also return boolean success flag if both model metadata pointer and connection pointer are not nil.
-func (mc *ModelCatalog) modelMeta(dn string) (*db.ModelMeta, *sql.DB, bool) {
+func (mc *ModelCatalog) modelMeta(dn string) (*db.ModelMeta, db.Dbc, bool) {
 	mc.theLock.Lock()
 	defer mc.theLock.Unlock()
 
 	idx, ok := mc.indexByDigestOrName(dn)
 	if !ok {
-		return nil, nil, false // model not found, empty result
+		return nil, db.Dbc{DB: nil, Dbf: db.DefaultFacet}, false // model not found, empty result
 	}
-	return mc.modelLst[idx].meta, mc.modelLst[idx].dbConn, (mc.modelLst[idx].meta != nil && mc.modelLst[idx].dbConn != nil)
+	return mc.modelLst[idx].meta, mc.modelLst[idx].dbConn, (mc.modelLst[idx].meta != nil && mc.modelLst[idx].dbConn.DB != nil)
 }
 
 // modelTextMeta return model text metadata:

@@ -4,7 +4,6 @@
 package main
 
 import (
-	"database/sql"
 	"sync"
 
 	"github.com/openmpp/go/ompp/db"
@@ -36,7 +35,7 @@ type ModelCatalogConfig struct {
 
 // modelDef is database connection and model metadata database rows
 type modelDef struct {
-	dbConn        *sql.DB           // database connection
+	dbConn        db.Dbc            // database connection
 	binDir        string            // database and .exe directory: directory part of models/bin/dir/sub/model.sqlite
 	dbPath        string            // absolute path to sqlite database file: /root/models/bin/dir/sub/model.sqlite
 	relPath       string            // relative path to sqlite database file: relative to model root and slashed: dir/sub/model.sqlite
