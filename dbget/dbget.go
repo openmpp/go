@@ -84,7 +84,7 @@ It is also possible to read the data from MySQL, PostgreSQL, MS SQL, Oracle or D
 	  -dbget.Database "DSN=BigData;UID=UserName;PWD=SecretPassword"
 	  -dbget.DatabaseDriver odbc
 
-For non-SQLite vendors you must provide database driver name eiher as `-dbget.DatabaseDriver` option or as `OM_DB_DRIVER` environment variable:
+For non-SQLite vendors you must provide database driver name eiher as "-dbget.DatabaseDriver" option or as "OM_DB_DRIVER" environment variable:
 
 	set OM_DB_DRIVER=postgresql
 
@@ -95,7 +95,7 @@ You can use one of the following driver names:
 	postgres: PostgreSQL
 	sqlserver: Microsoft SQL Sever
 
-For some database vendors you may want to adjust connection properties by using `OM_DB_SET_{vendor-or-driver-name}` environment variable.
+For some database vendors you may want to adjust connection properties by using "OM_DB_SET_{vendor-or-driver-name}" environment variable.
 For example, connecting from Windows to MySQL:
 
 	set OM_DB_SET_mysql=SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT,ANSI_QUOTES,NO_BACKSLASH_ESCAPES'), AUTOCOMMIT = 0

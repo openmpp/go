@@ -247,11 +247,11 @@ To copy between databases or from CSV into database you need to specify output d
 	dbcopy -m modelOne -dbcopy.To db -dbcopy.ToSqlite m1.sqlite
 	dbcopy -m modelOne -dbcopy.To db2db -dbcopy.FromSqlite src.sqlite -dbcopy.ToSqlite some/dir/dst.sqlite
 
-For non-SQLite db vendors you must provide database driver name eiher as `-dbcopy.DatabaseDriver` option or as `OM_DB_DRIVER` environment variable:
+For non-SQLite db vendors you must provide database driver name eiher as "-dbcopy.DatabaseDriver" option or as "OM_DB_DRIVER" environment variable:
 
 	set OM_DB_DRIVER=postgresql
 
-And for output database it is either `-dbcopy.ToDatabaseDriver` option or `OM_TO_DB_DRIVER` environment variable:
+And for output database it is either "-dbcopy.ToDatabaseDriver" option or "OM_TO_DB_DRIVER" environment variable:
 
 	set OM_TO_DB_DRIVER=mysql
 
@@ -262,7 +262,7 @@ You can use one of the following driver names:
 	postgres: PostgreSQL
 	sqlserver: Microsoft SQL Sever
 
-For some database vendors you may want to adjust connection properties by using `OM_DB_SET_{vendor-or-driver-name}` environment variable.
+For some database vendors you may want to adjust connection properties by using "OM_DB_SET_{vendor-or-driver-name}" environment variable.
 For example, connecting from Windows to MySQL:
 
 	set OM_DB_SET_mysql=SET @@SQL_MODE = CONCAT(@@SQL_MODE, ',PIPES_AS_CONCAT,ANSI_QUOTES,NO_BACKSLASH_ESCAPES'), AUTOCOMMIT = 0

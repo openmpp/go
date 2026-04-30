@@ -895,6 +895,9 @@ func isPausedJobAllQueue() bool {
 
 // read job control state from the file, return empty state on error or if state file not exist
 func jobStateRead() (*jobControlState, bool) {
+	if !theCfg.isJobControl {
+		return &jobControlState{Queue: []string{}}, false // job control disabled
+	}
 
 	var jcs jobControlState
 	isOk, err := helper.FromJsonFile(jobStatePath(), &jcs)

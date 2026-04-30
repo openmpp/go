@@ -29,7 +29,7 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	http.FileServer(http.Dir(theCfg.inOutDir)).ServeHTTP(w, r)
 }
 
-// static file download handler from user files directory and subfolders, if userhome specified then it is home/io.
+// static file download handler from user files directory and subfolders, if user home specified then it is home/io.
 // URLs served from home/io directory are:
 //
 //	https://domain.name/files/file.name
