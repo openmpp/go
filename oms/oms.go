@@ -631,6 +631,11 @@ func mainBody(args []string) error {
 		}
 	}
 
+	if !theCfg.isReadonly {
+		apiUpdateRoutes(router)   // web-service /api routes to update metadata
+		apiRunModelRoutes(router) // web-service /api routes to run the model
+	}
+
 	apiUserRoutes(router)    // web-service /api routes for user-specific requests
 	apiServiceRoutes(router) // web-service /api routes for service state
 	if isAdmin {
