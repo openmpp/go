@@ -592,6 +592,7 @@ func apiDownloadRoutes(router *vestigo.Router) {
 	}
 
 	// GET /api/download/log-all
+	router.Get("/api/download/log-all", allLogDownloadGetHandler, logRequest)
 
 	// GET /api/download/log/model/:model
 	router.Get("/api/download/log/model/:model", modelLogDownloadGetHandler, logRequest)
