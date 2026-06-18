@@ -29,6 +29,7 @@ var theCatalog ModelCatalog
 type ModelCatalogConfig struct {
 	ModelDir        string // model bin directory
 	ModelLogDir     string // default model log directory
+	ModelDocDir     string // if not empty then model documentation directory
 	IsLogDirEnabled bool   // if true then default log directory exist
 	LastTimeStamp   string // most recent timestamp
 }

@@ -16,6 +16,7 @@ func (mc *ModelCatalog) toPublicConfig() ModelCatalogConfig {
 	return ModelCatalogConfig{
 		ModelDir:        mc.modelDir,
 		ModelLogDir:     mc.modelLogDir,
+		ModelDocDir:     theCfg.docDir,
 		IsLogDirEnabled: mc.isLogDirEnabled,
 		LastTimeStamp:   mc.lastTimeStamp,
 	}
