@@ -363,7 +363,7 @@ func (mc *ModelCatalog) closeModel(dn string) (string, string, error) {
 	return name, binDir, nil
 }
 
-// close model and delete all model files: exe, sqlite, ini,...
+// close model and delete all model files: exe, ModelName.*, ModelName_mpi.*, etc. and delete model directory if it is empty
 func (mc *ModelCatalog) deleteModel(dn string) error {
 
 	if dn == "" {
@@ -411,6 +411,12 @@ func (mc *ModelCatalog) deleteModel(dn string) error {
 	for _, p := range pathLst {
 		if ok := fileDeleteAndLog(true, p); !ok {
 			return errors.New("Error: unable to delete model file(s)")
+		}
+	}
+	// delete model directory if it is empty
+	if modelDir != theCatalog.modelDir {
+		if helper.IsDirEmpty(modelDir) {
+			fileDeleteAndLog(true, modelDir) // ignore delete error
 		}
 	}
 	return nil

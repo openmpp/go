@@ -126,3 +126,20 @@ func DirStat(dirPath string) (fs.FileInfo, error) {
 	}
 	return fi, nil
 }
+
+// return true if path is an empty directory
+func IsDirEmpty(dirPath string) bool {
+	if dirPath == "" {
+		return false
+	}
+	d, err := os.Open(dirPath)
+	if err != nil {
+		return false
+	}
+	defer d.Close()
+
+	if _, err = d.Readdirnames(1); err == io.EOF {
+		return true
+	}
+	return false
+}
