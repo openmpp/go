@@ -40,6 +40,12 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 		isLogDir = helper.IsDirExist(modelLogDir)
 	}
 
+	// read common.message.ini
+	cmIni := []helper.IniEntry{}
+	if ea, e := config.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
+		cmIni = ea
+	}
+
 	// get list of models/bin/*.sqlite files
 	pathLst := []string{}
 	err := filepath.WalkDir(modelDir, func(src string, de os.DirEntry, err error) error {
@@ -68,7 +74,7 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 
 	for _, fp := range pathLst {
 
-		addLst, e := modelsFromSqliteFile(fp, dglLst, modelDir, isLogDir, modelLogDir)
+		addLst, e := modelsFromSqliteFile(fp, dglLst, modelDir, isLogDir, modelLogDir, cmIni)
 		if e != nil || len(addLst) <= 0 {
 			continue
 		}
@@ -107,7 +113,13 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 	mbinDir, _ := theCatalog.getModelDir()
 	logDir, isLog := theCatalog.getModelLogDir()
 
-	mLst, err := modelsFromSqliteFile(srcPath, []string{}, mbinDir, isLog, logDir)
+	// read common.message.ini
+	cmIni := []helper.IniEntry{}
+	if ea, e := config.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
+		cmIni = ea
+	}
+
+	mLst, err := modelsFromSqliteFile(srcPath, []string{}, mbinDir, isLog, logDir, cmIni)
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +143,7 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 			}
 		}
 	}
-	mc.modelLst = append(mc.modelLst, mLst...) // append model to catalog and sort models by file paths
+	mc.modelLst = append(mc.modelLst, mLst...) // append model to catalog and sort models by model.sqlite file paths
 
 	slices.SortStableFunc(mc.modelLst, func(left, right modelDef) int { return strings.Compare(left.relPath, right.relPath) })
 
@@ -139,13 +151,7 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 }
 
 // open SQLite db connection and retrive model or list of models, skip models which are in digest list already
-func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isLogDir bool, modelLogDir string) ([]modelDef, error) {
-
-	// read common.message.ini
-	cmIni := []helper.IniEntry{}
-	if ea, e := config.ReadCommonMessageIni(theCfg.omsBinDir, theCfg.encodingName); e == nil {
-		cmIni = ea
-	}
+func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isLogDir bool, modelLogDir string, cmIni []helper.IniEntry) ([]modelDef, error) {
 
 	// open db connection and check version of openM++ database
 	dbc, err := db.Open(db.MakeSqliteDefault(srcPath), db.SQLiteDbDriver)
@@ -276,6 +282,30 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			me = string(bt)
 		}
 
+		// check if exist: models/bin/ModelName-Version.publish.lst or models/bin/ModelName.publish.lst
+		pubLst := filepath.Join(dbDir, dicLst[idx].Name+"-"+dicLst[idx].Version+".publish.lst")
+		if !helper.IsFileExist(pubLst) {
+			pubLst = filepath.Join(dbDir, dicLst[idx].Name+".publish.lst")
+		}
+		if !helper.IsFileExist(pubLst) {
+			pubLst = ""
+		}
+
+		// get model documentation folder name from model.extra.json
+		pubDocDir := ""
+		if pubLst != "" && me != "" {
+
+			if linkLst, e := getModelDocLinks(me); e == nil && len(linkLst) > 0 {
+				pubDocDir = filepath.Dir(linkLst[0]) // use first documenation link directory
+			}
+			if pubDocDir == "." || pubDocDir == "/" || pubDocDir == "\\" || pubDocDir == "C:\\" {
+				pubDocDir = ""
+			}
+			if pubDocDir != "" {
+				pubDocDir = filepath.Join(modelLogDir, pubDocDir)
+			}
+		}
+
 		// append to model list
 		mLst = append(mLst, modelDef{
 			dbConn:        dbc,
@@ -293,7 +323,10 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			matcher:       language.NewMatcher(lt),
 			modelWord:     wLst,
 			msg:           msgLst,
-			extra:         me})
+			extra:         me,
+			pubLst:        pubLst,
+			docDir:        pubDocDir,
+		})
 	}
 
 	// close db connection if there models in that database or all models already in the model list

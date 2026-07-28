@@ -27,6 +27,8 @@ func modelListHandler(w http.ResponseWriter, r *http.Request) {
 		DbPath string         // path to model.sqlite, relative to model root and slashed: dir/sub/model.sqlite
 		IsIni  bool           // if true the default ini file exists: models/bin/dir/sub/modelName.ini
 		Extra  string         // if not empty then model extra content
+		PubLst string         // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
+		DocDir string         // if not empty then model documentation folder from model.extra.json
 	}
 	ml := make([]modelListItem, 0, len(mbs))
 
@@ -40,6 +42,8 @@ func modelListHandler(w http.ResponseWriter, r *http.Request) {
 					DbPath: filepath.ToSlash(b.relPath),
 					IsIni:  b.isIni,
 					Extra:  b.extra,
+					PubLst: filepath.ToSlash(b.pubLst),
+					DocDir: filepath.ToSlash(b.docDir),
 				})
 		}
 	}
@@ -67,6 +71,8 @@ func modelTextListHandler(w http.ResponseWriter, r *http.Request) {
 		DbPath               string // path to model.sqlite, relative to model root and slashed: dir/sub/model.sqlite
 		IsIni                bool   // if true the default ini file exists: models/bin/dir/sub/modelName.ini
 		Extra                string // if not empty then model extra content
+		PubLst               string // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
+		DocDir               string // if not empty then model documentation folder from model.extra.json
 	}
 	mtl := make([]modelTxtListItem, 0, len(mbs))
 
@@ -80,6 +86,8 @@ func modelTextListHandler(w http.ResponseWriter, r *http.Request) {
 					DbPath:            filepath.ToSlash(b.relPath),
 					IsIni:             b.isIni,
 					Extra:             b.extra,
+					PubLst:            filepath.ToSlash(b.pubLst),
+					DocDir:            filepath.ToSlash(b.docDir),
 				})
 		}
 	}

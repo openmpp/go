@@ -160,7 +160,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"net"
 	"net/http"
@@ -389,23 +388,29 @@ func mainBody(args []string) error {
 
 	// change to OM_ROOT directory
 	theCfg.rootDir = filepath.Clean(runOpts.String(rootDirArgKey)) // OM_ROOT directory
-
-	if theCfg.rootDir != "" && theCfg.rootDir != "." {
+	if theCfg.rootDir == "." {
+		theCfg.rootDir = ""
+	}
+	if theCfg.rootDir != "" {
 		if err := os.Chdir(theCfg.rootDir); err != nil {
 			return helper.ErrorNew("Error: unable to change directory:", err)
 		}
 	}
 	omppLog.New(logOpts) // adjust log options, log path can be relative to root directory
 
-	if theCfg.rootDir != "" && theCfg.rootDir != "." {
+	if theCfg.rootDir != "" {
 		omppLog.Log("Change directory to:  ", theCfg.rootDir)
+	} else {
+		if wd, e := os.Getwd(); e == nil {
+			theCfg.rootDir = wd
+			omppLog.Log("Oms Root directory:   ", theCfg.rootDir)
+		}
 	}
 
 	// model directory required to build initial list of model sqlite files
 	modelDir := filepath.Clean(runOpts.String(modelDirArgKey))
-	if modelDir == "" || modelDir == "." {
-		modelDir = ""
-		return helper.ErrorNew("Error: model directory argument cannot be empty or . dot")
+	if modelDir == "" || !helper.IsDirExist(modelDir) {
+		return helper.ErrorNew("Invalid (or empty) model directory:", modelDir)
 	}
 	omppLog.Log("Models directory:     ", modelDir)
 
@@ -698,7 +703,7 @@ func mainBody(args []string) error {
 	}
 	ta, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
-		return errors.New("Error: unable to find TCP port of:" + addr)
+		return helper.ErrorNew("Error: unable to find TCP port of:" + addr)
 	}
 	localUrl := "http://localhost:" + strconv.Itoa(ta.Port)
 

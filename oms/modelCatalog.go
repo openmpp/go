@@ -52,6 +52,8 @@ type modelDef struct {
 	modelWord     *db.ModelWordMeta // if not nil then list of model words, order of languages NOT the same as language codes
 	msg           []db.LangMsg      // list of languages and translated strings: merge of model.message.ini, common.message.ini, model_word, lang_word
 	extra         string            // if not empty then model extra content from models/bin/dir/model.extra.json
+	pubLst        string            // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
+	docDir        string            // if not empty then model documentation folder from model.extra.json
 }
 
 // modelBasic is basic model info: name, digest, files location
@@ -64,6 +66,8 @@ type modelBasic struct {
 	isLogDir bool           // if true then use model log directory for model run logs
 	isIni    bool           // if true the default ini file exists: models/bin/dir/sub/modelName.ini
 	extra    string         // if not empty then model extra content from models/bin/dir/model.extra.json
+	pubLst   string         // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
+	docDir   string         // if not empty then model documentation folder from model.extra.json
 }
 
 // ModelWordLabel is (code, label) rows from lang_word and model_word language-specific db tables.

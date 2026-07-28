@@ -387,15 +387,279 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, r, struct{ LogFileName string }{LogFileName: ln})
 }
 
+// copy model files from models library
+//
+//	POST /api/admin/copy-model/:path
+//	POST /api/admin/copy-model/:path/lang/:lang
+//
+// Model identified by he path to model publish.lst file in models library.
+// Request json body is optional but highly recommended to avoid publishing model with the same digest.
+// If model digest specified in json body then existing model with the same digest will be deleted.
+//
+// If model with same digest already exist in current oms then copy may fail and result is undefined.
+func copyModelHandler(w http.ResponseWriter, r *http.Request) {
+
+	// get request parameters and check if copy model enabled
+	pubLst := getRequestParam(r, "path")
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	_, diskUse := theRunCatalog.getDiskUseStatus()
+	if !diskUse.ModelLib.IsCopy {
+		http.Error(w, helper.MsgL(lang, "Copy model disabled"), http.StatusBadRequest)
+		return
+	}
+
+	// decode json options for copy model
+	opts := struct {
+		ModelDigest string // if not empty then model digest (highly recommended)
+		ModelName   string // if not empty then model name
+		Version     string // if not empty then model version
+		PublishLst  string // if not empty then path/to/ModelName.publish.lst in models library
+		DocDir      string // if not empty then model documentation folder from model.extra.json
+		BinDir      string // if not empty then model bin folder
+		LogDir      string // if not empty then model log folder
+	}{}
+	if !jsonRequestDecode(w, r, false, &opts) { // json body is not required, it can be missing
+		return // error at json decode, response done with http error
+	}
+
+	// check if model.publish.lst exists in model source directory
+	if opts.PublishLst != "" {
+		pubLst = opts.PublishLst
+	}
+	pubLst = strings.ReplaceAll(pubLst, "*", "/") // restore slashed / path
+	srcPubLst := filepath.Join(diskUse.ModelLib.srcRoot, pubLst)
+
+	if pubLst == "" || !helper.IsFileExist(srcPubLst) {
+		omppLog.Log("Error: invalid (empty) path to model publish list", ":", srcPubLst)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model publish list"), http.StatusBadRequest)
+		return
+	}
+
+	// if model name in json body is empty then use file name of model.publish.lst
+	nameVer := opts.ModelName
+	if nameVer != "" {
+		if opts.Version != "" {
+			nameVer += "-" + opts.Version
+		}
+	} else {
+		b := filepath.Base(pubLst)
+		if len(b) > len(".publish.lst") {
+			nameVer = b[0 : len(b)-len(".publish.lst")]
+		}
+	}
+
+	// create model copy log file
+	modelLogDir, _ := theCatalog.getModelLogDir()
+	_, logPath := copyModelLogNamePath(nameVer, modelLogDir)
+
+	isLogOk := fileCreateEmpty(false, logPath)
+	if !isLogOk {
+		omppLog.Log("Error at creating log file", ": ", logPath)
+	}
+	toCmdLog := func(m string) {
+		if isLogOk {
+			isLogOk = writeToCmdLog(logPath, true, m)
+		}
+	}
+
+	// if model with the same digest alreday published then delete it
+	if opts.ModelDigest != "" {
+		if mb, ok := theCatalog.modelBasicByDigestOrName(opts.ModelDigest); ok {
+
+			m := helper.MsgL(lang, "Delete model:", opts.ModelDigest, mb.model.Name)
+			omppLog.LogNoLT(m)
+			toCmdLog(m)
+			if err := theCatalog.deleteModel(opts.ModelDigest); err != nil {
+				omppLog.LogNoLT(err)
+				m = helper.MsgL(lang, "Failed to delete model:", opts.ModelDigest, mb.model.Name)
+				toCmdLog(m)
+				http.Error(w, m, http.StatusBadRequest)
+				return
+			}
+		}
+	}
+	m := helper.MsgL(lang, "Copy model:", pubLst, nameVer)
+	toCmdLog(m)
+
+	// do model copy
+	var errCopy error
+	go func() {
+
+		// make model copy command:
+		// model-copy.sh RiskPaths.publish.lst ~/archive ~/my-work RiskPaths v3.2.1
+		cArgs := []string{
+			pubLst,
+			diskUse.ModelLib.srcRoot,
+			theCfg.rootDir,
+		}
+		if opts.ModelName != "" {
+			cArgs = append(cArgs, opts.ModelName)
+			if opts.Version != "" {
+				cArgs = append(cArgs, opts.Version)
+			}
+		} else {
+			if nameVer != "" {
+				cArgs = append(cArgs, nameVer)
+			}
+		}
+		cmd := exec.Command(diskUse.ModelLib.copyCmd, cArgs...)
+
+		// set BIN_DIR, DOC_DIR, LOG_DIR environment
+		binD := opts.BinDir
+		if binD == "" {
+			binD = filepath.Dir(pubLst)
+		}
+		if binD != "" && binD != "." && binD != "/" && binD != "\\" && binD != "C:\\" {
+			cmd.Env = append(cmd.Environ(), "BIN_DIR="+binD)
+		}
+		if opts.DocDir != "" {
+			cmd.Env = append(cmd.Environ(), "DOC_DIR="+opts.DocDir)
+		}
+		if opts.LogDir != "" {
+			cmd.Env = append(cmd.Environ(), "LOG_DIR="+opts.LogDir)
+		}
+
+		// connect console output to output log file
+		outPipe, e := cmd.StdoutPipe()
+		if e != nil {
+			errCopy = e
+			omppLog.Log("Error at join to stdout log", ": ", logPath, ": ", errCopy)
+			return
+		}
+		errPipe, e := cmd.StderrPipe()
+		if e != nil {
+			errCopy = e
+			omppLog.Log("Error at join to stderr log", ": ", logPath, ": ", errCopy)
+			return
+		}
+		outDoneC := make(chan bool, 1)
+		errDoneC := make(chan bool, 1)
+		logTck := time.NewTicker(logTickTimeout * time.Millisecond)
+
+		// start console output listners
+		doLog := func(r io.Reader, done chan<- bool) {
+			sc := bufio.NewScanner(r)
+			for sc.Scan() {
+				toCmdLog(sc.Text())
+			}
+			done <- true
+			close(done)
+		}
+		go doLog(outPipe, outDoneC)
+		go doLog(errPipe, errDoneC)
+
+		// start model copy
+		omppLog.Log(strings.Join(cmd.Args, " "))
+		toCmdLog(strings.Join(cmd.Args, " "))
+
+		errCopy = cmd.Start()
+		if errCopy != nil {
+			omppLog.Log("Error at", ": ", logPath, ": ", errCopy)
+			toCmdLog(errCopy.Error())
+			return
+		}
+		// else model copy started: wait until completed
+
+		// wait until stdout and stderr closed
+		for outDoneC != nil || errDoneC != nil {
+			select {
+			case _, ok := <-outDoneC:
+				if !ok {
+					outDoneC = nil
+				}
+			case _, ok := <-errDoneC:
+				if !ok {
+					errDoneC = nil
+				}
+			case <-logTck.C:
+			}
+		}
+
+		// wait for model copy to be completed
+		errCopy = cmd.Wait()
+		if errCopy != nil {
+			omppLog.Log("Error at: ", cmd.Args)
+			toCmdLog(errCopy.Error())
+			return
+		}
+		// else:
+
+		// refresh models catalog
+		modelDir, _ := theCatalog.getModelDir()
+		omppLog.Log("Refresh models catalog", modelDir)
+		toCmdLog("Refresh models catalog")
+
+		errCopy = theCatalog.refreshSqlite(modelDir, modelLogDir)
+		if errCopy != nil {
+			omppLog.LogNoLT(errCopy)
+			toCmdLog("Failed to refresh models catalog")
+			return
+		}
+		// else:
+
+		// completed OK
+		if isLogOk {
+			writeToCmdLog(logPath, true, "Done.")
+		} else {
+			omppLog.Log("Warning: model copy log output may be incomplete")
+		}
+	}()
+
+	// model copy is starting now: return path to log file
+	em := ""
+	if errCopy != nil {
+		em = errCopy.Error()
+	}
+	jsonResponse(w, r, struct {
+		LogFileName string
+		IsError     bool
+		ErrorMsg    string
+	}{
+		LogFileName: logPath,
+		IsError:     errCopy != nil,
+		ErrorMsg:    em,
+	})
+}
+
 // get list of all db cleanup log files
 //
 //	GET /api/admin/db-cleanup/log-all
 func dbCleanupAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
+	batchAllLogGetHandler("db-cleanup", w, r)
+}
+
+// get list of all copy model log files
+//
+//	GET /api/admin/copy-model/log-all
+func copyModelAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
+	batchAllLogGetHandler("copy-model", w, r)
+}
+
+// get db cleanup log file content by name
+//
+//	GET /api/admin/db-cleanup/log/:name
+func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
+	batchFileLogGetHandler("db-cleanup", w, r)
+}
+
+// get copy model log file content by name
+//
+//	GET /api/admin/copy-model/log/:name
+func copyModelFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
+	batchFileLogGetHandler("copy-model", w, r)
+}
+
+// get list of all batch process log files
+//
+//	GET /api/admin/db-cleanup/log-all
+//	GET /api/admin/copy-model/log-all
+func batchAllLogGetHandler(prefix string, w http.ResponseWriter, r *http.Request) {
 
 	lang := preferedRequestLang(r, "") // get prefered language for messages
 
 	type fi struct {
-		DbName      string // database file name
+		BaseName    string // base name: db name or model name
 		LogStamp    string // log file date-time stamp
 		LogFileName string // db-cleanup.2024_03_05_00_30_37_568.modelOne.sqlite.console.txt
 	}
@@ -409,18 +673,18 @@ func dbCleanupAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
 	// get list of models/log/db-cleanup.*.txt files
 	fiLst := []fi{}
 
-	pl, err := filepath.Glob(logDir + string(filepath.Separator) + "db-cleanup.*.txt")
+	pl, err := filepath.Glob(logDir + string(filepath.Separator) + prefix + ".*.txt")
 	if err != nil {
-		http.Error(w, helper.MsgL(lang, "Error at db cleanup log files list"), http.StatusInternalServerError)
+		http.Error(w, helper.MsgL(lang, "Error at batch process log files list"), http.StatusInternalServerError)
 		return
 	}
 	for _, p := range pl {
 
-		ts, base, fn := parseDbCleanupLogPath(p)
+		ts, base, fn := parseBatchLogPath(prefix, p)
 
 		if ts != "" && base != "" {
 			fiLst = append(fiLst, fi{
-				DbName:      base,
+				BaseName:    base,
 				LogStamp:    ts,
 				LogFileName: fn,
 			})
@@ -430,24 +694,25 @@ func dbCleanupAllLogGetHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, r, fiLst)
 }
 
-// get db cleanup log file content by name
+// get batch process log file content by name
 //
 //	GET /api/admin/db-cleanup/log/:name
-func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
+//	GET /api/admin/copy-model/log/:name
+func batchFileLogGetHandler(prefix string, w http.ResponseWriter, r *http.Request) {
 
 	// check log file: it must be db cleanup log file
 	logName := getRequestParam(r, "name")
 	lang := preferedRequestLang(r, "") // get prefered language for messages
 
-	ts, base, fn := parseDbCleanupLogPath(logName)
+	ts, base, fn := parseBatchLogPath(prefix, logName)
 	if ts == "" || base == "" || fn != logName {
-		http.Error(w, helper.MsgL(lang, "Invalid db cleanup log file name"), http.StatusBadRequest)
+		http.Error(w, helper.MsgL(lang, "Invalid batch process log file name", logName), http.StatusBadRequest)
 		return
 	}
 
 	// response: db cleanup log file info and content
 	st := struct {
-		DbName      string   // database file name
+		BaseName    string   // base name: db name or model name
 		LogStamp    string   // log file date-time stamp
 		LogFileName string   // db-cleanup.2024_03_05_00_30_37_568.modelOne.sqlite.console.txt
 		Size        int64    // bytes, log file size
@@ -472,7 +737,7 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// read log file content and return result
-	st.DbName = base
+	st.BaseName = base
 	st.LogStamp = ts
 	st.LogFileName = logName
 	st.Size = fi.Size()
@@ -480,4 +745,52 @@ func dbCleanupFileLogGetHandler(w http.ResponseWriter, r *http.Request) {
 	st.Lines, _ = readLogFile(logPath)
 
 	jsonResponse(w, r, st)
+}
+
+// Return db cleanup log file name and file path.
+// Example of db cleanup file name: db-cleanup.2022_07_08_23_03_27_555.RiskPaths.console.txt
+func dbCleanupLogNamePath(baseName, logDir string) (string, string) {
+	return batchLogNamePath("db-cleanup", baseName, logDir)
+}
+
+// Return copy model log file name and file path.
+// Example of copy model file name: copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
+func copyModelLogNamePath(baseName, logDir string) (string, string) {
+	return batchLogNamePath("copy-model", baseName, logDir)
+}
+
+// Return batch process log file name and file path, for example:
+// db-cleanup.2022_07_08_23_03_27_555.RiskPaths.console.txt
+// copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
+func batchLogNamePath(prefix, baseName, logDir string) (string, string) {
+
+	ts, _ := theCatalog.getNewTimeStamp()
+	fn := prefix + "." + ts + "." + baseName + ".console.txt"
+
+	return fn, filepath.Join(logDir, fn)
+}
+
+// parse batch process log path:
+// db-cleanup.2022_07_08_23_03_27_555.RiskPaths.console.txt
+// copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
+// remove directory, remove prefix. , remove .console.txt extension.
+// Return date-time stamp, base name and log file name without directory.
+func parseBatchLogPath(prefix, srcPath string) (string, string, string) {
+
+	_, fn := filepath.Split(srcPath)
+
+	pd := prefix + "."
+	if !strings.HasPrefix(fn, pd) || !strings.HasSuffix(fn, ".console.txt") {
+		return "", "", ""
+	}
+	p := fn[:len(fn)-len(".console.txt")]
+	p = p[len(pd):]
+
+	// check result: it must 2 non-empty parts and first must be a time stamp
+	sp := strings.SplitN(p, ".", 2)
+
+	if len(sp) < 2 || !helper.IsUnderscoreTimeStamp(sp[0]) || sp[1] == "" {
+		return "", "", "" // source file path is not db cleanup log file
+	}
+	return sp[0], sp[1], fn
 }

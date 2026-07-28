@@ -2,7 +2,7 @@
 
 REM Copy model files from source $src_root to destination $dst_root, for example:
 REM
-REM model-copy.bat RiskPaths.publish.lst D:\archive\models C:\my-work\models
+REM model-copy.bat RiskPaths.publish.lst D:\archive C:\my-work RiskPaths v3.2.1
 REM
 REM Arguments:
 REM
@@ -19,16 +19,16 @@ REM   - save list of files into model copy list, e.g.: RiskPaths-v3.2.1.copy.lst
 REM
 REM Environment:
 REM
-REM   OM_ROOT                (optional) openM++ root path
-REM   BIN_DIR  default: bin  sub-folder where model.exe and model.sqlite resides
-REM   DOC_DIR  default: doc  models documentation sub-folder
-REM   LOG_DIR  default: log  models log sub-folder
+REM   OM_ROOT                       (optional) openM++ root path
+REM   BIN_DIR  default: models\bin  sub-folder where model.exe and model.sqlite resides
+REM   DOC_DIR  default: models\doc  models documentation sub-folder
+REM   LOG_DIR  default: models\log  models log sub-folder
 REM
 REM Example:
 REM
-REM model-copy.bat RiskPaths.publish.lst D:\archive\models C:\my-work\models
+REM model-copy.bat models\bin\RiskPaths.publish.lst D:\archive C:\my-work RiskPaths
 REM
-REM where D:\archive\models\RiskPaths.publish.lst :
+REM where D:\archive\models\bin\RiskPaths.publish.lst :
 REM
 REM   $BIN_DIR\RiskPaths.exe
 REM   $BIN_DIR\RiskPaths.sqlite
@@ -44,7 +44,7 @@ REM D:\archive\models\bin\RiskPaths.sqlite      => C:\my-work\models\bin\RiskPat
 REM D:\archive\models\doc\RiskPaths.doc.EN.html => C:\my-work\models\doc\RiskPaths.doc.EN.html
 REM D:\archive\models\doc\RiskPaths.doc.FR.html => C:\my-work\models\doc\RiskPaths.doc.FR.html
 REM D:\archive\models\log\RiskPaths.log         => C:\my-work\models\log\RiskPaths.log
-REM D:\archive\models\some_data.file            => C:\my-work\models\some_data.file
+REM D:\archive\some_data.file                   => C:\my-work\some_data.file
 
 setlocal enabledelayedexpansion
 
@@ -95,9 +95,9 @@ IF "%publish_lst%" == "" (
 
 REM set model files sub-directories, if not defined then use defaults
 
-IF not defined BIN_DIR set BIN_DIR=bin
-IF not defined DOC_DIR set DOC_DIR=doc
-IF not defined LOG_DIR set LOG_DIR=log
+IF not defined BIN_DIR set BIN_DIR=models\bin
+IF not defined DOC_DIR set DOC_DIR=models\doc
+IF not defined LOG_DIR set LOG_DIR=models\log
 
 IF "%BIN_DIR:~-1%"=="\" set "BIN_DIR=%BIN_DIR:~0,-1%"
 IF "%DOC_DIR:~-1%"=="\" set "DOC_DIR=%DOC_DIR:~0,-1%"

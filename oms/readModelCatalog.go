@@ -4,7 +4,10 @@
 package main
 
 import (
+	"encoding/json"
+
 	"github.com/openmpp/go/ompp/db"
+	"github.com/openmpp/go/ompp/helper"
 	"golang.org/x/text/language"
 )
 
@@ -64,6 +67,8 @@ func (mc *ModelCatalog) allModels() []modelBasic {
 			isLogDir: mc.modelLst[idx].isLogDir,
 			isIni:    mc.modelLst[idx].isIni,
 			extra:    mc.modelLst[idx].extra,
+			pubLst:   mc.modelLst[idx].pubLst,
+			docDir:   mc.modelLst[idx].docDir,
 		}
 
 	}
@@ -87,6 +92,8 @@ func (mc *ModelCatalog) modelBasicByDigestOrName(dn string) (modelBasic, bool) {
 			logDir:   mc.modelLst[idx].logDir,
 			isLogDir: mc.modelLst[idx].isLogDir,
 			isIni:    mc.modelLst[idx].isIni,
+			pubLst:   mc.modelLst[idx].pubLst,
+			docDir:   mc.modelLst[idx].docDir,
 			extra:    mc.modelLst[idx].extra,
 		},
 		true
@@ -232,4 +239,37 @@ func (mc *ModelCatalog) indexByDigestOrName(dn string) (int, bool) {
 		return n, true // return: name found
 	}
 	return 0, false // not found
+}
+
+// parse model.extra.json to get documentaion path list from ModelDoc.Link
+func getModelDocLinks(me string) ([]string, error) {
+
+	if me == "" {
+		return []string{}, nil
+	}
+	mExtra := map[string]any{}
+
+	if err := json.Unmarshal([]byte(me), &mExtra); err != nil {
+		return []string{}, helper.ErrorNew("Error at parsing model.extra.json:", err)
+	}
+
+	// get array of ModelDoc.Link
+	/*
+		"ModelDoc": [{
+			"LangCode": "EN",
+			"Link": "RiskPaths-3.2.1/RiskPaths.doc.EN.html"
+		}, .... ]
+	*/
+	linkLst := []string{}
+
+	if mDoc, ok := mExtra["ModelDoc"].([]any); ok {
+		for _, d := range mDoc {
+			if md, ok := d.(map[string]any); ok {
+				if link, ok := md["Link"].(string); ok {
+					linkLst = append(linkLst, link)
+				}
+			}
+		}
+	}
+	return linkLst, nil
 }

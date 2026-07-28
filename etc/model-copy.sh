@@ -2,7 +2,7 @@
 #
 # Copy model files from source $src_root to destination $dst_root, for example:
 #
-# model-copy.sh RiskPaths.publish.lst ~/archive/models ~/my-work/models
+# model-copy.sh RiskPaths.publish.lst ~/archive ~/my-work RiskPaths v3.2.1
 #
 # Arguments:
 #
@@ -19,16 +19,16 @@
 #
 # Environment:
 #
-#   OM_ROOT                (optional) openM++ root path
-#   BIN_DIR  default: bin  sub-folder where model.exe and model.sqlite resides
-#   DOC_DIR  default: doc  models documentation sub-folder
-#   LOG_DIR  default: log  models log sub-folder
+#   OM_ROOT                       (optional) openM++ root path
+#   BIN_DIR  default: models/bin  sub-folder where model.exe and model.sqlite resides
+#   DOC_DIR  default: models/doc  models documentation sub-folder
+#   LOG_DIR  default: models/log  models log sub-folder
 #
 # Example:
 #
-# model-copy.sh RiskPaths.publish.lst ~/archive/models ~/my-work/models
+# model-copy.sh models/bin/RiskPaths.publish.lst ~/archive ~/my-work RiskPaths
 #
-# where ~/archive/models?RiskPaths.publish.lst :
+# where ~/archive/models/bin/RiskPaths.publish.lst :
 #
 #   $BIN_DIR/RiskPaths
 #   $BIN_DIR/RiskPaths.sqlite
@@ -44,7 +44,7 @@
 # ~/archive/models/doc/RiskPaths.doc.EN.html => ~/my-work/models/doc/RiskPaths.doc.EN.html
 # ~/archive/models/doc/RiskPaths.doc.FR.html => ~/my-work/models/doc/RiskPaths.doc.FR.html
 # ~/archive/models/log/RiskPaths.log         => ~/my-work/models/log/RiskPaths.log
-# ~/archive/models/some_data.file            => ~/my-work/models/some_data.file
+# ~/archive/some_data.file                   => ~/my-work/some_data.file
 #
 
 set -e
@@ -81,9 +81,9 @@ mdl_name_ver="$mdl_name"
 
 # set model files sub-directories, if not defined then use defaults
 
-[ -z "$BIN_DIR" ] && BIN_DIR="bin"
-[ -z "$DOC_DIR" ] && DOC_DIR="doc"
-[ -z "$LOG_DIR" ] && LOG_DIR="log"
+[ -z "$BIN_DIR" ] && BIN_DIR="models/bin"
+[ -z "$DOC_DIR" ] && DOC_DIR="models/doc"
+[ -z "$LOG_DIR" ] && LOG_DIR="models/log"
 
 echo "Model   : $mdl_name_ver"
 echo "Copy    : $publish_lst"
