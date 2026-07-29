@@ -407,6 +407,14 @@ func mainBody(args []string) error {
 		}
 	}
 
+	// etc directory contains configuration files and it is required to run MPI models
+	theCfg.etcDir = runOpts.String(etcDirArgKey)
+	if !helper.IsDirExist(theCfg.etcDir) {
+		omppLog.Log("Warning: configuration files directory not found, it is required to run models on MPI cluster:", filepath.Join(theCfg.etcDir))
+	} else {
+		omppLog.Log("Etc directory:        ", theCfg.etcDir)
+	}
+
 	// model directory required to build initial list of model sqlite files
 	modelDir := filepath.Clean(runOpts.String(modelDirArgKey))
 	if modelDir == "" || !helper.IsDirExist(modelDir) {
@@ -534,14 +542,6 @@ func mainBody(args []string) error {
 		} else {
 			omppLog.Log("HTML UI directory:    ", theCfg.htmlDir)
 		}
-	}
-
-	// etc subdirectory required to run MPI models
-	theCfg.etcDir = runOpts.String(etcDirArgKey)
-	if !helper.IsDirExist(theCfg.etcDir) {
-		omppLog.Log("Warning: configuration files directory not found, it is required to run models on MPI cluster:", filepath.Join(theCfg.etcDir))
-	} else {
-		omppLog.Log("Etc directory:        ", theCfg.etcDir)
 	}
 
 	// read UI extra configuration from etc/ui.extra.json

@@ -858,9 +858,16 @@ func apiAdminRoutes(router *vestigo.Router) {
 
 	// POST /api/admin/copy-model/:path
 	// POST /api/admin/copy-model/:path/lang/:lang
-	router.Post("/api/admin/copy-model/:path", copyModelHandler, logRequest)
-	router.Post("/api/admin/copy-model/:path/lang/:lang", copyModelHandler, logRequest)
-	router.Post("/api/admin/copy-model/:path/lang/", http.NotFound)
+	router.Post("/api/admin/copy-model/:path", copyModelPathHandler, logRequest)
+	router.Post("/api/admin/copy-model/:path/lang/:lang", copyModelPathHandler, logRequest)
+	router.Post("/api/admin/copy-model/:path/lang", http.NotFound)
+
+	// POST /api/admin/copy-model
+	// POST /api/admin/copy-model/lang/:lang
+	router.Post("/api/admin/copy-model", copyModelPostHandler, logRequest)
+	router.Post("/api/admin/copy-model/lang/:lang", copyModelPostHandler, logRequest)
+	router.Post("/api/admin/copy-model/lang/", http.NotFound)
+	router.Post("/api/admin/copy-model/lang", http.NotFound)
 
 	// GET /api/admin/copy-model/log-all
 	// GET /api/admin/copy-model/log/:name

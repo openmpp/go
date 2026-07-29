@@ -45,14 +45,6 @@ type diskUseConfig struct {
 	Limit        int64  // bytes, this instance storage limit
 	AllLimit     int64  // bytes, total storage limit for all oms instances
 	dbCleanupCmd string // path to database cleanup script
-	// models library
-	ModelLib struct {
-		Url     string // models library oms url
-		IsCopy  bool   // if true then copy from models library enabled
-		IsLocal bool   // if true then current oms root is a models library
-		srcRoot string // models library root folder: $src_root
-		copyCmd string // models library copy script: etc/model-copy.sh
-	}
 }
 
 /*
@@ -334,34 +326,6 @@ func initDiskState(diskIniPath string) (bool, diskUseConfig) {
 		uGb = 0
 	}
 	cfg.Limit = 1024 * 1024 * 1024 * uGb // bytes, storage limit for current instance name
-
-	// models library
-	cfg.ModelLib.Url = opts.String("ModelLib.Url")
-	cfg.ModelLib.srcRoot = opts.String("ModelLib.SrcRoot")
-	cfg.ModelLib.copyCmd = opts.String("ModelLib.CopyCmd")
-
-	if cfg.ModelLib.Url != "" {
-
-		cfg.ModelLib.srcRoot = filepath.Clean(cfg.ModelLib.srcRoot)
-		if cfg.ModelLib.srcRoot == "." || cfg.ModelLib.srcRoot == "/" || cfg.ModelLib.srcRoot == "C:\\" || !helper.IsDirExist(cfg.ModelLib.srcRoot) { // src_root directory must exist
-			cfg.ModelLib.srcRoot = ""
-		}
-		if !helper.IsFileExist(cfg.ModelLib.copyCmd) { // copy script must exist
-			cfg.ModelLib.copyCmd = ""
-		}
-	}
-	// check if current oms root is a models library
-	if cfg.ModelLib.srcRoot != "" {
-		if !filepath.IsAbs(cfg.ModelLib.srcRoot) {
-			cfg.ModelLib.IsLocal = filepath.IsLocal(cfg.ModelLib.srcRoot)
-		} else {
-			if p, e := filepath.Rel(theCfg.rootDir, cfg.ModelLib.srcRoot); e == nil {
-				cfg.ModelLib.IsLocal = filepath.IsLocal(p)
-			}
-		}
-	}
-	// is copy from models library enabled
-	cfg.ModelLib.IsCopy = !cfg.ModelLib.IsLocal && cfg.ModelLib.Url != "" && cfg.ModelLib.srcRoot != "" && cfg.ModelLib.copyCmd != ""
 
 	return true, cfg
 }

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -387,71 +388,177 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, r, struct{ LogFileName string }{LogFileName: ln})
 }
 
-// copy model files from models library
+// copy model files from models library, using url parameter: path to model.publish.lst
 //
 //	POST /api/admin/copy-model/:path
 //	POST /api/admin/copy-model/:path/lang/:lang
 //
-// Model identified by he path to model publish.lst file in models library.
-// Request json body is optional but highly recommended to avoid publishing model with the same digest.
-// If model digest specified in json body then existing model with the same digest will be deleted.
-//
 // If model with same digest already exist in current oms then copy may fail and result is undefined.
-func copyModelHandler(w http.ResponseWriter, r *http.Request) {
+func copyModelPathHandler(w http.ResponseWriter, r *http.Request) {
 
 	// get request parameters and check if copy model enabled
 	pubLst := getRequestParam(r, "path")
+	pubLst = strings.ReplaceAll(pubLst, "*", "/") // restore slashed / path
+
 	lang := preferedRequestLang(r, "") // get prefered language for messages
 
-	_, diskUse := theRunCatalog.getDiskUseStatus()
-	if !diskUse.ModelLib.IsCopy {
+	mcf := theCatalog.toPublicConfig()
+	if !mcf.ModelLib.IsCopy {
+		http.Error(w, helper.MsgL(lang, "Copy model disabled"), http.StatusBadRequest)
+		return
+	}
+
+	// check if model.publish.lst exists in model source directory
+	srcPubLst := filepath.Join(mcf.ModelLib.srcRoot, mcf.ModelDir, pubLst)
+	if pubLst == "" || !helper.IsFileExist(srcPubLst) {
+		omppLog.Log("Error: invalid (empty) path to model publish list", ":", srcPubLst)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model publish list"), http.StatusBadRequest)
+		return
+	}
+	pubLst = filepath.Join(mcf.ModelDir, pubLst)
+	pubLst = filepath.ToSlash(pubLst)
+
+	// if model name in json body is empty then use file name of model.publish.lst
+	nameVer := filepath.Base(pubLst)
+	if len(nameVer) > len(".publish.lst") {
+		nameVer = nameVer[0 : len(nameVer)-len(".publish.lst")]
+	}
+
+	// BIN_DIR, DOC_DIR, LOG_DIR directories cannot be current dot. or file system root
+	binD := filepath.Dir(pubLst)
+	if binD == "." || binD == "/" || binD == "\\" || binD == "C:\\" {
+		binD = ""
+	}
+	docD := ""
+	me := ""
+	if bt, e := os.ReadFile(filepath.Join(filepath.Dir(srcPubLst), nameVer+".extra.json")); e == nil {
+		me = string(bt)
+	}
+	if me != "" {
+		if linkLst, e := getModelDocLinks(me); e == nil && len(linkLst) > 0 {
+			docD = filepath.Dir(linkLst[0]) // use first documenation link directory
+		}
+	}
+	if docD == "." || docD == "/" || docD == "\\" || docD == "C:\\" {
+		docD = ""
+	}
+
+	// do model copy
+	doCopyModel(pubLst, nameVer, "", binD, docD, "", lang, w, r)
+}
+
+// copy model files from models library using json post body
+//
+//	POST /api/admin/copy-model
+//	POST /api/admin/copy-model/lang/:lang
+//
+// Request json body must contain model.publish.lst file and model name.
+// Model digest is highly recommended to avoid publishing model with the same digest.
+// If model digest specified in json body then existing model with the same digest will be deleted.
+//
+// If model with same digest already exist in current oms then copy may fail and result is undefined.
+func copyModelPostHandler(w http.ResponseWriter, r *http.Request) {
+
+	lang := preferedRequestLang(r, "") // get prefered language for messages
+
+	mcf := theCatalog.toPublicConfig()
+	if !mcf.ModelLib.IsCopy {
 		http.Error(w, helper.MsgL(lang, "Copy model disabled"), http.StatusBadRequest)
 		return
 	}
 
 	// decode json options for copy model
 	opts := struct {
-		ModelDigest string // if not empty then model digest (highly recommended)
-		ModelName   string // if not empty then model name
+		PublishLst  string // path/to/ModelName.publish.lst in models library
+		ModelName   string // model name
 		Version     string // if not empty then model version
-		PublishLst  string // if not empty then path/to/ModelName.publish.lst in models library
+		ModelDigest string // if not empty then model digest (highly recommended)
 		DocDir      string // if not empty then model documentation folder from model.extra.json
 		BinDir      string // if not empty then model bin folder
 		LogDir      string // if not empty then model log folder
 	}{}
-	if !jsonRequestDecode(w, r, false, &opts) { // json body is not required, it can be missing
+	if !jsonRequestDecode(w, r, true, &opts) {
 		return // error at json decode, response done with http error
 	}
 
 	// check if model.publish.lst exists in model source directory
-	if opts.PublishLst != "" {
-		pubLst = opts.PublishLst
-	}
-	pubLst = strings.ReplaceAll(pubLst, "*", "/") // restore slashed / path
-	srcPubLst := filepath.Join(diskUse.ModelLib.srcRoot, pubLst)
+	pubLst := filepath.Join(mcf.ModelDir, opts.PublishLst)
+	srcPubLst := filepath.Join(mcf.ModelLib.srcRoot, pubLst)
 
+	if opts.PublishLst == "" || !helper.IsFileExist(srcPubLst) {
+		omppLog.Log("Error: invalid (empty) path to model publish list", ":", srcPubLst)
+		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model publish list"), http.StatusBadRequest)
+		return
+	}
+	pubLst = filepath.ToSlash(pubLst)
+
+	// model name is required
+	if opts.ModelName == "" {
+		omppLog.Log("Error: invalid (empty) model name")
+		http.Error(w, helper.MsgL(lang, "Error: invalid (empty) model name"), http.StatusBadRequest)
+		return
+	}
+	nameVer := opts.ModelName
+	if opts.Version != "" {
+		nameVer += "-" + opts.Version
+	}
+
+	// BIN_DIR, DOC_DIR, LOG_DIR directories cannot be current dot. or file system root
+	binD := opts.BinDir
+	if binD != "" {
+		binD = filepath.Join(mcf.ModelDir, binD)
+	} else {
+		binD = filepath.Dir(pubLst) // if not posted in json body then it must be directory/of/model.publist.lst
+	}
+	if binD == "." || binD == "/" || binD == "\\" || binD == "C:\\" {
+		binD = ""
+	}
+	docD := opts.DocDir
+	if docD == "" { // if not posted in json body then try to read it from model.extra.json
+		me := ""
+		if bt, e := os.ReadFile(filepath.Join(filepath.Dir(srcPubLst), opts.ModelName+".extra.json")); e == nil {
+			me = string(bt)
+		}
+		if me != "" {
+			if linkLst, e := getModelDocLinks(me); e == nil && len(linkLst) > 0 {
+				docD = filepath.Dir(linkLst[0]) // use first documenation link directory
+			}
+		}
+	}
+	if docD == "." || docD == "/" || docD == "\\" || docD == "C:\\" {
+		docD = ""
+	}
+	logD := opts.LogDir
+	if logD == "." || logD == "/" || logD == "\\" || logD == "C:\\" {
+		logD = ""
+	}
+
+	// do model copy
+	doCopyModel(pubLst, nameVer, opts.ModelDigest, binD, docD, logD, lang, w, r)
+}
+
+// Copy model files from models library located in srcRoot directory.
+// Model files listed in modelName.publish.lst file in models library.
+// If model digest specified in json body then existing model with the same digest will be deleted.
+// If model with same digest already exist in current oms then copy may fail and result is undefined.
+func doCopyModel(pubLst, nameVer, digest, binDir, docDir, logDir string, lang string, w http.ResponseWriter, r *http.Request) {
+
+	mcf := theCatalog.toPublicConfig()
+	if !mcf.ModelLib.IsCopy {
+		http.Error(w, helper.MsgL(lang, "Copy model disabled"), http.StatusBadRequest)
+		return
+	}
+
+	srcPubLst := filepath.Join(mcf.ModelLib.srcRoot, pubLst)
 	if pubLst == "" || !helper.IsFileExist(srcPubLst) {
 		omppLog.Log("Error: invalid (empty) path to model publish list", ":", srcPubLst)
 		http.Error(w, helper.MsgL(lang, "Invalid (empty) path to model publish list"), http.StatusBadRequest)
 		return
 	}
-
-	// if model name in json body is empty then use file name of model.publish.lst
-	nameVer := opts.ModelName
-	if nameVer != "" {
-		if opts.Version != "" {
-			nameVer += "-" + opts.Version
-		}
-	} else {
-		b := filepath.Base(pubLst)
-		if len(b) > len(".publish.lst") {
-			nameVer = b[0 : len(b)-len(".publish.lst")]
-		}
-	}
+	pubLst = filepath.ToSlash(pubLst)
 
 	// create model copy log file
-	modelLogDir, _ := theCatalog.getModelLogDir()
-	_, logPath := copyModelLogNamePath(nameVer, modelLogDir)
+	_, logPath := copyModelLogNamePath(nameVer, mcf.ModelLogDir)
 
 	isLogOk := fileCreateEmpty(false, logPath)
 	if !isLogOk {
@@ -464,15 +571,15 @@ func copyModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if model with the same digest alreday published then delete it
-	if opts.ModelDigest != "" {
-		if mb, ok := theCatalog.modelBasicByDigestOrName(opts.ModelDigest); ok {
+	if digest != "" {
+		if mb, ok := theCatalog.modelBasicByDigestOrName(digest); ok {
 
-			m := helper.MsgL(lang, "Delete model:", opts.ModelDigest, mb.model.Name)
+			m := helper.MsgL(lang, "Delete model:", digest, mb.model.Name)
 			omppLog.LogNoLT(m)
 			toCmdLog(m)
-			if err := theCatalog.deleteModel(opts.ModelDigest); err != nil {
+			if err := theCatalog.deleteModel(digest); err != nil {
 				omppLog.LogNoLT(err)
-				m = helper.MsgL(lang, "Failed to delete model:", opts.ModelDigest, mb.model.Name)
+				m = helper.MsgL(lang, "Failed to delete model:", digest, mb.model.Name)
 				toCmdLog(m)
 				http.Error(w, m, http.StatusBadRequest)
 				return
@@ -490,34 +597,21 @@ func copyModelHandler(w http.ResponseWriter, r *http.Request) {
 		// model-copy.sh RiskPaths.publish.lst ~/archive ~/my-work RiskPaths v3.2.1
 		cArgs := []string{
 			pubLst,
-			diskUse.ModelLib.srcRoot,
+			mcf.ModelLib.srcRoot,
 			theCfg.rootDir,
+			nameVer,
 		}
-		if opts.ModelName != "" {
-			cArgs = append(cArgs, opts.ModelName)
-			if opts.Version != "" {
-				cArgs = append(cArgs, opts.Version)
-			}
-		} else {
-			if nameVer != "" {
-				cArgs = append(cArgs, nameVer)
-			}
-		}
-		cmd := exec.Command(diskUse.ModelLib.copyCmd, cArgs...)
+		cmd := exec.Command(mcf.ModelLib.copyCmd, cArgs...)
 
 		// set BIN_DIR, DOC_DIR, LOG_DIR environment
-		binD := opts.BinDir
-		if binD == "" {
-			binD = filepath.Dir(pubLst)
+		if binDir != "" {
+			cmd.Env = append(cmd.Environ(), "BIN_DIR="+binDir)
 		}
-		if binD != "" && binD != "." && binD != "/" && binD != "\\" && binD != "C:\\" {
-			cmd.Env = append(cmd.Environ(), "BIN_DIR="+binD)
+		if docDir != "" {
+			cmd.Env = append(cmd.Environ(), "DOC_DIR="+filepath.Join(mcf.ModelDocDir, docDir))
 		}
-		if opts.DocDir != "" {
-			cmd.Env = append(cmd.Environ(), "DOC_DIR="+opts.DocDir)
-		}
-		if opts.LogDir != "" {
-			cmd.Env = append(cmd.Environ(), "LOG_DIR="+opts.LogDir)
+		if logDir != "" {
+			cmd.Env = append(cmd.Environ(), "LOG_DIR="+filepath.Join(mcf.ModelLogDir, logDir))
 		}
 
 		// connect console output to output log file
@@ -586,11 +680,10 @@ func copyModelHandler(w http.ResponseWriter, r *http.Request) {
 		// else:
 
 		// refresh models catalog
-		modelDir, _ := theCatalog.getModelDir()
-		omppLog.Log("Refresh models catalog", modelDir)
+		omppLog.Log("Refresh models catalog", mcf.ModelDir)
 		toCmdLog("Refresh models catalog")
 
-		errCopy = theCatalog.refreshSqlite(modelDir, modelLogDir)
+		errCopy = theCatalog.refreshSqlite(mcf.ModelDir, mcf.ModelLogDir)
 		if errCopy != nil {
 			omppLog.LogNoLT(errCopy)
 			toCmdLog("Failed to refresh models catalog")

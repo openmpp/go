@@ -19,6 +19,7 @@ type ModelCatalog struct {
 	modelLogDir     string     // default model log directory
 	isLogDirEnabled bool       // if true then default log directory exist
 	lastTimeStamp   string     // most recent timestamp
+	modelLib                   // models library settings
 	modelLst        []modelDef // list of model metadata and associated database connections
 }
 
@@ -27,11 +28,21 @@ var theCatalog ModelCatalog
 
 // ModelCatalogConfig is "public" state of model catalog for json import-export
 type ModelCatalogConfig struct {
-	ModelDir        string // model bin directory
-	ModelLogDir     string // default model log directory
-	ModelDocDir     string // if not empty then model documentation directory
-	IsLogDirEnabled bool   // if true then default log directory exist
-	LastTimeStamp   string // most recent timestamp
+	ModelDir        string   // model bin directory
+	ModelLogDir     string   // default model log directory
+	ModelDocDir     string   // if not empty then model documentation directory
+	IsLogDirEnabled bool     // if true then default log directory exist
+	LastTimeStamp   string   // most recent timestamp
+	ModelLib        modelLib // models library settings
+}
+
+// models library settings
+type modelLib struct {
+	Url     string // models library oms url
+	IsCopy  bool   // if true then copy from models library enabled
+	IsLocal bool   // if true then current oms root is a models library
+	srcRoot string // models library root folder: $src_root
+	copyCmd string // models library copy script: etc/model-copy.sh
 }
 
 // modelDef is database connection and model metadata database rows

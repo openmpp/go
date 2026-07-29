@@ -33,11 +33,11 @@ func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 		IsDiskCleanup  bool               // if true then disk cleanup enabled
 		IsAdminAll     bool               // if true then it is global admin service
 		IsReadonly     bool               // if true then only read API enabled, no update, download, upload, model run or admin API allowed
+		ModelCatalog   ModelCatalogConfig // "public" state of model catalog
 		JobServicePub                     // jobs service state: paused, resources usage and limits
 		DiskUse        diskUseConfig      // disk use config
 		Env            map[string]string  // server config environmemt variables for UI
 		UiExtra        string             // UI extra config from etc/ui.extra.json
-		ModelCatalog   ModelCatalogConfig // "public" state of model catalog
 		RunCatalog     RunCatalogConfig   // "public" state of model run catalog
 	}{
 		OmsName:        theCfg.omsName,
@@ -50,19 +50,18 @@ func serviceConfigHandler(w http.ResponseWriter, r *http.Request) {
 		IsJobControl:   theCfg.isJobControl,
 		IsAdminAll:     theCfg.isAdminAll,
 		IsReadonly:     theCfg.isReadonly,
+		ModelCatalog:   theCatalog.toPublicConfig(),
 		JobServicePub:  theRunCatalog.getJobServicePub(),
 		IsModelDoc:     theCfg.docDir != "",
 		IsDiskUse:      theCfg.isDiskUse,
 		Env:            theCfg.env,
 		UiExtra:        theCfg.uiExtra,
-		ModelCatalog:   theCatalog.toPublicConfig(),
 		RunCatalog:     *theRunCatalog.toPublicConfig(),
 	}
 	if theCfg.isDiskUse {
 		_, st.DiskUse = theRunCatalog.getDiskUseStatus()
 		st.IsDiskCleanup = st.DiskUse.dbCleanupCmd != "" && theCfg.dbcopyPath != ""
 	}
-
 	jsonResponse(w, r, st)
 }
 
