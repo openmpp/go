@@ -41,8 +41,8 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 	}
 
 	// read model lib config and store it in the model catalog
-	mLcfg := readModelLibConfig()
-	theCatalog.setModelLibConfig(mLcfg)
+	mlc := loadModelLibConfig()
+	theCatalog.setModelLibConfig(mlc)
 
 	// read common.message.ini
 	cmIni := []helper.IniEntry{}
@@ -118,8 +118,8 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 	logDir, isLog := theCatalog.getModelLogDir()
 
 	// read model lib config and store it in the model catalog
-	mLcfg := readModelLibConfig()
-	theCatalog.setModelLibConfig(mLcfg)
+	mlc := loadModelLibConfig()
+	theCatalog.setModelLibConfig(mlc)
 
 	// read common.message.ini
 	cmIni := []helper.IniEntry{}
@@ -503,16 +503,16 @@ func (mc *ModelCatalog) setModelTextMeta(digest string, isFull bool, txtMeta *db
 }
 
 // store model lib settings
-func (mc *ModelCatalog) setModelLibConfig(mLcfg modelLib) {
+func (mc *ModelCatalog) setModelLibConfig(mlc modelLib) {
 
 	mc.theLock.Lock()
 	defer mc.theLock.Unlock()
 
-	mc.modelLib = mLcfg
+	mc.modelLib = mlc
 }
 
 // read models library settings from disk.ini file
-func readModelLibConfig() modelLib {
+func loadModelLibConfig() modelLib {
 
 	// if etc/disk.ini does not exists then return empty default configuration
 	diskIniPath := filepath.Join(theCfg.etcDir, "disk.ini")
@@ -526,42 +526,42 @@ func readModelLibConfig() modelLib {
 		return modelLib{}
 	}
 
-	mLcfg := modelLib{}
+	mlc := modelLib{}
 
 	// models library
-	mLcfg.Url = opts.String("ModelLib.Url")
-	mLcfg.srcRoot = opts.String("ModelLib.SrcRoot")
-	mLcfg.copyCmd = opts.String("ModelLib.CopyCmd")
+	mlc.Url = opts.String("ModelLib.Url")
+	mlc.srcRoot = opts.String("ModelLib.SrcRoot")
+	mlc.copyCmd = opts.String("ModelLib.CopyCmd")
 
 	// src_root directory must exist and it can not be file system root or current directory
-	mLcfg.srcRoot = filepath.Clean(mLcfg.srcRoot)
-	if mLcfg.srcRoot == "." || mLcfg.srcRoot == "/" || mLcfg.srcRoot == "C:\\" || !helper.IsDirExist(mLcfg.srcRoot) {
-		mLcfg.srcRoot = ""
+	mlc.srcRoot = filepath.Clean(mlc.srcRoot)
+	if mlc.srcRoot == "." || mlc.srcRoot == "/" || mlc.srcRoot == "C:\\" || !helper.IsDirExist(mlc.srcRoot) {
+		mlc.srcRoot = ""
 	}
 
 	// check if current oms root is a models library
-	if mLcfg.srcRoot != "" {
+	if mlc.srcRoot != "" {
 
-		mLcfg.IsLocal = filepath.IsLocal(mLcfg.srcRoot)
+		mlc.IsLocal = filepath.IsLocal(mlc.srcRoot)
 
-		if !mLcfg.IsLocal {
+		if !mlc.IsLocal {
 
 			r, er := filepath.Abs(theCfg.rootDir)
-			s, es := filepath.Abs(mLcfg.srcRoot)
+			s, es := filepath.Abs(mlc.srcRoot)
 			if er == nil && es == nil {
 
 				if p, ep := filepath.Rel(r, s); ep == nil {
-					mLcfg.IsLocal = filepath.IsLocal(p) || p != ".." && !strings.HasPrefix(p, ".."+string(filepath.Separator))
+					mlc.IsLocal = filepath.IsLocal(p) || p != ".." && !strings.HasPrefix(p, ".."+string(filepath.Separator))
 				}
 			}
 		}
 	}
 
 	// is copy from models library enabled
-	if !helper.IsFileExist(mLcfg.copyCmd) { // copy script must exist
-		mLcfg.copyCmd = ""
+	if !helper.IsFileExist(mlc.copyCmd) { // copy script must exist
+		mlc.copyCmd = ""
 	}
-	mLcfg.IsCopy = !mLcfg.IsLocal && mLcfg.Url != "" && mLcfg.srcRoot != "" && mLcfg.copyCmd != ""
+	mlc.IsCopy = !mlc.IsLocal && mlc.Url != "" && mlc.srcRoot != "" && mlc.copyCmd != ""
 
-	return mLcfg
+	return mlc
 }
