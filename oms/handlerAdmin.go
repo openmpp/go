@@ -859,19 +859,26 @@ func batchFileLogGetHandler(prefix string, w http.ResponseWriter, r *http.Reques
 		jsonResponse(w, r, []string{}) // log is not enabled: empty response
 		return
 	}
-	logPath := filepath.Join(logDir, logName)
 
+	logPath := filepath.Join(logDir, logName)
 	fi, err := helper.FileStat(logPath)
 	if err != nil { // file may be renamed from .console.txt to .error.txt
 
-		afn, alp := batchLogNamePath(prefix, base, !isErrLog, logDir) // make alternative log file name with opposite extension
+		afn := prefix + "." + ts + "." + base
+		isErr := !isErrLog
+		if !isErr {
+			afn += ".console.txt"
+		} else {
+			afn += ".error.txt"
+		}
+		alp := filepath.Join(logDir, afn)
 
 		var e error
 		if fi, e = helper.FileStat(alp); e == nil { // if log file exist then read from alternative log file
 			err = nil
 			fn = afn
 			logPath = alp // alternative log file path to read
-			isErrLog = !isErrLog
+			isErrLog = isErr
 		}
 	}
 	if err != nil { // log file not found, retrun first error
