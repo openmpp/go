@@ -9,8 +9,7 @@ REM
 REM   %1 - publish_lst: path to publist list file, if relative then must be relative to source $src_root
 REM   %2 - src_root   : source root path, if relative then must be relative to OM_ROOT
 REM   %3 - dst_root   : destination root, if relative then must be relative to OM_ROOT
-REM   %4 - mdl_name   : model name,    e.g.: RiskPaths
-REM   %5 - mdl_ver    : (optional) model digest or model version, e.g.: v3.2.1
+REM   %4 - name_ver   : model name or name-version e.g.: RiskPaths-v3.2.1
 REM
 REM It does:
 REM   - reads list of model files from $publish_lst, e.g.: from RiskPaths.publish.lst
@@ -51,8 +50,7 @@ setlocal enabledelayedexpansion
 set "publish_lst=%1"
 set "src_root=%2"
 set "dst_root=%3"
-set "mdl_name=%4"
-set "mdl_ver=%5"
+set "name_ver=%4"
 
 IF not defined src_root (
   @echo ERROR: invalid or empty source directory: "%src_root%"
@@ -66,15 +64,9 @@ IF not defined publish_lst (
   @echo ERROR: invalid or empty model files list: "%publish_lst%"
   EXIT 1
 )
-IF not defined mdl_name (
-  @echo ERROR: invalid or empty model name: "%mdl_name%"
+IF not defined name_ver (
+  @echo ERROR: invalid or empty model name-version: "%name_ver%"
   EXIT 1
-)
-
-IF defined mdl_ver (
-  set "mdl_name_ver=%mdl_name%-%mdl_ver%"
-) else (
-  set "mdl_name_ver=%mdl_name%"
 )
 
 IF "%src_root:~-1%"=="\" set "src_root=%src_root:~0,-1%"
@@ -103,7 +95,7 @@ IF "%BIN_DIR:~-1%"=="\" set "BIN_DIR=%BIN_DIR:~0,-1%"
 IF "%DOC_DIR:~-1%"=="\" set "DOC_DIR=%DOC_DIR:~0,-1%"
 IF "%LOG_DIR:~-1%"=="\" set "LOG_DIR=%LOG_DIR:~0,-1%"
 
-@echo Model   : %mdl_name_ver%
+@echo Model   : %name_ver%
 @echo Copy    : %publish_lst%
 @echo From    : %src_root%
 @echo To      : %dst_root%
@@ -192,7 +184,7 @@ IF not exist "%abs_pub_lst%" (
 
 REM save copy of file list into dst_root\BIN_DIR\ModelName-version.copy.lst
 
-set "abs_cp_lst=%abs_dst_root%\%BIN_DIR%\%mdl_name_ver%.copy.lst"
+set "abs_cp_lst=%abs_dst_root%\%BIN_DIR%\%name_ver%.copy.lst"
 
 IF exist "%abs_cp_lst%" (
 

@@ -26,7 +26,7 @@ func modelListHandler(w http.ResponseWriter, r *http.Request) {
 		Dir    string         // model directory, relative to model root and slashed: dir/sub
 		DbPath string         // path to model.sqlite, relative to model root and slashed: dir/sub/model.sqlite
 		IsIni  bool           // if true the default ini file exists: models/bin/dir/sub/modelName.ini
-		Extra  string         // if not empty then model extra content
+		Extra  map[string]any // Object of model.extra.json
 		PubLst string         // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
 		DocDir string         // if not empty then model documentation folder from model.extra.json
 	}
@@ -66,13 +66,13 @@ func modelTextListHandler(w http.ResponseWriter, r *http.Request) {
 	mbs := theCatalog.allModels()
 
 	type modelTxtListItem struct {
-		db.ModelDicDescrNote        // model_dic db row and model_dic_txt row
-		Dir                  string // model directory, relative to model root and slashed: dir/sub
-		DbPath               string // path to model.sqlite, relative to model root and slashed: dir/sub/model.sqlite
-		IsIni                bool   // if true the default ini file exists: models/bin/dir/sub/modelName.ini
-		Extra                string // if not empty then model extra content
-		PubLst               string // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
-		DocDir               string // if not empty then model documentation folder from model.extra.json
+		db.ModelDicDescrNote                // model_dic db row and model_dic_txt row
+		Dir                  string         // model directory, relative to model root and slashed: dir/sub
+		DbPath               string         // path to model.sqlite, relative to model root and slashed: dir/sub/model.sqlite
+		IsIni                bool           // if true the default ini file exists: models/bin/dir/sub/modelName.ini
+		Extra                map[string]any // Object of model.extra.json
+		PubLst               string         // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
+		DocDir               string         // if not empty then model documentation folder from model.extra.json
 	}
 	mtl := make([]modelTxtListItem, 0, len(mbs))
 

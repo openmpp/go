@@ -4,27 +4,9 @@
 package main
 
 import (
-	"encoding/json"
-
 	"github.com/openmpp/go/ompp/db"
-	"github.com/openmpp/go/ompp/helper"
 	"golang.org/x/text/language"
 )
-
-// get "public" configuration of model catalog
-func (mc *ModelCatalog) toPublicConfig() ModelCatalogConfig {
-	mc.theLock.Lock()
-	defer mc.theLock.Unlock()
-
-	return ModelCatalogConfig{
-		ModelDir:        mc.modelDir,
-		ModelLogDir:     mc.modelLogDir,
-		ModelDocDir:     theCfg.docDir,
-		IsLogDirEnabled: mc.isLogDirEnabled,
-		LastTimeStamp:   mc.lastTimeStamp,
-		ModelLib:        mc.modelLib,
-	}
-}
 
 // getModelDir return model directory
 func (mc *ModelCatalog) getModelDir() (string, bool) {
@@ -50,6 +32,21 @@ func (mc *ModelCatalog) allModelDigests() []string {
 		ds[idx] = mc.modelLst[idx].meta.Model.Digest
 	}
 	return ds
+}
+
+// get "public" configuration of model catalog
+func (mc *ModelCatalog) toPublicConfig() (ModelCatalogConfig, modelLib) {
+	mc.theLock.Lock()
+	defer mc.theLock.Unlock()
+
+	return ModelCatalogConfig{
+			ModelDir:        mc.modelDir,
+			ModelLogDir:     mc.modelLogDir,
+			ModelDocDir:     theCfg.docDir,
+			IsLogDirEnabled: mc.isLogDirEnabled,
+			LastTimeStamp:   mc.lastTimeStamp,
+		},
+		mc.modelLib
 }
 
 // allModels return basic info from catalog about all models: name, digest, files location.
@@ -243,16 +240,7 @@ func (mc *ModelCatalog) indexByDigestOrName(dn string) (int, bool) {
 }
 
 // parse model.extra.json to get documentaion path list from ModelDoc.Link
-func getModelDocLinks(me string) ([]string, error) {
-
-	if me == "" {
-		return []string{}, nil
-	}
-	mExtra := map[string]any{}
-
-	if err := json.Unmarshal([]byte(me), &mExtra); err != nil {
-		return []string{}, helper.ErrorNew("Error at parsing model.extra.json:", err)
-	}
+func getModelDocLinks(mExtra map[string]any) ([]string, error) {
 
 	// get array of ModelDoc.Link
 	/*

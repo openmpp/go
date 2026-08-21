@@ -28,12 +28,11 @@ var theCatalog ModelCatalog
 
 // ModelCatalogConfig is "public" state of model catalog for json import-export
 type ModelCatalogConfig struct {
-	ModelDir        string   // model bin directory
-	ModelLogDir     string   // default model log directory
-	ModelDocDir     string   // if not empty then model documentation directory
-	IsLogDirEnabled bool     // if true then default log directory exist
-	LastTimeStamp   string   // most recent timestamp
-	ModelLib        modelLib // models library settings
+	ModelDir        string // model bin directory
+	ModelLogDir     string // default model log directory
+	ModelDocDir     string // if not empty then model documentation directory
+	IsLogDirEnabled bool   // if true then default log directory exist
+	LastTimeStamp   string // most recent timestamp
 }
 
 // models library settings
@@ -62,7 +61,7 @@ type modelDef struct {
 	langMeta      *db.LangMeta      // list of languages: one list per db connection, order of languages NOT the same as language codes
 	modelWord     *db.ModelWordMeta // if not nil then list of model words, order of languages NOT the same as language codes
 	msg           []db.LangMsg      // list of languages and translated strings: merge of model.message.ini, common.message.ini, model_word, lang_word
-	extra         string            // if not empty then model extra content from models/bin/dir/model.extra.json
+	extra         map[string]any    // Object of model.extra.json
 	pubLst        string            // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
 	docDir        string            // if not empty then model documentation folder from model.extra.json
 }
@@ -76,7 +75,7 @@ type modelBasic struct {
 	logDir   string         // model log directory
 	isLogDir bool           // if true then use model log directory for model run logs
 	isIni    bool           // if true the default ini file exists: models/bin/dir/sub/modelName.ini
-	extra    string         // if not empty then model extra content from models/bin/dir/model.extra.json
+	extra    map[string]any // Object of model.extra.json
 	pubLst   string         // if not empty then ModelName.publish.lst or ModelName-Version.publish.lst
 	docDir   string         // if not empty then model documentation folder from model.extra.json
 }

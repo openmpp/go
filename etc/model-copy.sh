@@ -9,8 +9,7 @@
 #   $1 - publish_lst: path to model publist list file, if relative then must be relative to source $src_root
 #   $2 - src_root   : source root path, if relative then must be relative to OM_ROOT
 #   $3 - dst_root   : destination root, if relative then must be relative to OM_ROOT
-#   $4 - mdl_name   : model name,    e.g.: RiskPaths
-#   $5 - mdl_ver    : (optional) model digest or model version, e.g.: v3.2.1
+#   $4 - name_ver   : model name or name-version e.g.: RiskPaths-v3.2.1
 #
 # It does:
 #   - reads list of model files from $publish_lst, e.g.: from RiskPaths.publish.lst
@@ -52,8 +51,7 @@ set -e
 publish_lst="$1"
 src_root="$2"
 dst_root="$3"
-mdl_name="$4"
-mdl_ver="$5"
+name_ver="$4"
 
 if [ -z "$publish_lst" ] ;
 then
@@ -70,14 +68,11 @@ then
   echo "ERROR: invalid (empty) destination directory"
   exit 1
 fi
-if [ -z "$mdl_name" ] ;
+if [ -z "$name_ver" ] ;
 then
-  echo "ERROR: invalid (empty) model name"
+  echo "ERROR: invalid (empty) model name-version"
   exit 1
 fi
-
-mdl_name_ver="$mdl_name"
-[ -n "$mdl_ver" ] && mdl_name_ver="$mdl_name-$mdl_ver"
 
 # set model files sub-directories, if not defined then use defaults
 
@@ -85,7 +80,7 @@ mdl_name_ver="$mdl_name"
 [ -z "$DOC_DIR" ] && DOC_DIR="models/doc"
 [ -z "$LOG_DIR" ] && LOG_DIR="models/log"
 
-echo "Model   : $mdl_name_ver"
+echo "Model   : $name_ver"
 echo "Copy    : $publish_lst"
 echo "From    : $src_root"
 echo "To      : $dst_root"
@@ -217,7 +212,7 @@ do_cmd pushd "$dst_root"
 
 # append list of copied items into $dst_root/$BIN_DIR/ModelName-version.copy.lst
 
-abs_cp_lst="$abs_dst_root/${BIN_DIR}/${mdl_name_ver}.copy.lst"
+abs_cp_lst="$abs_dst_root/${BIN_DIR}/${name_ver}.copy.lst"
 
 if [ -f "$abs_cp_lst" ] ;
 then

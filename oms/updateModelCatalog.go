@@ -289,9 +289,21 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 		}
 
 		// read model extra content from models/bin/dir/model.extra.json
-		me := ""
-		if bt, err := os.ReadFile(filepath.Join(dbDir, dicLst[idx].Name+".extra.json")); err == nil {
-			me = string(bt)
+		mex := map[string]any{}
+		pubDocDir := ""
+
+		if ok, err := helper.FromJsonFile(filepath.Join(dbDir, dicLst[idx].Name+".extra.json"), &mex); !ok || err != nil {
+			mex = map[string]any{}
+			if err != nil {
+				omppLog.Log("Error at parsing:", dicLst[idx].Name+".extra.json", err)
+			}
+		} else {
+			if ls, e := getModelDocLinks(mex); e == nil && len(ls) > 0 {
+				pubDocDir = filepath.Dir(ls[0]) // use first documenation link directory
+			}
+			if pubDocDir == "." || pubDocDir == "/" || pubDocDir == "\\" || pubDocDir == "C:\\" {
+				pubDocDir = ""
+			}
 		}
 
 		// check if exist: ModelName-Version.publish.lst or models/bin/ModelName.publish.lst
@@ -301,18 +313,6 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 		}
 		if !helper.IsFileExist(filepath.Join(modelDir, pubLst)) {
 			pubLst = ""
-		}
-
-		// get model documentation folder name from model.extra.json
-		pubDocDir := ""
-		if pubLst != "" && me != "" {
-
-			if linkLst, e := getModelDocLinks(me); e == nil && len(linkLst) > 0 {
-				pubDocDir = filepath.Dir(linkLst[0]) // use first documenation link directory
-			}
-			if pubDocDir == "." || pubDocDir == "/" || pubDocDir == "\\" || pubDocDir == "C:\\" {
-				pubDocDir = ""
-			}
 		}
 
 		// append to model list
@@ -332,7 +332,7 @@ func modelsFromSqliteFile(srcPath string, dgstLst []string, modelDir string, isL
 			matcher:       language.NewMatcher(lt),
 			modelWord:     wLst,
 			msg:           msgLst,
-			extra:         me,
+			extra:         mex,
 			pubLst:        filepath.ToSlash(pubLst),
 			docDir:        filepath.ToSlash(pubDocDir),
 		})
