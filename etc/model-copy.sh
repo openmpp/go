@@ -6,7 +6,7 @@
 #
 # Arguments:
 #
-#   $1 - publish_lst: path to model publist list file, if relative then must be relative to source $src_root
+#   $1 - publish_lst: path to model publish list file, if relative then must be relative to source $src_root
 #   $2 - src_root   : source root path, if relative then must be relative to OM_ROOT
 #   $3 - dst_root   : destination root, if relative then must be relative to OM_ROOT
 #   $4 - name_ver   : model name or name-version e.g.: RiskPaths-v3.2.1

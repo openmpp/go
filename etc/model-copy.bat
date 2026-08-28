@@ -6,7 +6,7 @@ REM model-copy.bat RiskPaths.publish.lst D:\archive C:\my-work RiskPaths v3.2.1
 REM
 REM Arguments:
 REM
-REM   %1 - publish_lst: path to publist list file, if relative then must be relative to source $src_root
+REM   %1 - publish_lst: path to publish list file, if relative then must be relative to source $src_root
 REM   %2 - src_root   : source root path, if relative then must be relative to OM_ROOT
 REM   %3 - dst_root   : destination root, if relative then must be relative to OM_ROOT
 REM   %4 - name_ver   : model name or name-version e.g.: RiskPaths-v3.2.1
