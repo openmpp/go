@@ -39,7 +39,7 @@ func allModelsRefreshHandler(w http.ResponseWriter, r *http.Request) {
 	omppLog.Log("Model directory:", modelDir)
 
 	// refresh models catalog
-	if err := theCatalog.refreshSqlite(modelDir, modelLogDir); err != nil {
+	if _, err := theCatalog.refreshSqlite(modelDir, modelLogDir); err != nil {
 		omppLog.LogNoLT(err)
 		http.Error(w, helper.MsgL(lang, "Failed to refersh models catalog:", modelDir), http.StatusBadRequest)
 		return
@@ -646,7 +646,7 @@ func doCopyModel(pubLst, nameVer, digest, binDir, docDir, logDir string, lang st
 		omppLog.Log("Refresh models catalog", mcf.ModelDir)
 		cmdLog.toLog(true, helper.MsgL(lang, "Refresh models catalog"))
 
-		errCopy = theCatalog.refreshSqlite(mcf.ModelDir, mcf.ModelLogDir)
+		_, errCopy = theCatalog.refreshSqlite(mcf.ModelDir, mcf.ModelLogDir)
 		if errCopy != nil {
 			omppLog.LogNoLT(errCopy)
 			cmdLog.toLogError(true, "Failed to refresh models catalog")

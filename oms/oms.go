@@ -429,7 +429,8 @@ func mainBody(args []string) error {
 		modelLogDir = "" // dot . log directory does not allowed
 	}
 
-	if err := theCatalog.refreshSqlite(modelDir, modelLogDir); err != nil {
+	mlb, err := theCatalog.refreshSqlite(modelDir, modelLogDir)
+	if err != nil {
 		return err
 	}
 
@@ -442,6 +443,15 @@ func mainBody(args []string) error {
 		theCfg.docDir = ""
 	} else {
 		omppLog.Log("Models documentation: ", theCfg.docDir)
+	}
+
+	// models library status
+	if mlb.IsLocal {
+		omppLog.Log("Models Library root:  ", mlb.srcRoot)
+	}
+	if mlb.IsCopy {
+		omppLog.Log("Models Library at:    ", mlb.srcRoot)
+		omppLog.Log("Models Library URL:   ", mlb.Url)
 	}
 
 	// check if it is single user run mode and use of home directory enabled

@@ -23,7 +23,7 @@ import (
 // RefreshSqlite open db-connection to model.sqlite files in model directory and read model_dic row for each model.
 // If multiple version of the same model (equal by digest) exist in different files then only one is used.
 // All previously opened db connections are closed.
-func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
+func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) (modelLib, error) {
 
 	// model directory must exist
 	isDir := modelDir != "" && modelDir != "."
@@ -31,7 +31,7 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 		isDir = helper.IsDirExist(modelDir)
 	}
 	if !isDir {
-		return errors.New("Error: model directory not exist or not accesible: " + modelDir)
+		return modelLib{}, errors.New("Error: model directory not exist or not accesible: " + modelDir)
 	}
 
 	// model log directory is optional, if empty or not exists then model log disabled
@@ -41,8 +41,8 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 	}
 
 	// read model lib config and store it in the model catalog
-	mlc := loadModelLibConfig()
-	theCatalog.setModelLibConfig(mlc)
+	mlb := loadModelLibConfig()
+	theCatalog.setModelLibConfig(mlb)
 
 	// read common.message.ini
 	cmIni := []helper.IniEntry{}
@@ -66,7 +66,7 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 	})
 	if err != nil {
 		omppLog.Log("Error: fail to scan model directory: ", err.Error())
-		return errors.New("Error: fail to scan model directory")
+		return mlb, errors.New("Error: fail to scan model directory")
 	}
 	sort.Strings(pathLst) // sort by path to model.sqlite: same as sort by model name in default case
 
@@ -107,7 +107,7 @@ func (mc *ModelCatalog) refreshSqlite(modelDir, modelLogDir string) error {
 	}
 
 	mc.modelLst = mLst // set new list of the models
-	return nil
+	return mlb, nil
 }
 
 // open db file, read models metadata and append it into catalog
@@ -118,8 +118,8 @@ func (mc *ModelCatalog) loadModelDbFile(srcPath string) (int, error) {
 	logDir, isLog := theCatalog.getModelLogDir()
 
 	// read model lib config and store it in the model catalog
-	mlc := loadModelLibConfig()
-	theCatalog.setModelLibConfig(mlc)
+	// mlb := loadModelLibConfig()
+	// theCatalog.setModelLibConfig(mlb)
 
 	// read common.message.ini
 	cmIni := []helper.IniEntry{}
@@ -503,12 +503,12 @@ func (mc *ModelCatalog) setModelTextMeta(digest string, isFull bool, txtMeta *db
 }
 
 // store model lib settings
-func (mc *ModelCatalog) setModelLibConfig(mlc modelLib) {
+func (mc *ModelCatalog) setModelLibConfig(mlb modelLib) {
 
 	mc.theLock.Lock()
 	defer mc.theLock.Unlock()
 
-	mc.modelLib = mlc
+	mc.modelLib = mlb
 }
 
 // read models library settings from disk.ini file
@@ -526,42 +526,42 @@ func loadModelLibConfig() modelLib {
 		return modelLib{}
 	}
 
-	mlc := modelLib{}
+	mlb := modelLib{}
 
 	// models library
-	mlc.Url = opts.String("ModelLib.Url")
-	mlc.srcRoot = opts.String("ModelLib.SrcRoot")
-	mlc.copyCmd = opts.String("ModelLib.CopyCmd")
+	mlb.Url = opts.String("ModelLib.Url")
+	mlb.srcRoot = opts.String("ModelLib.SrcRoot")
+	mlb.copyCmd = opts.String("ModelLib.CopyCmd")
 
 	// src_root directory must exist and it can not be file system root or current directory
-	mlc.srcRoot = filepath.Clean(mlc.srcRoot)
-	if mlc.srcRoot == "." || mlc.srcRoot == "/" || mlc.srcRoot == "C:\\" || !helper.IsDirExist(mlc.srcRoot) {
-		mlc.srcRoot = ""
+	mlb.srcRoot = filepath.Clean(mlb.srcRoot)
+	if mlb.srcRoot == "." || mlb.srcRoot == "/" || mlb.srcRoot == "C:\\" || !helper.IsDirExist(mlb.srcRoot) {
+		mlb.srcRoot = ""
 	}
 
 	// check if current oms root is a models library
-	if mlc.srcRoot != "" {
+	if mlb.srcRoot != "" {
 
-		mlc.IsLocal = filepath.IsLocal(mlc.srcRoot)
+		mlb.IsLocal = filepath.IsLocal(mlb.srcRoot)
 
-		if !mlc.IsLocal {
+		if !mlb.IsLocal {
 
 			r, er := filepath.Abs(theCfg.rootDir)
-			s, es := filepath.Abs(mlc.srcRoot)
+			s, es := filepath.Abs(mlb.srcRoot)
 			if er == nil && es == nil {
 
 				if p, ep := filepath.Rel(r, s); ep == nil {
-					mlc.IsLocal = filepath.IsLocal(p) || p != ".." && !strings.HasPrefix(p, ".."+string(filepath.Separator))
+					mlb.IsLocal = filepath.IsLocal(p) || p != ".." && !strings.HasPrefix(p, ".."+string(filepath.Separator))
 				}
 			}
 		}
 	}
 
 	// is copy from models library enabled
-	if !helper.IsFileExist(mlc.copyCmd) { // copy script must exist
-		mlc.copyCmd = ""
+	if !helper.IsFileExist(mlb.copyCmd) { // copy script must exist
+		mlb.copyCmd = ""
 	}
-	mlc.IsCopy = !mlc.IsLocal && mlc.Url != "" && mlc.srcRoot != "" && mlc.copyCmd != ""
+	mlb.IsCopy = !mlb.IsLocal && mlb.Url != "" && mlb.srcRoot != "" && mlb.copyCmd != ""
 
-	return mlc
+	return mlb
 }
