@@ -384,7 +384,7 @@ func modelDbCleanupHandler(w http.ResponseWriter, r *http.Request) {
 		LogFileName string
 		IsError     bool
 	}{
-		LogFileName: cmdLog.logPath,
+		LogFileName: cmdLog.logName,
 		IsError:     cmdLog.isCmdErr || cmdLogIsErrorName(cmdLog.logPath),
 	})
 }
@@ -670,7 +670,7 @@ func doCopyModel(pubLst, nameVer, digest, binDir, docDir, logDir string, lang st
 		IsError     bool
 		ErrorMsg    string
 	}{
-		LogFileName: cmdLog.logPath,
+		LogFileName: cmdLog.logName,
 		IsError:     errCopy != nil || cmdLog.isCmdErr,
 		ErrorMsg:    em,
 	})
@@ -756,6 +756,7 @@ func batchAllLogGetHandler(prefix string, w http.ResponseWriter, r *http.Request
 
 // batch process log file name and state
 type cmdLog struct {
+	logName  string // log file name, e.g.: copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
 	logPath  string // log file path, e.g.: log/copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
 	isLogOk  bool   // if false then log write failed
 	isCmdErr bool   // if true then batch process set error flag or log file path suffix is.error.txt
@@ -766,7 +767,7 @@ func newCmdLog(prefix, baseName string, logDir string) *cmdLog {
 
 	log := cmdLog{}
 
-	_, log.logPath = batchLogNamePath(prefix, baseName, false, logDir)
+	log.logName, log.logPath = batchLogNamePath(prefix, baseName, false, logDir)
 
 	log.isLogOk = fileCreateEmpty(false, log.logPath)
 	if !log.isLogOk {
@@ -837,7 +838,7 @@ func batchFileLogGetHandler(prefix string, w http.ResponseWriter, r *http.Reques
 		jsonResponse(w, r, []string{}) // log is not enabled: empty response
 		return
 	}
-	logPath := filepath.Join(logDir, fn) // parse result to guaranteed no directory
+	logPath := filepath.Join(logDir, fn)
 
 	fi, err := helper.FileStat(logPath)
 	if err != nil && !isErrLog { // file renamed from .console.txt to .error.txt
@@ -867,22 +868,6 @@ func batchFileLogGetHandler(prefix string, w http.ResponseWriter, r *http.Reques
 	st.Lines, _ = readLogFile(logPath)
 
 	jsonResponse(w, r, st)
-}
-
-// Return db cleanup log file name and file path.
-// Examples of db cleanup file name:
-// db-cleanup.2022_07_08_23_03_27_555.RiskPaths.console.txt
-// db-cleanup.2024_03_05_00_30_37_568.modelOne.sqlite.error.txt
-func dbCleanupLogNamePath(baseName string, isErrLog bool, logDir string) (string, string) {
-	return batchLogNamePath("db-cleanup", baseName, isErrLog, logDir)
-}
-
-// Return copy model log file name and file path.
-// Examples of copy model file name:
-// copy-model.2022_08_09_23_45_06_777.RiskPaths.console.txt
-// copy-model.2022_08_09_23_45_06_777.RiskPaths.error.txt
-func copyModelLogNamePath(baseName string, isErrLog bool, logDir string) (string, string) {
-	return batchLogNamePath("copy-model", baseName, isErrLog, logDir)
 }
 
 // Return batch process log file name and file path, for example:
