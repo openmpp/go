@@ -93,7 +93,7 @@ func modelCloseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// close model and remove from catalog
-	if _, _, err := theCatalog.closeModel(dn); err != nil {
+	if _, _, _, err := theCatalog.closeModel(dn); err != nil {
 		omppLog.LogNoLT(err)
 		http.Error(w, helper.MsgL(lang, "Failed to close model", ": ", dn), http.StatusBadRequest)
 		return

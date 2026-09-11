@@ -368,11 +368,12 @@ func (mc *ModelCatalog) closeAll() error {
 	return firstErr
 }
 
-// close model db-connection and remove model from models list.
-func (mc *ModelCatalog) closeModel(dn string) (string, string, error) {
+// Close model db-connection and remove model from models list.
+// Return model name, bin directory and model version.
+func (mc *ModelCatalog) closeModel(dn string) (string, string, string, error) {
 
 	if dn == "" {
-		return "", "", nil
+		return "", "", "", nil
 	}
 	// lock and update model catalog
 	mc.theLock.Lock()
@@ -381,6 +382,7 @@ func (mc *ModelCatalog) closeModel(dn string) (string, string, error) {
 	// close model db connection and remove model from the list
 	isFound := false
 	name := ""
+	ver := ""
 	binDir := ""
 	n := 0
 
@@ -389,11 +391,12 @@ func (mc *ModelCatalog) closeModel(dn string) (string, string, error) {
 		if !isFound && (mc.modelLst[k].meta.Model.Digest == dn || mc.modelLst[k].meta.Model.Name == dn) {
 			if err := mc.modelLst[k].dbConn.Close(); err != nil {
 				omppLog.Log("Error: close db connection error" + ": " + dn + " : " + err.Error())
-				return "", "", err
+				return "", "", "", err
 			}
 			isFound = true
 			name = mc.modelLst[k].meta.Model.Name
 			binDir = mc.modelLst[k].binDir
+			ver = mc.modelLst[k].meta.Model.Version
 			continue
 		}
 		mc.modelLst[n] = mc.modelLst[k]
@@ -402,7 +405,7 @@ func (mc *ModelCatalog) closeModel(dn string) (string, string, error) {
 	if isFound {
 		mc.modelLst = mc.modelLst[:n]
 	}
-	return name, binDir, nil
+	return name, binDir, ver, nil
 }
 
 // close model and delete all model files: exe, ModelName.*, ModelName_mpi.*, etc. and delete model directory if it is empty
@@ -413,7 +416,7 @@ func (mc *ModelCatalog) deleteModel(dn string) error {
 	}
 
 	// close the model and remove it from model catalog
-	name, modelDir, err := theCatalog.closeModel(dn)
+	name, modelDir, ver, err := theCatalog.closeModel(dn)
 	if err != nil {
 		return err
 	}
@@ -421,46 +424,110 @@ func (mc *ModelCatalog) deleteModel(dn string) error {
 		return errors.New("Error: model not found " + dn)
 	}
 
-	// find all files in model directory where name is:
-	//   ModelName.* ModelName_mpi.* ModelNameD.* ModelNameD_mpi.*
+	// check if model copy.lst file exist
 	pathLst := []string{}
 
-	ff := func(pattern string) error {
-		p, e := filepath.Glob(pattern)
-		if e != nil {
-			omppLog.Log("Error: fail to scan model directory: ", pattern, ": ", e.Error())
-			return errors.New("Error: fail to scan model directory")
+	mdnp := filepath.Join(modelDir, name)
+	cpLst := mdnp + "-" + ver + ".copy.lst"
+
+	if !helper.IsFileExist(cpLst) {
+		cpLst = mdnp + ".copy.lst"
+		if !helper.IsFileExist(cpLst) {
+			cpLst = ""
 		}
-		if len(p) > 0 {
-			pathLst = append(pathLst, p...)
+	}
+	if cpLst != "" {
+		pathLst, err = helper.FileToLines(cpLst) // read list of model files from .copy.lst
+
+		if err == nil && len(pathLst) > 0 { // append .copy.lst file to the list of files to be deleted
+
+			if acp, e := filepath.Abs(cpLst); e == nil {
+				pathLst = append(pathLst, acp) // append absolute path to .copy.lst file to the list of files to be deleted
+			} else {
+				pathLst = append(pathLst, cpLst)
+			}
 		}
-		return nil
 	}
-	if err = ff(filepath.Join(modelDir, name) + ".*"); err != nil {
-		return err
-	}
-	if err = ff(filepath.Join(modelDir, name) + "D.*"); err != nil {
-		return err
-	}
-	if err = ff(filepath.Join(modelDir, name) + "_mpi.*"); err != nil {
-		return err
-	}
-	if err = ff(filepath.Join(modelDir, name) + "D_mpi.*"); err != nil {
-		return err
+
+	// if .copy.lst file not does exist or empty then
+	// find all files in model directory where name is:
+	//   ModelName.* ModelName_mpi.* ModelNameD.* ModelNameD_mpi.* ModelName-Version.*
+	if len(pathLst) <= 0 {
+
+		ff := func(pattern string) error {
+			p, e := filepath.Glob(pattern)
+			if e != nil {
+				omppLog.Log("Error: fail to scan model directory: ", pattern, ": ", e.Error())
+				return errors.New("Error: fail to scan model directory")
+			}
+			if len(p) > 0 {
+				pathLst = append(pathLst, p...)
+			}
+			return nil
+		}
+		if err = ff(mdnp + ".*"); err != nil {
+			return err
+		}
+		if err = ff(mdnp + "D.*"); err != nil {
+			return err
+		}
+		if err = ff(mdnp + "_mpi.*"); err != nil {
+			return err
+		}
+		if err = ff(mdnp + "D_mpi.*"); err != nil {
+			return err
+		}
+		if err = ff(mdnp + "-" + ver + ".*"); err != nil {
+			return err
+		}
 	}
 
 	// delete model files
+	dirs := map[string]bool{}
+
 	for _, p := range pathLst {
 		if ok := fileDeleteAndLog(true, p); !ok {
 			return errors.New("Error: unable to delete model file(s)")
 		}
-	}
-	// delete model directory if it is empty
-	if modelDir != theCatalog.modelDir {
-		if helper.IsDirEmpty(modelDir) {
-			fileDeleteAndLog(true, modelDir) // ignore delete error
+		d := filepath.Dir(p)
+		if !dirs[d] {
+			dirs[d] = true
 		}
 	}
+
+	// delete empty directories inside of models/bin, models/doc, models/log
+	for d := range dirs {
+
+		// check where directory is: under models bin, doc or log
+		r := ""
+		ok, ed := isChildOfDir(d, theCatalog.modelDir)
+		if ok && ed == nil {
+			r = theCatalog.modelDir
+		}
+		if r == "" {
+			if ok, ed = isChildOfDir(d, theCatalog.modelLogDir); ok && ed == nil {
+				r = theCatalog.modelLogDir
+			}
+		}
+		if r == "" {
+			if ok, ed = isChildOfDir(d, theCfg.docDir); ok && ed == nil {
+				r = theCfg.docDir
+			}
+		}
+		if r == "" {
+			continue // skip: directory d is either outside of models bin, doc, log or it is a models/bin, models/doc, models/log itself
+		}
+
+		// walk up to the  root r and delete empty directories
+		for ; ok && ed == nil; ok, ed = isChildOfDir(d, r) {
+
+			if !helper.IsDirEmpty(d) || !fileDeleteAndLog(true, d) {
+				break // not empty or delete error: skip this directory
+			}
+			d = filepath.Dir(d)
+		}
+	}
+
 	return nil
 }
 

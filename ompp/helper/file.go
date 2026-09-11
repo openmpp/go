@@ -56,7 +56,7 @@ func SaveTo(outPath string, rd io.Reader) error {
 	return err
 }
 
-// fileExist return error if file not exist, not accessible or it is not a regular file
+// return true if file exist and it is a regular file
 func IsFileExist(filePath string) bool {
 	if filePath == "" {
 		return false
@@ -65,7 +65,7 @@ func IsFileExist(filePath string) bool {
 	return err == nil
 }
 
-// return file Stat if this is a regular file
+// return file Stat if this is a regular file and error if file not exist, not accessible or it is not a regular file
 func FileStat(filePath string) (fs.FileInfo, error) {
 
 	fi, err := os.Stat(filePath)
@@ -142,4 +142,36 @@ func IsDirEmpty(dirPath string) bool {
 		return true
 	}
 	return false
+}
+
+// retrun non-empty lines from text file
+func FileToLines(filePath string) ([]string, error) {
+
+	if filePath == "" {
+		return []string{}, nil // empty file path, return empty result
+	}
+
+	bt, err := os.ReadFile(filePath)
+	if err != nil {
+		return []string{}, err // read error
+	}
+	src := string(bt)
+	ls := []string{}
+
+	for sn := range strings.SplitSeq(src, "\n") {
+
+		sn = strings.TrimSpace(sn)
+		if sn == "" {
+			continue
+		}
+
+		for s := range strings.SplitSeq(sn, "\r") {
+
+			s = strings.TrimSpace(s)
+			if s != "" {
+				ls = append(ls, s)
+			}
+		}
+	}
+	return ls, nil
 }
