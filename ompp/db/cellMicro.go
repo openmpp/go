@@ -185,9 +185,9 @@ func (cellCvt *CellMicroConverter) ToCsvIdRow() (func(interface{}, []string) (bo
 
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+1] = "null"
+				row[k+1] = ""
 			} else {
 				row[k+1] = fd[k](a.Value)
 			}
@@ -203,7 +203,7 @@ func (cellCvt *CellMicroConverter) ToCsvIdRow() (func(interface{}, []string) (bo
 // Converter simply does Sprint() for key and each attribute value.
 // If attribute type is float and double format is not empty "" string then converter does Sprintf(using double format).
 // If attribute type is enum based then converter return enum code for attribute enum id.
-// If value is NULL then "null" string used.
+// If value is NULL then empty "" string used.
 // Converter will return error if len(row) not equal to number of fields in csv record.
 func (cellCvt *CellMicroConverter) ToCsvRow() (func(interface{}, []string) (bool, error), error) {
 
@@ -273,9 +273,9 @@ func (cellCvt *CellMicroConverter) ToCsvRow() (func(interface{}, []string) (bool
 
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+1] = "null"
+				row[k+1] = ""
 			} else {
 				if s, e := fd[k](a.Value); e != nil { // use attribute value converter
 					return false, e
@@ -294,7 +294,7 @@ func (cellCvt *CellMicroConverter) ToCsvRow() (func(interface{}, []string) (bool
 //
 // Converter return isNotEmpty flag: false if IsNoZero or IsNoNull is set and all values of float or integer or string type are empty or zero.
 // Microdata row key and attribute values of built-in type converted to locale-specific strings, e.g.: 1234.56 => 1 234,56.
-// If value is NULL then "null" string used.
+// If value is NULL then empty "" string used.
 // If attribute type is enum based then csv value is enum label.
 // Converter will return error if len(row) not equal to number of fields in csv record.
 func (cellCvt *CellMicroLocaleConverter) ToCsvRow() (func(interface{}, []string) (bool, error), error) {
@@ -367,9 +367,9 @@ func (cellCvt *CellMicroLocaleConverter) ToCsvRow() (func(interface{}, []string)
 
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+1] = "null"
+				row[k+1] = ""
 			} else {
 				if s, e := fd[k](a.Value); e != nil { // use attribute value converter
 					return false, e

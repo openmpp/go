@@ -193,9 +193,9 @@ func (cellCvt *CellMicroCalcConverter) ToCsvIdRow() (func(interface{}, []string)
 		// convert group by attributes and calculated values
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+2] = "null"
+				row[k+2] = ""
 			} else {
 				row[k+2] = fa[k](a.Value)
 			}
@@ -215,7 +215,7 @@ func (cellCvt *CellMicroCalcConverter) ToCsvIdRow() (func(interface{}, []string)
 // If attribute type is float and double format is not empty "" string then converter does Sprintf(using double format).
 // If attribute type is enum based then converter return enum code for attribute enum id.
 // Converter will return error if len(row) not equal to number of fields in csv record.
-// If value is NULL then "null" string used.
+// If value is NULL then empty "" string used.
 func (cellCvt *CellMicroCalcConverter) ToCsvRow() (func(interface{}, []string) (bool, error), error) {
 
 	// find group by attributes
@@ -290,9 +290,9 @@ func (cellCvt *CellMicroCalcConverter) ToCsvRow() (func(interface{}, []string) (
 		// convert group by attributes and calculated value
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+2] = "null"
+				row[k+2] = ""
 			} else {
 				if s, e := fa[k](a.Value); e != nil { // use attribute value converter
 					return false, e
@@ -314,7 +314,7 @@ func (cellCvt *CellMicroCalcConverter) ToCsvRow() (func(interface{}, []string) (
 // Attribute values of built-in type converted to locale-specific strings, e.g.: 1234.56 => 1 234,56.
 // If attribute type is float and double format is not empty "" string then converter does Sprintf(using double format).
 // If attribute type is enum based then csv value is enum label.
-// If value is NULL then "null" string used.
+// If value is NULL then empty "" string used.
 // Converter will return error if len(row) not equal to number of fields in csv record.
 func (cellCvt *CellMicroCalcLocaleConverter) ToCsvRow() (func(interface{}, []string) (bool, error), error) {
 
@@ -393,9 +393,9 @@ func (cellCvt *CellMicroCalcLocaleConverter) ToCsvRow() (func(interface{}, []str
 		// convert group by attributes and calculated value
 		for k, a := range cell.Attr {
 
-			// use "null" string for db NULL values
+			// use empty "" string for db NULL values
 			if a.IsNull || a.Value == nil {
-				row[k+2] = "null"
+				row[k+2] = ""
 			} else {
 				if s, e := fa[k](a.Value); e != nil { // use attribute value converter
 					return false, e

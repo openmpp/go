@@ -178,9 +178,9 @@ func (cellCvt *CellParamConverter) ToCsvIdRow() (func(interface{}, []string) (bo
 			row[k+1] = fmt.Sprint(e)
 		}
 
-		// use "null" string for db NULL values and format for model float types
+		// use empty "" string for db NULL values and format for model float types
 		if cell.IsNull {
-			row[n+1] = "null"
+			row[n+1] = ""
 		} else {
 			if isUseFmt {
 				row[n+1] = fmt.Sprintf(cellCvt.DoubleFmt, cell.Value)
@@ -258,10 +258,10 @@ func (cellCvt *CellParamConverter) ToCsvRow() (func(interface{}, []string) (bool
 
 		// convert cell value:
 		// if float then use format, if enum then find code by id, default: Sprint(value)
-		// use "null" string for db NULL values and format for model float types
+		// use empty "" string for db NULL values and format for model float types
 		switch {
 		case cell.IsNull:
-			row[n+1] = "null"
+			row[n+1] = ""
 
 		case isUseFmt:
 			row[n+1] = fmt.Sprintf(cellCvt.DoubleFmt, cell.Value)
@@ -359,10 +359,10 @@ func (cellCvt *CellParamLocaleConverter) ToCsvRow() (func(interface{}, []string)
 
 		// convert cell value:
 		// if float then use format, if enum then find code by id, default: Sprint(value)
-		// use "null" string for db NULL values and format for model float types
+		// use empty "" string for db NULL values and format for model float types
 		switch {
 		case cell.IsNull:
-			row[n+1] = "null"
+			row[n+1] = ""
 
 		case isUseFmt:
 			row[n+1] = prt.Sprintf(cellCvt.DoubleFmt, cell.Value)
